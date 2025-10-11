@@ -1,0 +1,40 @@
+# Production overrides for docker-compose.yml
+version: '3.8'
+
+services:
+  backend:
+    build:
+      target: production
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    environment:
+      ENV: production
+      DEBUG: "false"
+      LOG_LEVEL: INFO
+    volumes:
+      - backend_logs:/app/logs
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  frontend:
+    build:
+      target: production
+    command: npm run start
+    environment:
+      NODE_ENV: production
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Enable nginx in production
+  nginx:
+    profiles: []  # Remove profile to enable by default
+

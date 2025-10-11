@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* Force all input text to be black/dark - ALWAYS */
+input,
+textarea,
+select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="tel"],
+input[type="url"],
+input[type="search"] {
+  color: #000000 !important; /* Pure black text */
+  -webkit-text-fill-color: #000000 !important; /* Safari fix */
+}
+
+/* Input placeholders - gray */
+input::placeholder,
+textarea::placeholder {
+  color: #6B7280 !important; /* Gray for placeholder */
+  -webkit-text-fill-color: #6B7280 !important;
+  opacity: 1;
+}
+
+/* Override dark mode - KEEP TEXT BLACK */
+@media (prefers-color-scheme: dark) {
+  input,
+  textarea,
+  select,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"] {
+    color: #000000 !important; /* Keep black even in dark mode */
+    -webkit-text-fill-color: #000000 !important;
+  }
+  
+  input::placeholder,
+  textarea::placeholder {
+    color: #6B7280 !important;
+    -webkit-text-fill-color: #6B7280 !important;
+  }
+}
+
+
+

@@ -1,0 +1,64 @@
+# Development overrides for docker-compose.yml
+version: '3.8'
+
+services:
+  backend:
+    build:
+      target: development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      ENV: development
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./billing-backend:/app
+      - backend_logs:/app/logs
+
+  frontend:
+    build:
+      target: development
+    command: npm run dev
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: 1
+    volumes:
+      - ./billing-frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+  # Mailhog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: billing-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - billing-network
+
+  # Adminer for database management
+  adminer:
+    image: adminer:latest
+    container_name: billing-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    networks:
+      - billing-network
+    depends_on:
+      - postgres
+
+  # Redis Commander for Redis management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: billing-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - billing-network
+    depends_on:
+      - redis
+

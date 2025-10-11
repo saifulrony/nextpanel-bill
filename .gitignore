@@ -1,0 +1,107 @@
+# Dependencies
+node_modules/
+**/node_modules/
+**/temp_build/
+.pnp
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js
+.next/
+**/out/
+**/build/
+# Compressed files
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+
+# Testing
+/coverage
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Misc
+.DS_Store
+*.pem
+Thumbs.db
+.vercel
+.idea/
+.vscode/
+*.sublime-*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv
+venv/
+ENV/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Uploaded files
+uploads/
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Deployment
+nextpanel-deploy/
+
+# Temporary directories
+temp_build_minimal/
+temp_extract/
+test_emails/
+
+# Log files (project-specific)
+*.log
+*.log.*
+backend.log
+frontend.log
+logs/
+
+# Python cache
+**/__pycache__/
+*.pyc
+
+# Alembic (keep versions folder, ignore cache)
+billing-backend/alembic/__pycache__/
+billing-backend/alembic/versions/__pycache__/
