@@ -105,3 +105,6 @@ logs/
 # Alembic (keep versions folder, ignore cache)
 billing-backend/alembic/__pycache__/
 billing-backend/alembic/versions/__pycache__/
+
+# Git backup directories
+.git_backup*
