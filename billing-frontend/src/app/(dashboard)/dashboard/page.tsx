@@ -40,15 +40,15 @@ export default function DashboardPage() {
     try {
       console.log('📊 Loading dashboard stats...');
       
-      // Build query params
-      let customerParams = `period=${timePeriod}`;
+      // Build query params for both endpoints
+      let params = `period=${timePeriod}`;
       if (timePeriod === 'custom' && customStartDate && customEndDate) {
-        customerParams += `&start_date=${customStartDate}&end_date=${customEndDate}`;
+        params += `&start_date=${customStartDate}&end_date=${customEndDate}`;
       }
       
       const [statsResponse, customersResponse] = await Promise.all([
-        api.get('/dashboard/stats'),
-        api.get(`/dashboard/customers/analytics?${customerParams}`),
+        api.get(`/dashboard/stats?${params}`),
+        api.get(`/dashboard/customers/analytics?${params}`),
       ]);
       
       // Force new object to trigger React updates
@@ -270,9 +270,8 @@ export default function DashboardPage() {
                   onClick={() => {
                     setTimePeriod(period);
                     setShowCustomDate(period === 'custom');
-                    if (period !== 'custom') {
-                      loadDashboardData();
-                    }
+                    // Don't call loadDashboardData here - let useEffect handle it
+                    // This ensures the state has updated before loading
                   }}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                     timePeriod === period

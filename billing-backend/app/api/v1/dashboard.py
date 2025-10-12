@@ -128,6 +128,9 @@ async def verify_user_or_admin(
 
 @router.get("/stats", response_model=DashboardStatsResponse)
 async def get_dashboard_stats(
+    period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     user_info: tuple = Depends(verify_user_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -135,21 +138,60 @@ async def get_dashboard_stats(
     
     user_id, is_admin = user_info
     
-    # Calculate date ranges
+    # Calculate date ranges based on selected period
     now = datetime.utcnow()
+    
+    # Determine the filter period for the main stats
+    if period == "today":
+        period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = now
+    elif period == "yesterday":
+        yesterday = now - timedelta(days=1)
+        period_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif period == "week":
+        period_start = now - timedelta(days=7)
+        period_end = now
+    elif period == "month":
+        period_start = now - timedelta(days=30)
+        period_end = now
+    elif period == "year":
+        period_start = now - timedelta(days=365)
+        period_end = now
+    elif period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
+        period_start = start_date
+        period_end = end_date
+    else:
+        period_start = now - timedelta(days=7)
+        period_end = now
+    
+    # Also keep these for specific calculations
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     week_ago = now - timedelta(days=7)
     day_ago = now - timedelta(days=1)
     
-    # Customer Stats
+    # Customer Stats (customers with activity in the period)
+    # Count unique customers who placed orders during the period
     result = await db.execute(
-        select(func.count(User.id)).where(User.is_admin == False)
+        select(func.count(func.distinct(Payment.user_id))).where(
+            Payment.created_at.between(period_start, period_end)
+        )
     )
     total_customers = result.scalar() or 0
     
+    # Count unique active customers who placed orders during the period
     result = await db.execute(
-        select(func.count(User.id)).where(
-            and_(User.is_admin == False, User.is_active == True)
+        select(func.count(func.distinct(Payment.user_id)))
+        .select_from(Payment)
+        .join(User, Payment.user_id == User.id)
+        .where(
+            and_(
+                User.is_admin == False,
+                User.is_active == True,
+                Payment.created_at.between(period_start, period_end)
+            )
         )
     )
     active_customers = result.scalar() or 0
@@ -184,69 +226,128 @@ async def get_dashboard_stats(
     )
     active_products = result.scalar() or 0
     
-    # License Stats
-    result = await db.execute(select(func.count(License.id)))
+    # License Stats (filtered by period)
+    result = await db.execute(
+        select(func.count(License.id)).where(
+            License.created_at.between(period_start, period_end)
+        )
+    )
     total_licenses = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(License.id)).where(License.status == LicenseStatus.ACTIVE)
+        select(func.count(License.id)).where(
+            and_(
+                License.status == LicenseStatus.ACTIVE,
+                License.created_at.between(period_start, period_end)
+            )
+        )
     )
     active_licenses = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(License.id)).where(License.status == LicenseStatus.SUSPENDED)
+        select(func.count(License.id)).where(
+            and_(
+                License.status == LicenseStatus.SUSPENDED,
+                License.created_at.between(period_start, period_end)
+            )
+        )
     )
     suspended_licenses = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(License.id)).where(License.status == LicenseStatus.EXPIRED)
+        select(func.count(License.id)).where(
+            and_(
+                License.status == LicenseStatus.EXPIRED,
+                License.created_at.between(period_start, period_end)
+            )
+        )
     )
     expired_licenses = result.scalar() or 0
     
-    # Subscription Stats
-    result = await db.execute(select(func.count(Subscription.id)))
+    # Subscription Stats (filtered by period)
+    result = await db.execute(
+        select(func.count(Subscription.id)).where(
+            Subscription.created_at.between(period_start, period_end)
+        )
+    )
     total_subscriptions = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Subscription.id)).where(Subscription.status == SubscriptionStatus.ACTIVE)
+        select(func.count(Subscription.id)).where(
+            and_(
+                Subscription.status == SubscriptionStatus.ACTIVE,
+                Subscription.created_at.between(period_start, period_end)
+            )
+        )
     )
     active_subscriptions = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Subscription.id)).where(Subscription.status == SubscriptionStatus.CANCELLED)
+        select(func.count(Subscription.id)).where(
+            and_(
+                Subscription.status == SubscriptionStatus.CANCELLED,
+                Subscription.created_at.between(period_start, period_end)
+            )
+        )
     )
     cancelled_subscriptions = result.scalar() or 0
     
-    # Order/Payment Stats (using payments as orders)
-    result = await db.execute(select(func.count(Payment.id)))
+    # Order/Payment Stats (using payments as orders, filtered by period)
+    result = await db.execute(
+        select(func.count(Payment.id)).where(
+            Payment.created_at.between(period_start, period_end)
+        )
+    )
     total_orders = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Payment.id)).where(Payment.status == PaymentStatus.PENDING)
+        select(func.count(Payment.id)).where(
+            and_(
+                Payment.status == PaymentStatus.PENDING,
+                Payment.created_at.between(period_start, period_end)
+            )
+        )
     )
     pending_orders = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Payment.id)).where(Payment.status == PaymentStatus.SUCCEEDED)
+        select(func.count(Payment.id)).where(
+            and_(
+                Payment.status == PaymentStatus.SUCCEEDED,
+                Payment.created_at.between(period_start, period_end)
+            )
+        )
     )
     completed_orders = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Payment.id)).where(Payment.created_at >= day_ago)
+        select(func.count(Payment.id)).where(
+            and_(
+                Payment.created_at >= day_ago,
+                Payment.created_at.between(period_start, period_end)
+            )
+        )
     )
     recent_orders = result.scalar() or 0
     
-    # Revenue Stats
-    result = await db.execute(
-        select(func.sum(Payment.amount)).where(Payment.status == PaymentStatus.SUCCEEDED)
-    )
-    total_revenue = result.scalar() or 0.0
-    
+    # Revenue Stats (filtered by period)
     result = await db.execute(
         select(func.sum(Payment.amount)).where(
             and_(
                 Payment.status == PaymentStatus.SUCCEEDED,
-                Payment.created_at >= first_day_of_month
+                Payment.created_at.between(period_start, period_end)
+            )
+        )
+    )
+    total_revenue = result.scalar() or 0.0
+    
+    # For monthly and weekly revenue, we'll use the selected period's total
+    # These fields now represent revenue within the selected period
+    result = await db.execute(
+        select(func.sum(Payment.amount)).where(
+            and_(
+                Payment.status == PaymentStatus.SUCCEEDED,
+                Payment.created_at.between(period_start, period_end)
             )
         )
     )
@@ -256,7 +357,7 @@ async def get_dashboard_stats(
         select(func.sum(Payment.amount)).where(
             and_(
                 Payment.status == PaymentStatus.SUCCEEDED,
-                Payment.created_at >= week_ago
+                Payment.created_at.between(period_start, period_end)
             )
         )
     )
@@ -266,39 +367,66 @@ async def get_dashboard_stats(
         select(func.count(Payment.id)).where(
             and_(
                 Payment.status == PaymentStatus.SUCCEEDED,
-                Payment.created_at >= day_ago
+                Payment.created_at >= day_ago,
+                Payment.created_at.between(period_start, period_end)
             )
         )
     )
     recent_payments = result.scalar() or 0
     
-    # Invoice Stats
-    result = await db.execute(select(func.count(Invoice.id)))
+    # Invoice Stats (filtered by period)
+    result = await db.execute(
+        select(func.count(Invoice.id)).where(
+            Invoice.created_at.between(period_start, period_end)
+        )
+    )
     total_invoices = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Invoice.id)).where(Invoice.status == InvoiceStatus.PAID)
+        select(func.count(Invoice.id)).where(
+            and_(
+                Invoice.status == InvoiceStatus.PAID,
+                Invoice.created_at.between(period_start, period_end)
+            )
+        )
     )
     paid_invoices = result.scalar() or 0
     
     result = await db.execute(
         select(func.count(Invoice.id)).where(
-            Invoice.status.in_([InvoiceStatus.OPEN, InvoiceStatus.DRAFT])
+            and_(
+                Invoice.status.in_([InvoiceStatus.OPEN, InvoiceStatus.DRAFT]),
+                Invoice.created_at.between(period_start, period_end)
+            )
         )
     )
     unpaid_invoices = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Invoice.id)).where(Invoice.status == InvoiceStatus.OVERDUE)
+        select(func.count(Invoice.id)).where(
+            and_(
+                Invoice.status == InvoiceStatus.OVERDUE,
+                Invoice.created_at.between(period_start, period_end)
+            )
+        )
     )
     overdue_invoices = result.scalar() or 0
     
-    # Domain Stats
-    result = await db.execute(select(func.count(Domain.id)))
+    # Domain Stats (filtered by period)
+    result = await db.execute(
+        select(func.count(Domain.id)).where(
+            Domain.created_at.between(period_start, period_end)
+        )
+    )
     total_domains = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Domain.id)).where(Domain.status == "active")
+        select(func.count(Domain.id)).where(
+            and_(
+                Domain.status == "active",
+                Domain.created_at.between(period_start, period_end)
+            )
+        )
     )
     active_domains = result.scalar() or 0
     
