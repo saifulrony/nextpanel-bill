@@ -27,11 +27,11 @@ def get_allowed_origins():
         'http://localhost',
         'http://localhost:3000',
         'http://localhost:3001',
-        'http://localhost:3002',
+        'http://localhost:4000',
         'http://127.0.0.1',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
-        'http://127.0.0.1:3002',
+        'http://127.0.0.1:4000',
     ]
     
     detected_ips = set()
@@ -87,11 +87,11 @@ def get_allowed_origins():
             f'http://{ip}',
             f'http://{ip}:3000',
             f'http://{ip}:3001',
-            f'http://{ip}:3002',
+            f'http://{ip}:4000',
             f'https://{ip}',
             f'https://{ip}:3000',
             f'https://{ip}:3001',
-            f'https://{ip}:3002',
+            f'https://{ip}:4000',
         ])
     
     logger.info(f"Total detected IPs: {detected_ips}")

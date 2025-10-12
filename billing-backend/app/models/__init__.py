@@ -343,3 +343,7 @@ class TicketReply(Base):
     ticket = relationship("SupportTicket", back_populates="replies")
     user = relationship("User")
 
+
+# Import NextPanel models to ensure tables are created
+from app.models.nextpanel_server import NextPanelServer, NextPanelAccount
+

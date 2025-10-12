@@ -30,7 +30,7 @@ echo -e "${YELLOW}Stopping any existing services...${NC}"
 pkill -f "uvicorn app.main:app" 2>/dev/null || true
 pkill -f "next dev" 2>/dev/null || true
 fuser -k 8001/tcp 2>/dev/null || true
-fuser -k 3002/tcp 2>/dev/null || true
+fuser -k 4000/tcp 2>/dev/null || true
 fuser -k 3001/tcp 2>/dev/null || true
 sleep 2
 echo -e "  ✓ Existing services stopped"
@@ -61,7 +61,7 @@ fi
 echo ""
 
 # Start Frontend
-echo -e "${GREEN}Starting Frontend (port 3002)...${NC}"
+echo -e "${GREEN}Starting Frontend (port 4000)...${NC}"
 cd $INSTALL_DIR/billing-frontend
 if [ -f "frontend.log" ]; then
     mv frontend.log frontend.log.old
@@ -75,7 +75,7 @@ echo ""
 
 # Wait for frontend
 sleep 10
-if curl -s http://localhost:3002 > /dev/null 2>&1; then
+if curl -s http://localhost:4000 > /dev/null 2>&1; then
     echo -e "  ✓ Frontend is ${GREEN}running${NC}"
 else
     echo -e "  ⚠ Frontend is still compiling..."
@@ -87,8 +87,8 @@ echo -e "${GREEN}✅ Services Started Successfully!${NC}"
 echo -e "${BLUE}=============================================${NC}"
 echo ""
 echo -e "${YELLOW}Access Points:${NC}"
-echo -e "  Frontend (local):   ${GREEN}http://localhost:3002${NC}"
-echo -e "  Frontend (network): ${GREEN}http://192.168.10.203:3002${NC}"
+echo -e "  Frontend (local):   ${GREEN}http://localhost:4000${NC}"
+echo -e "  Frontend (network): ${GREEN}http://192.168.10.203:4000${NC}"
 echo -e "  Backend:            ${GREEN}http://localhost:8001${NC}"
 echo -e "  API Docs:           ${GREEN}http://localhost:8001/docs${NC}"
 echo ""

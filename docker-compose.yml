@@ -83,13 +83,13 @@ services:
       NEXT_PUBLIC_API_URL: http://${HOST_IP:-192.168.10.203}:8001
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
       NEXT_PUBLIC_APP_NAME: ${APP_NAME:-NextPanel Billing}
-      NEXT_PUBLIC_APP_URL: http://${HOST_IP:-192.168.10.203}:3001
+      NEXT_PUBLIC_APP_URL: http://${HOST_IP:-192.168.10.203}:4000
     volumes:
       - ./billing-frontend:/app
       - /app/node_modules
       - /app/.next
     ports:
-      - "${FRONTEND_PORT:-3001}:3000"
+      - "${FRONTEND_PORT:-4000}:3000"
     depends_on:
       - backend
     networks:

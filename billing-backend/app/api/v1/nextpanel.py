@@ -4,7 +4,8 @@ Manages multiple NextPanel servers and provisions hosting accounts
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -86,7 +87,7 @@ class AccountProvisionResponse(BaseModel):
 @router.post("/servers", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def add_nextpanel_server(
     server: NextPanelServerCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     # current_admin = Depends(get_current_admin)  # Uncomment when auth is ready
 ):
     """
@@ -103,9 +104,10 @@ async def add_nextpanel_server(
     
     try:
         # Check if server name already exists
-        existing = db.query(NextPanelServer).filter(
-            NextPanelServer.name == server.name
-        ).first()
+        result = await db.execute(
+            select(NextPanelServer).where(NextPanelServer.name == server.name)
+        )
+        existing = result.scalar_one_or_none()
         
         if existing:
             raise HTTPException(
@@ -126,8 +128,8 @@ async def add_nextpanel_server(
         )
         
         db.add(db_server)
-        db.commit()
-        db.refresh(db_server)
+        await db.commit()
+        await db.refresh(db_server)
         
         # Add to service
         nextpanel_service = get_nextpanel_service()
@@ -141,8 +143,8 @@ async def add_nextpanel_server(
         )
         
         if not success:
-            db.delete(db_server)
-            db.commit()
+            await db.delete(db_server)
+            await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to connect to NextPanel server. Check credentials and URL."
@@ -158,7 +160,7 @@ async def add_nextpanel_server(
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to add server: {str(e)}"
@@ -167,13 +169,14 @@ async def add_nextpanel_server(
 
 @router.get("/servers", response_model=List[NextPanelServerResponse])
 async def list_nextpanel_servers(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     # current_admin = Depends(get_current_admin)
 ):
     """List all NextPanel servers"""
     from app.models.nextpanel_server import NextPanelServer
     
-    servers = db.query(NextPanelServer).all()
+    result = await db.execute(select(NextPanelServer))
+    servers = result.scalars().all()
     return servers
 
 
@@ -189,7 +192,7 @@ async def get_servers_status(
 @router.post("/provision", response_model=AccountProvisionResponse)
 async def provision_hosting_account(
     request: AccountProvisionRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     # current_admin = Depends(get_current_admin)
 ):
     """
@@ -243,8 +246,8 @@ async def provision_hosting_account(
         )
         
         db.add(account)
-        db.commit()
-        db.refresh(account)
+        await db.commit()
+        await db.refresh(account)
         
         return AccountProvisionResponse(
             success=True,
@@ -256,7 +259,7 @@ async def provision_hosting_account(
         )
         
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         return AccountProvisionResponse(
             success=False,
             error=str(e)
@@ -267,7 +270,7 @@ async def provision_hosting_account(
 async def suspend_hosting_account(
     account_id: int,
     reason: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     # current_admin = Depends(get_current_admin)
 ):
     """
@@ -281,9 +284,10 @@ async def suspend_hosting_account(
     from app.models.nextpanel_server import NextPanelAccount
     
     try:
-        account = db.query(NextPanelAccount).filter(
-            NextPanelAccount.id == account_id
-        ).first()
+        result = await db.execute(
+            select(NextPanelAccount).where(NextPanelAccount.id == account_id)
+        )
+        account = result.scalar_one_or_none()
         
         if not account:
             raise HTTPException(
@@ -302,7 +306,7 @@ async def suspend_hosting_account(
             account.status = "suspended"
             account.suspension_reason = reason
             account.suspended_at = datetime.utcnow()
-            db.commit()
+            await db.commit()
             
             return {"message": "Account suspended successfully"}
         else:
@@ -323,7 +327,7 @@ async def suspend_hosting_account(
 @router.post("/accounts/{account_id}/unsuspend")
 async def unsuspend_hosting_account(
     account_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     # current_admin = Depends(get_current_admin)
 ):
     """
@@ -336,9 +340,10 @@ async def unsuspend_hosting_account(
     from app.models.nextpanel_server import NextPanelAccount
     
     try:
-        account = db.query(NextPanelAccount).filter(
-            NextPanelAccount.id == account_id
-        ).first()
+        result = await db.execute(
+            select(NextPanelAccount).where(NextPanelAccount.id == account_id)
+        )
+        account = result.scalar_one_or_none()
         
         if not account:
             raise HTTPException(
@@ -356,7 +361,7 @@ async def unsuspend_hosting_account(
             account.status = "active"
             account.suspension_reason = None
             account.suspended_at = None
-            db.commit()
+            await db.commit()
             
             return {"message": "Account unsuspended successfully"}
         else:
@@ -377,7 +382,7 @@ async def unsuspend_hosting_account(
 @router.delete("/accounts/{account_id}")
 async def delete_hosting_account(
     account_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     # current_admin = Depends(get_current_admin)
 ):
     """
@@ -392,9 +397,10 @@ async def delete_hosting_account(
     from app.models.nextpanel_server import NextPanelAccount
     
     try:
-        account = db.query(NextPanelAccount).filter(
-            NextPanelAccount.id == account_id
-        ).first()
+        result = await db.execute(
+            select(NextPanelAccount).where(NextPanelAccount.id == account_id)
+        )
+        account = result.scalar_one_or_none()
         
         if not account:
             raise HTTPException(
@@ -411,7 +417,7 @@ async def delete_hosting_account(
         if success:
             account.status = "deleted"
             account.deleted_at = datetime.utcnow()
-            db.commit()
+            await db.commit()
             
             return {"message": "Account deleted successfully"}
         else:
@@ -432,15 +438,16 @@ async def delete_hosting_account(
 @router.get("/accounts/{account_id}/stats")
 async def get_account_stats(
     account_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get resource usage statistics for an account"""
     from app.models.nextpanel_server import NextPanelAccount
     
     try:
-        account = db.query(NextPanelAccount).filter(
-            NextPanelAccount.id == account_id
-        ).first()
+        result = await db.execute(
+            select(NextPanelAccount).where(NextPanelAccount.id == account_id)
+        )
+        account = result.scalar_one_or_none()
         
         if not account:
             raise HTTPException(
