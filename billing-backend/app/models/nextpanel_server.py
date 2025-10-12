@@ -3,7 +3,8 @@ NextPanel Server Model
 Stores information about managed NextPanel servers
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -69,7 +70,7 @@ class NextPanelAccount(Base):
     id = Column(Integer, primary_key=True, index=True)
     
     # Billing System Reference
-    customer_id = Column(Integer, nullable=False, index=True)  # FK to customers table
+    customer_id = Column(String(255), nullable=False, index=True)  # FK to customers table (supports UUID)
     order_id = Column(Integer, nullable=True, index=True)  # FK to orders table
     
     # NextPanel Server Reference

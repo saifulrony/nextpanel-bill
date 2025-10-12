@@ -24,6 +24,7 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
     max_databases: product.max_databases?.toString() || '0',
     max_emails: product.max_emails?.toString() || '0',
     category: product.features?.category || 'hosting',
+    subcategory: product.features?.subcategory || product.features?.user_type || '',
     is_active: product.is_active ?? true,
     // Advanced features
     storage: product.features?.storage || '',
@@ -74,6 +75,12 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
       const features: any = {
         category: formData.category,
       };
+
+      // Add subcategory for hosting products
+      if (formData.category === 'hosting' && formData.subcategory) {
+        features.subcategory = formData.subcategory;
+        features.user_type = formData.subcategory; // Also store as user_type for easier access
+      }
 
       // Add category-specific features
       if (formData.category === 'hosting') {
@@ -192,6 +199,30 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
                         ))}
                       </select>
                     </div>
+
+                    {/* User Type Subcategory - Only show for hosting category */}
+                    {formData.category === 'hosting' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          User Type *
+                        </label>
+                        <select
+                          name="subcategory"
+                          value={formData.subcategory}
+                          onChange={handleChange}
+                          required
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        >
+                          <option value="">Select User Type...</option>
+                          <option value="regular-user">🌐 Regular User (Panel Account)</option>
+                          <option value="reseller-user">💼 Reseller User (Can create sub-accounts)</option>
+                          <option value="master-reseller-user">👑 Master Reseller User (Full admin access)</option>
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          This determines the type of NextPanel account created for customers
+                        </p>
+                      </div>
+                    )}
 
                     <div className="flex items-center">
                       <input

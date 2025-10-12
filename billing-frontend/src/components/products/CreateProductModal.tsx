@@ -23,6 +23,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
     max_databases: '5',
     max_emails: '10',
     category: 'hosting',
+    subcategory: '', // User type: regular-user, reseller-user, master-reseller-user
     // Advanced features (stored in features JSON)
     storage: '',
     bandwidth: '',
@@ -72,6 +73,12 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
       const features: any = {
         category: formData.category,
       };
+
+      // Add subcategory for hosting products
+      if (formData.category === 'hosting' && formData.subcategory) {
+        features.subcategory = formData.subcategory;
+        features.user_type = formData.subcategory; // Also store as user_type for easier access
+      }
 
       // Add category-specific features
       if (formData.category === 'hosting') {
@@ -191,6 +198,30 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         ))}
                       </select>
                     </div>
+
+                    {/* User Type Subcategory - Only show for hosting category */}
+                    {formData.category === 'hosting' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          User Type *
+                        </label>
+                        <select
+                          name="subcategory"
+                          value={formData.subcategory}
+                          onChange={handleChange}
+                          required
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        >
+                          <option value="">Select User Type...</option>
+                          <option value="regular-user">🌐 Regular User (Panel Account)</option>
+                          <option value="reseller-user">💼 Reseller User (Can create sub-accounts)</option>
+                          <option value="master-reseller-user">👑 Master Reseller User (Full admin access)</option>
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          This determines the type of NextPanel account created for customers
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

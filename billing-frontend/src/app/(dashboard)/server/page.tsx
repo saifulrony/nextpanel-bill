@@ -127,22 +127,37 @@ export default function ServerPage() {
     setFormError('');
 
     try {
-      // Test by making a health check to the NextPanel server
-      const response = await fetch(`${formData.base_url.replace(/\/$/, '')}/api/health`, {
+      const token = localStorage.getItem('token');
+      
+      // Test connection through backend API (avoids CORS issues)
+      const response = await fetch(`${API_BASE}/api/v1/nextpanel/servers/test`, {
+        method: 'POST',
         headers: {
-          'X-API-Key': formData.api_key,
-          'X-API-Secret': formData.api_secret,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          name: formData.name || 'Test Server',
+          base_url: formData.base_url,
+          api_key: formData.api_key,
+          api_secret: formData.api_secret,
+          capacity: formData.capacity,
+          description: formData.description,
+          location: formData.location,
+        }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (data.success) {
         setFormSuccess('✓ Connection successful! Server is online.');
         setTimeout(() => setFormSuccess(''), 5000);
       } else {
-        setFormError('Connection failed. Please check your credentials and URL.');
+        setFormError(data.message || 'Connection failed. Please check your credentials and URL.');
       }
     } catch (error) {
-      setFormError('Connection failed. Please check if the server is accessible.');
+      console.error('Connection test error:', error);
+      setFormError('Connection test failed. Please check if the backend server is accessible.');
     } finally {
       setTestingConnection(false);
     }

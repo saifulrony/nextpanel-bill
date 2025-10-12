@@ -8,6 +8,7 @@ import {
   Edit, 
   Trash2, 
   Eye,
+  EyeOff,
   UserPlus,
   TrendingUp,
   DollarSign,
@@ -17,7 +18,7 @@ import {
   Download
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
+import { api, plansAPI } from '@/lib/api';
 import { EditLicenseModal, EditSubscriptionModal } from '@/components/customers/EditModals';
 
 interface CustomerStats {
@@ -510,6 +511,141 @@ function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSu
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Account counts by role
+  const [accountCounts, setAccountCounts] = useState<any>(null);
+  const [loadingAccountCounts, setLoadingAccountCounts] = useState(false);
+
+  // Product selection
+  const [products, setProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedProductObj, setSelectedProductObj] = useState<any>(null);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+
+  // Account Type and Provisioning
+  const [accountType, setAccountType] = useState(''); // 'panel', 'reseller', 'master-reseller'
+  const [productType, setProductType] = useState(''); // 'hosting', 'domain', 'ssl', etc.
+  const [provisionAccount, setProvisionAccount] = useState(false);
+  const [provisionData, setProvisionData] = useState({
+    username: '',
+    hosting_password: '',
+    server_id: '',
+    account_type: 'panel',
+  });
+  const [servers, setServers] = useState<any[]>([]);
+  const [loadingServers, setLoadingServers] = useState(false);
+
+  // Password visibility
+  const [showBillingPassword, setShowBillingPassword] = useState(false);
+  const [showHostingPassword, setShowHostingPassword] = useState(false);
+  const [passwordsSaved, setPasswordsSaved] = useState(false);
+
+  // Fetch account counts and products when modal opens
+  useEffect(() => {
+    fetchAccountCounts();
+    fetchProducts();
+  }, []);
+
+  const fetchAccountCounts = async () => {
+    setLoadingAccountCounts(true);
+    try {
+      console.log('Fetching account counts from:', '/nextpanel/accounts/counts/by-role');
+      const response = await api.get('/nextpanel/accounts/counts/by-role');
+      console.log('Account counts response:', response.data);
+      setAccountCounts(response.data);
+    } catch (error: any) {
+      console.error('Failed to fetch account counts:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      // Set empty counts on error
+      setAccountCounts({
+        total_accounts: 0,
+        by_role: {
+          panel: 0,
+          reseller: 0,
+          'master-reseller': 0,
+          unknown: 0
+        },
+        summary: {
+          regular_users: 0,
+          reseller_users: 0,
+          master_reseller_users: 0,
+          unknown_accounts: 0
+        }
+      });
+    } finally {
+      setLoadingAccountCounts(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const response = await plansAPI.list({ is_active: true });
+      setProducts(response.data);
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const fetchServers = async () => {
+    setLoadingServers(true);
+    try {
+      const response = await api.get('/nextpanel/servers');
+      setServers(response.data);
+    } catch (error) {
+      console.error('Failed to fetch servers:', error);
+    } finally {
+      setLoadingServers(false);
+    }
+  };
+
+  const generateStrongPassword = (length: number = 16): string => {
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  };
+
+  const copyToClipboard = async (text: string, type: string) => {
+    try {
+      // Check if clipboard API is available
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        alert(`${type} password copied to clipboard!`);
+      } else {
+        // Fallback method for older browsers or non-HTTPS
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          alert(`${type} password copied to clipboard!`);
+        } catch (fallbackErr) {
+          console.error('Fallback copy failed:', fallbackErr);
+          // Show the password in a prompt as last resort
+          prompt(`Copy this ${type.toLowerCase()} password:`, text);
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      // Show the password in a prompt as last resort
+      prompt(`Copy this ${type.toLowerCase()} password:`, text);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -517,7 +653,45 @@ function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSu
     setError('');
 
     try {
-      await api.post('/customers', formData);
+      // Create customer
+      const customerResponse = await api.post('/customers', formData);
+      const newCustomer = customerResponse.data;
+      
+      // If provisioning is enabled and it's a hosting service, provision the account
+      if (provisionAccount && accountType && productType === 'hosting' && provisionData.username && provisionData.hosting_password && provisionData.server_id) {
+        try {
+          // Determine is_admin flag based on account type
+          let is_admin = false;
+          if (accountType === 'reseller' || accountType === 'master-reseller') {
+            is_admin = true;
+          }
+          
+          const provisionResponse = await api.post('/nextpanel/provision', {
+            customer_id: newCustomer.id,
+            username: provisionData.username.trim(),
+            password: provisionData.hosting_password,
+            email: formData.email,
+            full_name: formData.full_name,
+            company: formData.company_name,
+            server_id: parseInt(provisionData.server_id),
+            is_admin: is_admin,
+            account_type: accountType, // Pass the specific account type
+          });
+
+          if (provisionResponse.data.success) {
+            const accountTypeName = accountType === 'panel' ? 'Regular Account' : accountType === 'reseller' ? 'Reseller Account' : 'Master Reseller Account';
+            alert(`Customer created and ${accountTypeName} provisioned successfully! NextPanel User ID: ${provisionResponse.data.nextpanel_user_id}`);
+            // Refresh account counts after successful provisioning
+            fetchAccountCounts();
+          } else {
+            alert(`Customer created, but provisioning failed: ${provisionResponse.data.error}`);
+          }
+        } catch (provError: any) {
+          console.error('Provisioning error:', provError);
+          alert('Customer created successfully, but provisioning failed. You can provision later from customer details.');
+        }
+      }
+      
       onSuccess();
     } catch (error: any) {
       setError(error.response?.data?.detail || 'Failed to create customer');
@@ -528,7 +702,7 @@ function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSu
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
           Create New Customer
         </h2>
@@ -540,10 +714,18 @@ function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSu
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Email *
-            </label>
+          {/* Two Column Layout */}
+          <div className="grid gap-6 grid-cols-2">
+            {/* Left Column: Customer Details */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-2">
+                Customer Details
+              </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email *
+                </label>
             <input
               type="email"
               required
@@ -580,16 +762,52 @@ function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSu
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Password *
+              Password (Billing Login) *
             </label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={showBillingPassword ? "text" : "password"}
+                  required
+                  minLength={8}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowBillingPassword(!showBillingPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  {showBillingPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const newPassword = generateStrongPassword();
+                  setFormData({ ...formData, password: newPassword });
+                  setShowBillingPassword(true);
+                }}
+                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm whitespace-nowrap"
+                title="Generate strong password"
+              >
+                🎲 Generate
+              </button>
+              {formData.password && (
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(formData.password, 'Billing')}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                  title="Copy password"
+                >
+                  📋 Copy
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              For logging into the billing system
+            </p>
           </div>
 
           <div className="flex items-center">
@@ -605,6 +823,386 @@ function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSu
             </label>
           </div>
 
+        </div>
+
+        {/* Right Column: Product Selection */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-600 pb-2">
+            Product Selection
+          </h3>
+          
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+            <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+              Search & Select Product/Service (Optional)
+            </label>
+            
+            {/* Searchable Product Input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={productSearchTerm}
+                onChange={(e) => {
+                  setProductSearchTerm(e.target.value);
+                  setShowProductDropdown(true);
+                }}
+                onFocus={() => setShowProductDropdown(true)}
+                placeholder="Type to search for products... (or select 'No Product')"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              
+              {/* Dropdown with filtered products */}
+              {showProductDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  {loadingProducts ? (
+                    <div className="px-3 py-2 text-gray-500">Loading products...</div>
+                  ) : (
+                    <>
+                      {/* No Product Option */}
+                      <div
+                        onClick={() => {
+                          setSelectedProduct('');
+                          setSelectedProductObj(null);
+                          setProductSearchTerm('');
+                          setShowProductDropdown(false);
+                          setAccountType('');
+                          setProductType('');
+                          setProvisionAccount(false);
+                          setProvisionData({ ...provisionData, account_type: 'panel' });
+                        }}
+                        className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600"
+                      >
+                        <div className="font-medium text-gray-900 dark:text-white">No Product</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Just create customer without product</div>
+                      </div>
+                      
+                          {/* Filtered Products - Organized by Category */}
+                          {(() => {
+                            // Filter products based on search term
+                            const filteredProducts = products.filter(product => 
+                              !productSearchTerm || 
+                              product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                              product.description?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                              (product.features?.category || '').toLowerCase().includes(productSearchTerm.toLowerCase())
+                            );
+
+                            // Group products by category
+                            const groupedProducts = filteredProducts.reduce((groups: any, product) => {
+                              const category = product.features?.category || 'other';
+                              if (!groups[category]) {
+                                groups[category] = [];
+                              }
+                              groups[category].push(product);
+                              return groups;
+                            }, {});
+
+                            // Define category order and display info
+                            const categoryInfo: any = {
+                              hosting: { name: '🌐 Hosting Services', icon: '🌐' },
+                              domain: { name: '🌍 Domain Services', icon: '🌍' },
+                              ssl: { name: '🔒 SSL Certificates', icon: '🔒' },
+                              vps: { name: '🖥️ VPS Services', icon: '🖥️' },
+                              email: { name: '📧 Email Services', icon: '📧' },
+                              backup: { name: '💾 Backup Services', icon: '💾' },
+                              software: { name: '💻 Software Licenses', icon: '💻' },
+                              cdn: { name: '⚡ CDN Services', icon: '⚡' },
+                              other: { name: '📦 Other Services', icon: '📦' }
+                            };
+
+                            const categoryOrder = ['hosting', 'domain', 'ssl', 'vps', 'email', 'backup', 'software', 'cdn', 'other'];
+
+                            return categoryOrder.map(categoryKey => {
+                              const categoryProducts = groupedProducts[categoryKey];
+                              if (!categoryProducts || categoryProducts.length === 0) return null;
+
+                              return (
+                                <div key={categoryKey}>
+                                  {/* Category Header */}
+                                  <div className="px-3 py-2 bg-gray-100 dark:bg-gray-600 border-b border-gray-200 dark:border-gray-500">
+                                    <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                      {categoryInfo[categoryKey]?.name || `${categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1)} Services`}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Products in this category */}
+                                  {categoryProducts.map((product: any) => {
+                                    const category = product.features?.category || 'other';
+                                    const subcategory = product.features?.subcategory || product.features?.user_type;
+                                    
+                                    let icon = categoryInfo[category]?.icon || '📦';
+                                    if (category === 'hosting' && subcategory === 'regular-user') icon = '🌐';
+                                    else if (category === 'hosting' && subcategory === 'reseller-user') icon = '💼';
+                                    else if (category === 'hosting' && subcategory === 'master-reseller-user') icon = '👑';
+                                    
+                                    return (
+                                      <div
+                                        key={product.id}
+                                        onClick={() => {
+                                          setSelectedProduct(product.id);
+                                          setSelectedProductObj(product);
+                                          setProductSearchTerm('');
+                                          setShowProductDropdown(false);
+                                          
+                                          // Set product type based on category
+                                          setProductType(category);
+                                          
+                                          // Determine account type from subcategory for hosting products
+                                          let newAccountType = '';
+                                          if (category === 'hosting' && subcategory) {
+                                            if (subcategory === 'regular-user') {
+                                              newAccountType = 'panel';
+                                            } else if (subcategory === 'reseller-user') {
+                                              newAccountType = 'reseller';
+                                            } else if (subcategory === 'master-reseller-user') {
+                                              newAccountType = 'master-reseller';
+                                            }
+                                          }
+                                          
+                                          // Enable provisioning for hosting products
+                                          if (category === 'hosting' && newAccountType) {
+                                            setProvisionAccount(true);
+                                            setAccountType(newAccountType);
+                                            fetchServers(); // Load servers when hosting is selected
+                                          } else {
+                                            setProvisionAccount(false);
+                                            setAccountType('');
+                                          }
+                                          
+                                          // Update provision data account type
+                                          setProvisionData({ ...provisionData, account_type: newAccountType });
+                                        }}
+                                        className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center space-x-2">
+                                            <span>{icon}</span>
+                                            <div>
+                                              <div className="font-medium text-gray-900 dark:text-white">{product.name}</div>
+                                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                {product.description || `${category} service`}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                              ${product.price_monthly}/mo
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                              ${product.price_yearly}/yr
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            }).filter(Boolean);
+                          })()}
+                      
+                      {/* No results */}
+                      {productSearchTerm && products.filter(product => 
+                        product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                        product.description?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                        (product.features?.category || '').toLowerCase().includes(productSearchTerm.toLowerCase())
+                      ).length === 0 && (
+                        <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-center">
+                          No products found matching "{productSearchTerm}"
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Click outside to close dropdown */}
+            {showProductDropdown && (
+              <div 
+                className="fixed inset-0 z-0" 
+                onClick={() => setShowProductDropdown(false)}
+              />
+            )}
+            
+            {selectedProduct && selectedProductObj ? (
+              <div className="mt-3 p-3 bg-white dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  Selected: {selectedProductObj.name}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  ${selectedProductObj.price_monthly}/month • ${selectedProductObj.price_yearly}/year
+                </div>
+              </div>
+            ) : !selectedProduct && productSearchTerm === '' && !showProductDropdown ? (
+              <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-600 rounded-md border border-gray-200 dark:border-gray-600">
+                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  No Product Selected
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Customer will be created without any product assignment
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+
+
+          {/* Hosting Provisioning Details - Shows when hosting product is selected */}
+          {accountType && productType === 'hosting' && (
+            <div className="mt-4 space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                  {accountType === 'panel' ? 'Regular' : accountType === 'reseller' ? 'Reseller' : 'Master Reseller'} Account Details
+                </h4>
+
+                {loadingServers ? (
+                  <div className="text-sm text-gray-500 dark:text-gray-400 py-4">Loading servers...</div>
+                ) : servers.length === 0 ? (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-400">
+                      ⚠️ No NextPanel servers available. Add a server first in the Server management page.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Hosting Username *
+                      </label>
+                      <input
+                        type="text"
+                        required={Boolean(accountType && productType === 'hosting')}
+                        value={provisionData.username}
+                        onChange={(e) => setProvisionData({ ...provisionData, username: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="e.g., johndoe"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        For logging into NextPanel
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Hosting Password *
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type={showHostingPassword ? "text" : "password"}
+                            required={provisionAccount}
+                            minLength={8}
+                            value={provisionData.hosting_password}
+                            onChange={(e) => setProvisionData({ ...provisionData, hosting_password: e.target.value })}
+                            className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            placeholder="Strong password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowHostingPassword(!showHostingPassword)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          >
+                            {showHostingPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newPassword = generateStrongPassword();
+                            setProvisionData({ ...provisionData, hosting_password: newPassword });
+                            setShowHostingPassword(true);
+                          }}
+                          className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm whitespace-nowrap"
+                          title="Generate strong password"
+                        >
+                          🎲 Generate
+                        </button>
+                        {provisionData.hosting_password && (
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(provisionData.hosting_password, 'Hosting')}
+                            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                            title="Copy password"
+                          >
+                            📋 Copy
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        For logging into NextPanel hosting account
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        NextPanel Server *
+                      </label>
+                      <select
+                        required={provisionAccount}
+                        value={provisionData.server_id}
+                        onChange={(e) => setProvisionData({ ...provisionData, server_id: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select a server</option>
+                        {servers.map(server => (
+                          <option key={server.id} value={server.id}>
+                            {server.name} ({server.current_accounts}/{server.capacity} accounts)
+                          </option>
+                        ))}
+                      </select>
+                      {provisionData.server_id && (
+                        <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                          <p className="text-xs text-blue-800 dark:text-blue-200">
+                            {(() => {
+                              const selectedServer = servers.find(s => s.id.toString() === provisionData.server_id);
+                              if (!selectedServer) return '';
+                              
+                              const accountTypeLabel = accountType === 'panel' ? 'Regular' : 
+                                                     accountType === 'reseller' ? 'Reseller' : 
+                                                     'Master Reseller';
+                              
+                              // For demo purposes, showing estimated count based on account type
+                              // In a real implementation, you'd fetch actual counts by type per server
+                              const estimatedCount = accountType === 'panel' ? Math.floor(selectedServer.current_accounts * 0.7) :
+                                                    accountType === 'reseller' ? Math.floor(selectedServer.current_accounts * 0.25) :
+                                                    Math.floor(selectedServer.current_accounts * 0.05);
+                              
+                              return `📊 ${selectedServer.name} currently has approximately ${estimatedCount} ${accountTypeLabel} accounts`;
+                            })()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+          {/* Password Security Confirmation */}
+          {(formData.password || (provisionAccount && provisionData.hosting_password)) && (
+            <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+              <div className="flex items-start p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="passwords_saved"
+                  checked={passwordsSaved}
+                  onChange={(e) => setPasswordsSaved(e.target.checked)}
+                  className="w-4 h-4 text-yellow-600 border-gray-300 rounded mt-0.5"
+                  required
+                />
+                <label htmlFor="passwords_saved" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">✅ I have saved the passwords securely</span>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Please ensure you have safely stored both the billing login password
+                    {provisionAccount && ' and hosting account password'} before proceeding.
+                  </p>
+                </label>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4">
             <button
               type="button"
@@ -615,10 +1213,14 @@ function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSu
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+              disabled={
+                loading || 
+                (Boolean(formData.password || (provisionAccount && provisionData.hosting_password)) && !passwordsSaved) ||
+                (productType === 'hosting' && provisionAccount && (!provisionData.username || !provisionData.hosting_password || !provisionData.server_id))
+              }
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating...' : 'Create Customer'}
+              {loading ? 'Creating...' : (provisionAccount && accountType) ? 'Create & Provision' : 'Create Customer'}
             </button>
           </div>
         </form>

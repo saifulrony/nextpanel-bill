@@ -60,7 +60,7 @@ class NextPanelServerStatus(BaseModel):
 
 
 class AccountProvisionRequest(BaseModel):
-    customer_id: int
+    customer_id: str  # Changed to str to support UUID
     order_id: Optional[int] = None
     username: str
     email: str
@@ -70,6 +70,8 @@ class AccountProvisionRequest(BaseModel):
     company: Optional[str] = None
     package_id: Optional[int] = None
     server_id: Optional[int] = None  # Auto-select if None
+    is_admin: bool = False  # Set to True to create reseller account
+    account_type: Optional[str] = None  # 'panel', 'reseller', 'master-reseller'
 
 
 class AccountProvisionResponse(BaseModel):
@@ -83,6 +85,53 @@ class AccountProvisionResponse(BaseModel):
 
 
 # Endpoints
+
+@router.post("/servers/test", response_model=dict)
+async def test_nextpanel_connection(
+    server: NextPanelServerCreate,
+    # current_admin = Depends(get_current_admin)  # Uncomment when auth is ready
+):
+    """
+    Test connection to a NextPanel server without adding it
+    
+    This endpoint allows testing credentials and connectivity before actually adding a server.
+    """
+    try:
+        from app.services.nextpanel_service import NextPanelServer
+        
+        # Create a temporary server instance
+        temp_server = NextPanelServer(
+            name=server.name,
+            base_url=server.base_url.rstrip('/'),
+            api_key=server.api_key,
+            api_secret=server.api_secret,
+            capacity=server.capacity
+        )
+        
+        # Test connection
+        is_online = temp_server.test_connection()
+        
+        if is_online:
+            return {
+                "success": True,
+                "message": "Connection successful! Server is online.",
+                "url": server.base_url
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Connection failed. Please check your credentials and URL.",
+                "url": server.base_url
+            }
+            
+    except Exception as e:
+        logger.error(f"Connection test error: {e}")
+        return {
+            "success": False,
+            "message": f"Connection test failed: {str(e)}",
+            "url": server.base_url
+        }
+
 
 @router.post("/servers", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def add_nextpanel_server(
@@ -182,10 +231,13 @@ async def list_nextpanel_servers(
 
 @router.get("/servers/status", response_model=List[NextPanelServerStatus])
 async def get_servers_status(
+    db: AsyncSession = Depends(get_db),
     # current_admin = Depends(get_current_admin)
 ):
     """Get real-time status of all NextPanel servers"""
     nextpanel_service = get_nextpanel_service()
+    # Load servers from database if not already loaded
+    await nextpanel_service.load_servers_from_db(db)
     return nextpanel_service.get_all_servers_status()
 
 
@@ -209,6 +261,16 @@ async def provision_hosting_account(
     
     try:
         nextpanel_service = get_nextpanel_service()
+        # Load servers from database if not already loaded
+        await nextpanel_service.load_servers_from_db(db)
+        
+        # Determine is_admin based on account type if not explicitly set
+        is_admin = request.is_admin
+        if request.account_type:
+            if request.account_type in ['reseller', 'master-reseller']:
+                is_admin = True
+            elif request.account_type == 'panel':
+                is_admin = False
         
         # Create account
         result = nextpanel_service.create_account(
@@ -220,7 +282,9 @@ async def provision_hosting_account(
             company=request.company,
             package_id=request.package_id,
             billing_customer_id=str(request.customer_id),
-            server_id=str(request.server_id) if request.server_id else None
+            server_id=str(request.server_id) if request.server_id else None,
+            is_admin=is_admin,  # Pass through is_admin flag
+            account_type=request.account_type  # Pass account type for logging
         )
         
         if not result['success']:
@@ -475,5 +539,62 @@ async def get_account_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error: {str(e)}"
+        )
+
+
+@router.get("/accounts/counts/by-role")
+async def get_account_counts_by_role(
+    db: AsyncSession = Depends(get_db),
+):
+    """Get count of accounts by role/account type"""
+    from app.models.nextpanel_server import NextPanelAccount
+    
+    try:
+        result = await db.execute(
+            select(NextPanelAccount).where(NextPanelAccount.status == "active")
+        )
+        accounts = result.scalars().all()
+        
+        # Count accounts by role from metadata
+        counts = {
+            "panel": 0,
+            "reseller": 0,
+            "master-reseller": 0,
+            "unknown": 0
+        }
+        
+        for account in accounts:
+            if account.meta_data:
+                account_type = account.meta_data.get('account_type') or account.meta_data.get('account_level')
+                if account_type == 'panel':
+                    counts['panel'] += 1
+                elif account_type == 'reseller':
+                    counts['reseller'] += 1
+                elif account_type == 'master-reseller':
+                    counts['master-reseller'] += 1
+                else:
+                    # Check legacy is_admin flag
+                    if account.meta_data.get('is_admin', False):
+                        counts['reseller'] += 1  # Legacy reseller accounts
+                    else:
+                        counts['panel'] += 1  # Legacy panel accounts
+            else:
+                counts['unknown'] += 1
+        
+        return {
+            "total_accounts": len(accounts),
+            "by_role": counts,
+            "summary": {
+                "regular_users": counts['panel'],
+                "reseller_users": counts['reseller'],
+                "master_reseller_users": counts['master-reseller'],
+                "unknown_accounts": counts['unknown']
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting account counts: {str(e)}"
         )
 

@@ -60,16 +60,59 @@ class NextPanelService:
     
     def __init__(self):
         self.servers: Dict[str, NextPanelServer] = {}
-        self._load_servers()
+        self._db_loaded = False
+        # Note: Can't load from DB here since __init__ is sync and DB queries are async
+        # Will load on first use instead
     
     def _load_servers(self):
         """
         Load NextPanel servers from configuration
         In production, load this from database
         """
-        # Example: Load from environment or database
-        # For now, this is a placeholder - you'll populate from your DB
+        # Note: This is called from __init__ which is sync
+        # Database loading happens via load_servers_from_db() which is called from the API
         pass
+    
+    async def load_servers_from_db(self, db):
+        """
+        Load all active servers from database
+        This should be called when the service starts or when checking server availability
+        """
+        from app.models.nextpanel_server import NextPanelServer as NextPanelServerModel
+        from sqlalchemy import select
+        
+        if self._db_loaded:
+            return  # Already loaded
+            
+        try:
+            result = await db.execute(
+                select(NextPanelServerModel).where(NextPanelServerModel.is_active == True)
+            )
+            db_servers = result.scalars().all()
+            
+            for db_server in db_servers:
+                # Add each server to the service
+                server = NextPanelServer(
+                    name=db_server.name,
+                    base_url=db_server.base_url,
+                    api_key=db_server.api_key,
+                    api_secret=db_server.api_secret,
+                    is_active=db_server.is_active,
+                    capacity=db_server.capacity,
+                    current_accounts=db_server.current_accounts
+                )
+                self.servers[str(db_server.id)] = server
+                logger.info(f"Loaded server from DB: {db_server.name} (ID: {db_server.id})")
+            
+            self._db_loaded = True
+            logger.info(f"Successfully loaded {len(db_servers)} servers from database")
+            
+        except Exception as e:
+            logger.error(f"Failed to load servers from database: {e}")
+    
+    def reload_servers(self):
+        """Force reload of servers on next DB access"""
+        self._db_loaded = False
     
     def add_server(
         self,
@@ -131,9 +174,11 @@ class NextPanelService:
         full_name: Optional[str] = None,
         phone: Optional[str] = None,
         company: Optional[str] = None,
-        package_id: Optional[int] = None,
+        package_id: Optional[str] = None,
         billing_customer_id: Optional[str] = None,
-        server_id: Optional[str] = None
+        server_id: Optional[str] = None,
+        is_admin: bool = False,  # Set to True to create reseller accounts
+        account_type: Optional[str] = None  # 'panel', 'reseller', 'master-reseller'
     ) -> Dict[str, Any]:
         """
         Create a hosting account on a NextPanel server
@@ -172,19 +217,30 @@ class NextPanelService:
                 "phone": phone,
                 "company": company,
                 "package_id": package_id,
+                "is_admin": is_admin,  # Create as reseller if True
                 "billing_id": billing_customer_id,
-                "meta_data": {
+                "metadata": {
                     "created_from": "billing_system",
                     "billing_customer_id": billing_customer_id,
+                    "account_type": account_type or ("reseller" if is_admin else "panel"),
+                    "is_admin": is_admin,
+                    "account_level": account_type,  # Keep track of the specific level
                     "created_at": datetime.utcnow().isoformat()
                 }
             }
+            
+            logger.info(f"Attempting to create account on {server.base_url}/api/v1/billing/accounts")
+            logger.info(f"Using API Key: {server.api_key[:15]}...")
+            logger.info(f"Request data: {data}")
             
             response = server.session.post(
                 f'{server.base_url}/api/v1/billing/accounts',
                 json=data,
                 timeout=30
             )
+            
+            logger.info(f"Response status: {response.status_code}")
+            logger.info(f"Response body: {response.text}")
             
             if response.status_code == 201:
                 account = response.json()
@@ -203,7 +259,11 @@ class NextPanelService:
                     "nextpanel_user_id": account['id']
                 }
             else:
-                error_detail = response.json().get('detail', 'Unknown error')
+                try:
+                    error_detail = response.json().get('detail', response.text)
+                except:
+                    error_detail = response.text
+                logger.error(f"Account creation failed: {error_detail}")
                 raise Exception(f"Failed to create account: {error_detail}")
                 
         except Exception as e:
