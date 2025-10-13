@@ -79,6 +79,8 @@ class Plan(Base):
     stripe_price_id_monthly = Column(String(255))
     stripe_price_id_yearly = Column(String(255))
     is_active = Column(Boolean, default=True)
+    is_featured = Column(Boolean, default=False)  # Show on homepage
+    sort_order = Column(Integer, default=0)  # Display order on homepage
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

@@ -24,22 +24,31 @@ router = APIRouter(prefix="/plans", tags=["plans"])
 async def list_plans(
     db: AsyncSession = Depends(get_db),
     category: Optional[str] = None,
-    is_active: Optional[bool] = True
+    is_active: Optional[bool] = True,
+    is_featured: Optional[bool] = None
 ):
     """
     List all plans/products
     Filter by category: hosting, domain, software, email, ssl
+    Filter by is_featured: true to get only featured products for homepage
     """
     query = select(Plan)
     
     if is_active is not None:
         query = query.where(Plan.is_active == is_active)
     
+    if is_featured is not None:
+        query = query.where(Plan.is_featured == is_featured)
+    
     if category:
         # Filter by features JSON if category is specified
         query = query.where(Plan.features.contains({'category': category}))
     
-    query = query.order_by(Plan.price_monthly.asc())
+    # Order by sort_order if filtering featured, otherwise by price
+    if is_featured:
+        query = query.order_by(Plan.sort_order.asc(), Plan.price_monthly.asc())
+    else:
+        query = query.order_by(Plan.price_monthly.asc())
     
     result = await db.execute(query)
     plans = result.scalars().all()
@@ -150,6 +159,10 @@ async def update_plan(
         plan.max_emails = request.max_emails
     if request.is_active is not None:
         plan.is_active = request.is_active
+    if request.is_featured is not None:
+        plan.is_featured = request.is_featured
+    if request.sort_order is not None:
+        plan.sort_order = request.sort_order
     
     await db.commit()
     await db.refresh(plan)

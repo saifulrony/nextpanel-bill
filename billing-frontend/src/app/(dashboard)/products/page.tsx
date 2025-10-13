@@ -16,7 +16,9 @@ import {
   LockClosedIcon,
   CircleStackIcon,
   BoltIcon,
+  StarIcon,
 } from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import CreateProductModal from '@/components/products/CreateProductModal';
 import EditProductModal from '@/components/products/EditProductModal';
 import ProductDetailsModal from '@/components/products/ProductDetailsModal';
@@ -33,6 +35,8 @@ interface Product {
   max_emails: number;
   features: any;
   is_active: boolean;
+  is_featured?: boolean;
+  sort_order?: number;
   created_at: string;
 }
 
@@ -137,6 +141,18 @@ export default function ProductsPage() {
   const handleViewDetails = (product: Product) => {
     setSelectedProduct(product);
     setShowDetailsModal(true);
+  };
+
+  const handleToggleFeatured = async (product: Product) => {
+    try {
+      await plansAPI.update(product.id, {
+        is_featured: !product.is_featured,
+      });
+      await loadData();
+    } catch (error) {
+      console.error('Failed to update featured status:', error);
+      alert('Failed to update featured status');
+    }
   };
 
   const getCategoryIcon = (category: string) => {
@@ -362,15 +378,35 @@ export default function ProductsPage() {
                         <h3 className="text-lg font-medium text-gray-900">
                           {product.name}
                         </h3>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          product.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {product.is_active ? 'Active' : 'Inactive'}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            product.is_active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {product.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                          {product.is_featured && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                              ⭐ Featured
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <button
+                      onClick={() => handleToggleFeatured(product)}
+                      className={`p-2 rounded-lg hover:bg-gray-100 transition ${
+                        product.is_featured ? 'text-yellow-500' : 'text-gray-400'
+                      }`}
+                      title={product.is_featured ? 'Remove from homepage' : 'Feature on homepage'}
+                    >
+                      {product.is_featured ? (
+                        <StarIconSolid className="h-6 w-6" />
+                      ) : (
+                        <StarIcon className="h-6 w-6" />
+                      )}
+                    </button>
                   </div>
 
                   {/* Description */}

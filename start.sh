@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # NextPanel Billing - Unified Startup Script
-# Starts both backend (port 8001) and frontend (port 3001)
+# Starts both backend (port 8001) and frontend (port 4000)
 
 set -e
 
@@ -11,29 +11,51 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-INSTALL_DIR="/nextpanel/billing"
+# Use current directory instead of hardcoded path
+INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOCK_FILE="$INSTALL_DIR/.start.lock"
 
 echo -e "${BLUE}=============================================${NC}"
 echo -e "${BLUE}NextPanel Billing - Starting Services${NC}"
 echo -e "${BLUE}=============================================${NC}"
 echo ""
+echo -e "${YELLOW}Working directory: ${INSTALL_DIR}${NC}"
+echo ""
 
-# Check if installation exists
-if [ ! -d "$INSTALL_DIR" ]; then
-    echo -e "${RED}Error: Installation not found at $INSTALL_DIR${NC}"
-    echo -e "${YELLOW}Please run: sudo ./setup_clean_installation.sh first${NC}"
+# Check if script is already running
+if [ -f "$LOCK_FILE" ]; then
+    echo -e "${RED}Error: Script is already running or didn't exit cleanly${NC}"
+    echo -e "${YELLOW}If you're sure no other instance is running:${NC}"
+    echo -e "  rm $LOCK_FILE"
     exit 1
 fi
 
-# Stop any existing processes
-echo -e "${YELLOW}Stopping any existing services...${NC}"
-pkill -f "uvicorn app.main:app" 2>/dev/null || true
-pkill -f "next dev" 2>/dev/null || true
-fuser -k 8001/tcp 2>/dev/null || true
-fuser -k 4000/tcp 2>/dev/null || true
-fuser -k 3001/tcp 2>/dev/null || true
-sleep 2
-echo -e "  ✓ Existing services stopped"
+# Create lock file
+touch "$LOCK_FILE"
+trap "rm -f $LOCK_FILE" EXIT
+
+# Verify directories exist
+if [ ! -d "$INSTALL_DIR/billing-backend" ] || [ ! -d "$INSTALL_DIR/billing-frontend" ]; then
+    echo -e "${RED}Error: Required directories not found!${NC}"
+    echo -e "${YELLOW}Make sure you have:${NC}"
+    echo -e "  - $INSTALL_DIR/billing-backend"
+    echo -e "  - $INSTALL_DIR/billing-frontend"
+    exit 1
+fi
+
+# Check if services are already running
+BACKEND_RUNNING=$(ps aux | grep "uvicorn app.main:app" | grep -v grep | wc -l)
+FRONTEND_RUNNING=$(ps aux | grep "next dev" | grep -v grep | wc -l)
+
+if [ "$BACKEND_RUNNING" -gt 0 ] || [ "$FRONTEND_RUNNING" -gt 0 ]; then
+    echo -e "${YELLOW}Services already running. Stopping them first...${NC}"
+    pkill -f "uvicorn app.main:app" 2>/dev/null || true
+    pkill -f "next dev" 2>/dev/null || true
+    sleep 3
+    echo -e "  ✓ Existing services stopped"
+else
+    echo -e "${GREEN}No existing services found${NC}"
+fi
 echo ""
 
 # Start Backend
@@ -47,7 +69,7 @@ if [ -f "venv/bin/activate" ]; then
     source venv/bin/activate
 fi
 
-nohup uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
+nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
 BACKEND_PID=$!
 echo -e "  Backend PID: ${GREEN}$BACKEND_PID${NC}"
 
@@ -88,9 +110,16 @@ echo -e "${BLUE}=============================================${NC}"
 echo ""
 echo -e "${YELLOW}Access Points:${NC}"
 echo -e "  Frontend (local):   ${GREEN}http://localhost:4000${NC}"
-echo -e "  Frontend (network): ${GREEN}http://192.168.10.203:4000${NC}"
+NETWORK_IP=$(hostname -I | awk '{print $1}')
+echo -e "  Frontend (network): ${GREEN}http://${NETWORK_IP}:4000${NC}"
 echo -e "  Backend:            ${GREEN}http://localhost:8001${NC}"
 echo -e "  API Docs:           ${GREEN}http://localhost:8001/docs${NC}"
+echo ""
+echo -e "${YELLOW}Features:${NC}"
+echo -e "  ⭐ Featured Products (mark in dashboard)"
+echo -e "  🛒 Shopping Cart & Checkout"
+echo -e "  📦 Browse by Category"
+echo -e "  🔐 Login: admin@test.com / Admin123!"
 echo ""
 echo -e "${YELLOW}View Logs:${NC}"
 echo -e "  Backend:  ${BLUE}tail -f $INSTALL_DIR/billing-backend/backend.log${NC}"
@@ -100,5 +129,5 @@ echo -e "${YELLOW}Stop Services:${NC}"
 echo -e "  ${BLUE}pkill -f 'uvicorn app.main:app'${NC}"
 echo -e "  ${BLUE}pkill -f 'next dev'${NC}"
 echo ""
-echo -e "${YELLOW}Installation Location:${NC} ${GREEN}$INSTALL_DIR${NC}"
+echo -e "${YELLOW}Working from:${NC} ${GREEN}$INSTALL_DIR${NC}"
 echo ""
