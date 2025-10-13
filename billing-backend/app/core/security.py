@@ -93,3 +93,35 @@ async def get_current_user_id(
     
     return user_id
 
+
+async def require_admin(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> str:
+    """Require admin user and return user ID"""
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.core.database import get_db
+    from app.models import User
+    from sqlalchemy import select
+    
+    token = credentials.credentials
+    payload = decode_token(token)
+    
+    user_id: str = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
+    
+    # Check if user is admin
+    # Note: This is a simplified check - in production, you might want to
+    # implement role-based access control (RBAC) more thoroughly
+    is_admin = payload.get("is_admin", False)
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    
+    return user_id
+

@@ -134,14 +134,65 @@ export const paymentsAPI = {
   createIntent: (data: any) =>
     api.post('/payments/intent', data),
   
-  list: () =>
-    api.get('/payments'),
+  list: (params?: any) =>
+    api.get('/payments', { params }),
   
   get: (id: string) =>
     api.get(`/payments/${id}`),
   
   stats: () =>
     api.get('/payments/stats/summary'),
+};
+
+// Payment Gateways API
+export const paymentGatewaysAPI = {
+  list: (params?: { status?: string; type?: string; limit?: number; offset?: number }) =>
+    api.get('/payment-gateways', { params }),
+  
+  listActive: () =>
+    api.get('/payment-gateways/active'),
+  
+  get: (id: string) =>
+    api.get(`/payment-gateways/${id}`),
+  
+  create: (data: {
+    name: string;
+    type: string;
+    display_name: string;
+    description?: string;
+    config?: any;
+    supports_recurring?: boolean;
+    supports_refunds?: boolean;
+    supports_partial_refunds?: boolean;
+    supports_webhooks?: boolean;
+    fixed_fee?: number;
+    percentage_fee?: number;
+    api_key?: string;
+    secret_key?: string;
+    webhook_secret?: string;
+    is_sandbox?: boolean;
+    sandbox_api_key?: string;
+    sandbox_secret_key?: string;
+  }) =>
+    api.post('/payment-gateways', data),
+  
+  update: (id: string, data: any) =>
+    api.put(`/payment-gateways/${id}`, data),
+  
+  delete: (id: string) =>
+    api.delete(`/payment-gateways/${id}`),
+  
+  test: (id: string, data?: { test_amount?: number; test_currency?: string }) =>
+    api.post(`/payment-gateways/${id}/test`, data || {}),
+  
+  activate: (id: string) =>
+    api.post(`/payment-gateways/${id}/activate`),
+  
+  deactivate: (id: string) =>
+    api.post(`/payment-gateways/${id}/deactivate`),
+  
+  stats: (id: string) =>
+    api.get(`/payment-gateways/${id}/stats`),
 };
 
 // Subscriptions API

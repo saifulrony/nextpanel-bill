@@ -34,6 +34,23 @@ class PaymentStatus(str, enum.Enum):
     REFUNDED = "refunded"
 
 
+class PaymentGatewayType(str, enum.Enum):
+    STRIPE = "stripe"
+    PAYPAL = "paypal"
+    RAZORPAY = "razorpay"
+    SQUARE = "square"
+    BRAINTREE = "braintree"
+    AUTHORIZE_NET = "authorize_net"
+    PAYU = "payu"
+    MOLLIE = "mollie"
+
+
+class PaymentGatewayStatus(str, enum.Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    TESTING = "testing"
+
+
 class DomainStatus(str, enum.Enum):
     ACTIVE = "active"
     PENDING = "pending"
@@ -160,6 +177,48 @@ class Domain(Base):
     user = relationship("User", back_populates="domains")
 
 
+class PaymentGateway(Base):
+    """Payment gateway configurations"""
+    __tablename__ = "payment_gateways"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(100), nullable=False)
+    type = Column(Enum(PaymentGatewayType), nullable=False)
+    display_name = Column(String(100), nullable=False)
+    description = Column(Text)
+    status = Column(Enum(PaymentGatewayStatus), default=PaymentGatewayStatus.INACTIVE)
+    is_default = Column(Boolean, default=False)
+    
+    # Configuration settings (encrypted in production)
+    config = Column(JSON)  # Gateway-specific configuration
+    
+    # Supported features
+    supports_recurring = Column(Boolean, default=False)
+    supports_refunds = Column(Boolean, default=True)
+    supports_partial_refunds = Column(Boolean, default=True)
+    supports_webhooks = Column(Boolean, default=True)
+    
+    # Fee structure
+    fixed_fee = Column(Float, default=0.0)
+    percentage_fee = Column(Float, default=0.0)
+    
+    # API credentials (encrypted in production)
+    api_key = Column(String(500))
+    secret_key = Column(String(500))
+    webhook_secret = Column(String(500))
+    
+    # Environment settings
+    is_sandbox = Column(Boolean, default=True)
+    sandbox_api_key = Column(String(500))
+    sandbox_secret_key = Column(String(500))
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    payments = relationship("Payment", back_populates="gateway")
+
+
 class Payment(Base):
     """Payment transactions"""
     __tablename__ = "payments"
@@ -167,18 +226,23 @@ class Payment(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     license_id = Column(String(36), ForeignKey("licenses.id"))
+    gateway_id = Column(String(36), ForeignKey("payment_gateways.id"))
     stripe_payment_intent_id = Column(String(255), unique=True)
+    gateway_transaction_id = Column(String(255))  # Gateway-specific transaction ID
     amount = Column(Float, nullable=False)
     currency = Column(String(3), default="USD")
     status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
     payment_method = Column(String(50))
     description = Column(Text)
     payment_metadata = Column(JSON)  # Renamed from 'metadata' (reserved in SQLAlchemy)
+    gateway_response = Column(JSON)  # Store gateway response data
+    failure_reason = Column(Text)  # Store failure details
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
     user = relationship("User", back_populates="payments")
     license = relationship("License", back_populates="payments")
+    gateway = relationship("PaymentGateway", back_populates="payments")
 
 
 class InvoiceStatus(str, enum.Enum):

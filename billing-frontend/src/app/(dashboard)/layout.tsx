@@ -42,7 +42,15 @@ const navigation = [
   { name: 'Licenses', href: '/licenses', icon: KeyIcon },
   { name: 'Domains', href: '/domains', icon: GlobeAltIcon },
   { name: 'Subscriptions', href: '/subscriptions', icon: CubeIcon },
-  { name: 'Payments', href: '/payments', icon: CreditCardIcon },
+  { 
+    name: 'Payments', 
+    href: '/payments', 
+    icon: CreditCardIcon,
+    children: [
+      { name: 'Transactions', href: '/payments', icon: DocumentTextIcon },
+      { name: 'Payment Gateways', href: '/payments/gateways', icon: Cog6ToothIcon },
+    ]
+  },
   { name: 'Server', href: '/server', icon: ServerIcon },
   { 
     name: 'Analytics', 
@@ -69,7 +77,7 @@ export default function DashboardLayout({
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Analytics']); // Default expand analytics
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Analytics', 'Payments']); // Default expand analytics and payments
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

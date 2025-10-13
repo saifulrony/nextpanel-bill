@@ -22,6 +22,23 @@ class PaymentStatus(str, Enum):
     REFUNDED = "refunded"
 
 
+class PaymentGatewayType(str, Enum):
+    STRIPE = "stripe"
+    PAYPAL = "paypal"
+    RAZORPAY = "razorpay"
+    SQUARE = "square"
+    BRAINTREE = "braintree"
+    AUTHORIZE_NET = "authorize_net"
+    PAYU = "payu"
+    MOLLIE = "mollie"
+
+
+class PaymentGatewayStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    TESTING = "testing"
+
+
 # Auth Schemas
 class UserRegister(BaseModel):
     email: EmailStr
@@ -228,6 +245,84 @@ class PaymentResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# Payment Gateway Schemas
+class PaymentGatewayCreateRequest(BaseModel):
+    name: str
+    type: PaymentGatewayType
+    display_name: str
+    description: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
+    supports_recurring: bool = False
+    supports_refunds: bool = True
+    supports_partial_refunds: bool = True
+    supports_webhooks: bool = True
+    fixed_fee: float = 0.0
+    percentage_fee: float = 0.0
+    api_key: Optional[str] = None
+    secret_key: Optional[str] = None
+    webhook_secret: Optional[str] = None
+    is_sandbox: bool = True
+    sandbox_api_key: Optional[str] = None
+    sandbox_secret_key: Optional[str] = None
+
+
+class PaymentGatewayUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[PaymentGatewayStatus] = None
+    is_default: Optional[bool] = None
+    config: Optional[Dict[str, Any]] = None
+    supports_recurring: Optional[bool] = None
+    supports_refunds: Optional[bool] = None
+    supports_partial_refunds: Optional[bool] = None
+    supports_webhooks: Optional[bool] = None
+    fixed_fee: Optional[float] = None
+    percentage_fee: Optional[float] = None
+    api_key: Optional[str] = None
+    secret_key: Optional[str] = None
+    webhook_secret: Optional[str] = None
+    is_sandbox: Optional[bool] = None
+    sandbox_api_key: Optional[str] = None
+    sandbox_secret_key: Optional[str] = None
+
+
+class PaymentGatewayResponse(BaseModel):
+    id: str
+    name: str
+    type: PaymentGatewayType
+    display_name: str
+    description: Optional[str] = None
+    status: PaymentGatewayStatus
+    is_default: bool
+    config: Optional[Dict[str, Any]] = None
+    supports_recurring: bool
+    supports_refunds: bool
+    supports_partial_refunds: bool
+    supports_webhooks: bool
+    fixed_fee: float
+    percentage_fee: float
+    is_sandbox: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class PaymentGatewayTestRequest(BaseModel):
+    gateway_id: str
+    test_amount: float = 1.00
+    test_currency: str = "USD"
+
+
+class PaymentGatewayTestResponse(BaseModel):
+    success: bool
+    message: str
+    test_transaction_id: Optional[str] = None
+    response_data: Optional[Dict[str, Any]] = None
 
 
 # Subscription Schemas
