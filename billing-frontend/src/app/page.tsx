@@ -35,6 +35,7 @@ export default function Home() {
   const [categoryProducts, setCategoryProducts] = useState<Record<string, FeaturedProduct[]>>({});
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [chatbotEnabled, setChatbotEnabled] = useState(false);
 
   const popularTlds = [
     { extension: '.com', price: '$8.99/yr' },
@@ -48,7 +49,25 @@ export default function Home() {
   useEffect(() => {
     loadFeaturedProducts();
     loadCategoryProducts();
+    checkChatbotAddon();
   }, []);
+
+  const checkChatbotAddon = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const response = await axios.get(`${apiUrl}/api/v1/marketplace/installed`);
+      const installedAddons = response.data;
+      
+      // Check if AI chatbot is installed and enabled
+      const chatbot = installedAddons.find((addon: any) => addon.addon?.name === 'ai_chatbot');
+      setChatbotEnabled(chatbot && chatbot.is_enabled);
+    } catch (error) {
+      // If error (e.g., not authenticated), default to disabled
+      setChatbotEnabled(false);
+    }
+  };
 
   const loadFeaturedProducts = async () => {
     try {
@@ -576,8 +595,8 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* AI Chatbot Widget */}
-      <AIChatBot />
+      {/* AI Chatbot Widget (only if installed) */}
+      {chatbotEnabled && <AIChatBot />}
     </main>
   )
 }

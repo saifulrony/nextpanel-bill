@@ -8,14 +8,15 @@ import logging
 from datetime import datetime
 import socket
 
-from app.core.config import settings
+from app.core.config import settings as config_settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, domains, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, chat
+from app.api.v1 import auth, licenses, plans, domains, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, chat, marketplace
+from app.api.v1 import settings as settings_api
 from app.schemas import HealthResponse
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    level=logging.DEBUG if config_settings.DEBUG else logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -37,8 +38,8 @@ def get_allowed_origins():
     detected_ips = set()
     
     # Add IPs from environment variable (for Docker deployments)
-    if settings.CORS_ALLOWED_HOSTS:
-        env_hosts = [h.strip() for h in settings.CORS_ALLOWED_HOSTS.split(',') if h.strip()]
+    if config_settings.CORS_ALLOWED_HOSTS:
+        env_hosts = [h.strip() for h in config_settings.CORS_ALLOWED_HOSTS.split(',') if h.strip()]
         detected_ips.update(env_hosts)
         logger.info(f"IPs from CORS_ALLOWED_HOSTS env: {env_hosts}")
     
@@ -121,8 +122,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.VERSION,
+    title=config_settings.APP_NAME,
+    version=config_settings.VERSION,
     description="Billing and License Management API for NextPanel",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -147,7 +148,7 @@ async def health_check():
     """Health check endpoint"""
     return HealthResponse(
         status="healthy",
-        version=settings.VERSION,
+        version=config_settings.VERSION,
         database="connected",
         timestamp=datetime.utcnow()
     )
@@ -158,7 +159,7 @@ async def root():
     """Root endpoint"""
     return {
         "message": "NextPanel Billing API",
-        "version": settings.VERSION,
+        "version": config_settings.VERSION,
         "docs": "/docs",
         "health": "/health"
     }
@@ -179,6 +180,8 @@ app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(support.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
+app.include_router(marketplace.router, prefix="/api/v1")
+app.include_router(settings_api.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
 app.include_router(dashboard.router, prefix="/api/v1")
@@ -191,7 +194,7 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=settings.DEBUG,
-        log_level="debug" if settings.DEBUG else "info"
+        reload=config_settings.DEBUG,
+        log_level="debug" if config_settings.DEBUG else "info"
     )
 

@@ -31,8 +31,10 @@ import {
   ChatBubbleLeftRightIcon,
   ClipboardDocumentListIcon,
   ArrowRightOnRectangleIcon,
+  PuzzlePieceIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
+import { marketplaceAPI } from '@/lib/api';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -73,6 +75,7 @@ const navigation = [
       { name: 'Live Chats', href: '/support/chats', icon: ChatBubbleLeftRightIcon },
     ]
   },
+  { name: 'Marketplace', href: '/marketplace', icon: PuzzlePieceIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 

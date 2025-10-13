@@ -419,4 +419,46 @@ export const adminAPI = {
     api.get('/admin/stats'),
 };
 
+// Marketplace API
+export const marketplaceAPI = {
+  listAddons: (params?: { category?: string; is_premium?: boolean }) =>
+    api.get('/marketplace/addons', { params }),
+  
+  getAddon: (id: string) =>
+    api.get(`/marketplace/addons/${id}`),
+  
+  listInstalled: () =>
+    api.get('/marketplace/installed'),
+  
+  install: (addon_id: string, settings?: any) =>
+    api.post('/marketplace/install', { addon_id, settings }),
+  
+  uninstall: (addon_id: string) =>
+    api.delete(`/marketplace/uninstall/${addon_id}`),
+  
+  toggle: (addon_id: string, enable: boolean) =>
+    api.post(`/marketplace/toggle/${addon_id}`, null, { params: { enable } }),
+};
+
+// Settings API
+export const settingsAPI = {
+  list: (params?: { category?: string; is_public?: boolean }) =>
+    api.get('/settings', { params }),
+  
+  get: (key: string) =>
+    api.get(`/settings/${key}`),
+  
+  update: (key: string, value: string) =>
+    api.put(`/settings/${key}`, { value }),
+  
+  bulkUpdate: (settings: Record<string, string>) =>
+    api.post('/settings/bulk', { settings }),
+  
+  getPublic: () =>
+    api.get('/settings/public/all'),
+  
+  initialize: () =>
+    api.post('/settings/initialize'),
+};
+
 export default api;

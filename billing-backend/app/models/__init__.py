@@ -426,7 +426,7 @@ class ChatSession(Base):
     guest_name = Column(String(255))
     guest_phone = Column(String(50))  # Phone number - REQUIRED for guests
     session_token = Column(String(255), unique=True)  # For guest tracking
-    status = Column(Enum(ChatSessionStatus), default=ChatSessionStatus.ACTIVE)
+    status = Column(String(20), default="active")
     assigned_to = Column(String(36), ForeignKey("users.id"))  # Admin assigned
     subject = Column(String(255))
     rating = Column(Integer)  # 1-5 star rating after chat
@@ -467,6 +467,99 @@ class ChatMessage(Base):
     # Relationships
     session = relationship("ChatSession", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
+
+
+class AddonCategory(str, enum.Enum):
+    COMMUNICATION = "communication"
+    PAYMENT = "payment"
+    ANALYTICS = "analytics"
+    SECURITY = "security"
+    MARKETING = "marketing"
+    INTEGRATION = "integration"
+    PRODUCTIVITY = "productivity"
+    OTHER = "other"
+
+
+class AddonStatus(str, enum.Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    BETA = "beta"
+    DEPRECATED = "deprecated"
+
+
+class Addon(Base):
+    """Available addons/plugins in marketplace"""
+    __tablename__ = "addons"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(100), nullable=False, unique=True)
+    display_name = Column(String(100), nullable=False)
+    description = Column(Text)
+    category = Column(String(50), default="other")
+    version = Column(String(20), default="1.0.0")
+    author = Column(String(100))
+    icon = Column(String(50))  # Emoji or icon class
+    status = Column(String(20), default="active")
+    is_premium = Column(Boolean, default=False)
+    price = Column(Float, default=0.0)
+    
+    # Features and requirements
+    features = Column(JSON)  # List of features this addon provides
+    requirements = Column(JSON)  # Dependencies on other addons
+    settings_schema = Column(JSON)  # Configuration options
+    
+    # Installation stats
+    install_count = Column(Integer, default=0)
+    rating_average = Column(Float, default=0.0)
+    rating_count = Column(Integer, default=0)
+    
+    # URLs and resources
+    homepage_url = Column(String(500))
+    documentation_url = Column(String(500))
+    support_url = Column(String(500))
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    installations = relationship("AddonInstallation", back_populates="addon")
+
+
+class AddonInstallation(Base):
+    """Installed addons per system (not per user - system-wide)"""
+    __tablename__ = "addon_installations"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    addon_id = Column(String(36), ForeignKey("addons.id"), nullable=False)
+    installed_by = Column(String(36), ForeignKey("users.id"))  # Admin who installed
+    is_enabled = Column(Boolean, default=True)
+    settings = Column(JSON)  # Addon-specific settings
+    installed_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    addon = relationship("Addon", back_populates="installations")
+    installed_by_user = relationship("User", foreign_keys=[installed_by])
+
+
+class SystemSetting(Base):
+    """System-wide settings"""
+    __tablename__ = "system_settings"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    key = Column(String(100), nullable=False, unique=True)
+    value = Column(Text)
+    value_type = Column(String(20), default="string")  # string, number, boolean, json
+    category = Column(String(50))  # general, appearance, email, time, etc.
+    display_name = Column(String(100))
+    description = Column(Text)
+    is_public = Column(Boolean, default=False)  # Can non-admins see this?
+    updated_by = Column(String(36), ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
 
 
 # Import NextPanel models to ensure tables are created

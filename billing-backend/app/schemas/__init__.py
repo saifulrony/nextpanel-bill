@@ -650,6 +650,72 @@ class ChatBotResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+# Addon/Marketplace Schemas
+class AddonResponse(BaseModel):
+    id: str
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    category: str
+    version: str
+    author: Optional[str] = None
+    icon: Optional[str] = None
+    status: str
+    is_premium: bool
+    price: float
+    features: Optional[List[str]] = None
+    install_count: int
+    rating_average: float
+    rating_count: int
+    homepage_url: Optional[str] = None
+    documentation_url: Optional[str] = None
+    is_installed: bool = False
+    
+    class Config:
+        from_attributes = True
+
+
+class AddonInstallRequest(BaseModel):
+    addon_id: str
+    settings: Optional[Dict[str, Any]] = None
+
+
+class AddonInstallationResponse(BaseModel):
+    id: str
+    addon_id: str
+    is_enabled: bool
+    settings: Optional[Dict[str, Any]] = None
+    installed_at: datetime
+    addon: Optional[AddonResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+
+# System Settings Schemas
+class SystemSettingResponse(BaseModel):
+    id: str
+    key: str
+    value: Optional[str] = None
+    value_type: str
+    category: Optional[str] = None
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    is_public: bool
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class SystemSettingUpdateRequest(BaseModel):
+    value: str
+
+
+class BulkSettingsUpdateRequest(BaseModel):
+    settings: Dict[str, str]
+
+
 # Health Check
 class HealthResponse(BaseModel):
     status: str
