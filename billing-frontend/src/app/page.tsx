@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { ShoppingCartIcon, CheckIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
+import AIChatBot from '@/components/ui/AIChatBot';
 
 interface FeaturedProduct {
   id: string;
@@ -574,6 +575,9 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* AI Chatbot Widget */}
+      <AIChatBot />
     </main>
   )
 }

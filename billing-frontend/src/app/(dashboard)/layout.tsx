@@ -64,7 +64,15 @@ const navigation = [
       { name: 'Support Tickets', href: '/analytics/tickets', icon: ChatBubbleLeftRightIcon },
     ]
   },
-  { name: 'Support', href: '/support', icon: LifebuoyIcon },
+  { 
+    name: 'Support', 
+    href: '/support', 
+    icon: LifebuoyIcon,
+    children: [
+      { name: 'Tickets', href: '/support', icon: ClipboardDocumentListIcon },
+      { name: 'Live Chats', href: '/support/chats', icon: ChatBubbleLeftRightIcon },
+    ]
+  },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
@@ -77,7 +85,7 @@ export default function DashboardLayout({
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Analytics', 'Payments']); // Default expand analytics and payments
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Analytics', 'Payments', 'Support']); // Default expand analytics, payments, and support
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

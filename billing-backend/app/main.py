@@ -10,7 +10,7 @@ import socket
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, domains, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways
+from app.api.v1 import auth, licenses, plans, domains, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, chat
 from app.schemas import HealthResponse
 
 # Configure logging
@@ -178,6 +178,7 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(support.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
 app.include_router(dashboard.router, prefix="/api/v1")

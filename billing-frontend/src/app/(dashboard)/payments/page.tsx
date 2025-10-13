@@ -275,7 +275,7 @@ export default function TransactionsPage() {
                   <select
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   >
                     <option value="">All Statuses</option>
                     <option value="succeeded">Succeeded</option>
@@ -290,7 +290,7 @@ export default function TransactionsPage() {
                   <select
                     value={filters.gateway_id}
                     onChange={(e) => handleFilterChange('gateway_id', e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   >
                     <option value="">All Gateways</option>
                     {gateways.map((gateway) => (
@@ -307,7 +307,7 @@ export default function TransactionsPage() {
                     type="date"
                     value={filters.date_from}
                     onChange={(e) => handleFilterChange('date_from', e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   />
                 </div>
                 
@@ -317,7 +317,7 @@ export default function TransactionsPage() {
                     type="date"
                     value={filters.date_to}
                     onChange={(e) => handleFilterChange('date_to', e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   />
                 </div>
                 
@@ -329,7 +329,7 @@ export default function TransactionsPage() {
                     placeholder="0.00"
                     value={filters.min_amount}
                     onChange={(e) => handleFilterChange('min_amount', e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   />
                 </div>
                 
@@ -341,7 +341,7 @@ export default function TransactionsPage() {
                     placeholder="1000.00"
                     value={filters.max_amount}
                     onChange={(e) => handleFilterChange('max_amount', e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>

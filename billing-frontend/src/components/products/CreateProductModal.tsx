@@ -161,7 +161,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         value={formData.name}
                         onChange={handleChange}
                         required
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         placeholder="e.g., Shared Hosting - Business"
                       />
                     </div>
@@ -175,7 +175,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         value={formData.description}
                         onChange={handleChange}
                         rows={3}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         placeholder="Describe your product..."
                       />
                     </div>
@@ -189,7 +189,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         value={formData.category}
                         onChange={handleChange}
                         required
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                       >
                         {categories.map((cat) => (
                           <option key={cat.id} value={cat.id}>
@@ -210,7 +210,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           value={formData.subcategory}
                           onChange={handleChange}
                           required
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         >
                           <option value="">Select User Type...</option>
                           <option value="regular-user">🌐 Regular User (Panel Account)</option>
@@ -241,7 +241,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         required
                         step="0.01"
                         min="0"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         placeholder="9.99"
                       />
                     </div>
@@ -258,7 +258,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         required
                         step="0.01"
                         min="0"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         placeholder="99.99"
                       />
                     </div>
@@ -279,7 +279,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         value={formData.max_accounts}
                         onChange={handleChange}
                         min="0"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                       />
                     </div>
 
@@ -293,7 +293,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         value={formData.max_domains}
                         onChange={handleChange}
                         min="0"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                       />
                     </div>
 
@@ -307,7 +307,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         value={formData.max_databases}
                         onChange={handleChange}
                         min="0"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                       />
                     </div>
 
@@ -321,7 +321,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         value={formData.max_emails}
                         onChange={handleChange}
                         min="0"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                       />
                     </div>
                   </div>
@@ -341,7 +341,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           name="storage"
                           value={formData.storage}
                           onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           placeholder="e.g., 50 GB SSD"
                         />
                       </div>
@@ -355,7 +355,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           name="bandwidth"
                           value={formData.bandwidth}
                           onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           placeholder="e.g., Unlimited"
                         />
                       </div>
@@ -369,7 +369,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           name="cpu"
                           value={formData.cpu}
                           onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           placeholder="e.g., 2 vCPU"
                         />
                       </div>
@@ -383,7 +383,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           name="ram"
                           value={formData.ram}
                           onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           placeholder="e.g., 4 GB"
                         />
                       </div>
@@ -396,7 +396,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           name="backups"
                           value={formData.backups}
                           onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         >
                           <option value="none">None</option>
                           <option value="weekly">Weekly</option>
@@ -414,7 +414,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           name="support"
                           value={formData.support}
                           onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           placeholder="e.g., 24/7 Email"
                         />
                       </div>
@@ -428,7 +428,7 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                           name="uptime"
                           value={formData.uptime}
                           onChange={handleChange}
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           placeholder="e.g., 99.9%"
                         />
                       </div>

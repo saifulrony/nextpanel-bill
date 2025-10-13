@@ -587,6 +587,69 @@ class TicketReplyResponse(BaseModel):
         from_attributes = True
 
 
+# Chat Schemas
+class ChatSessionCreateRequest(BaseModel):
+    subject: Optional[str] = None
+    guest_email: Optional[EmailStr] = None
+    guest_name: Optional[str] = None
+    guest_phone: Optional[str] = None
+
+
+class ChatSessionResponse(BaseModel):
+    id: str
+    user_id: Optional[str] = None
+    guest_email: Optional[str] = None
+    guest_name: Optional[str] = None
+    guest_phone: Optional[str] = None
+    session_token: Optional[str] = None
+    status: str
+    assigned_to: Optional[str] = None
+    subject: Optional[str] = None
+    rating: Optional[int] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+    unread_count: Optional[int] = 0
+    
+    class Config:
+        from_attributes = True
+
+
+class ChatMessageRequest(BaseModel):
+    message: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ChatMessageResponse(BaseModel):
+    id: str
+    session_id: str
+    sender_type: str
+    sender_id: Optional[str] = None
+    message: str
+    is_read: bool
+    created_at: datetime
+    sender_name: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class ChatBotRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    guest_email: Optional[EmailStr] = None
+    guest_name: Optional[str] = None
+    guest_phone: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
+
+
+class ChatBotResponse(BaseModel):
+    message: str
+    session_id: str
+    suggestions: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
 # Health Check
 class HealthResponse(BaseModel):
     status: str

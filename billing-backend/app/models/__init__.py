@@ -410,6 +410,65 @@ class TicketReply(Base):
     user = relationship("User")
 
 
+class ChatSessionStatus(str, enum.Enum):
+    ACTIVE = "active"
+    CLOSED = "closed"
+    ARCHIVED = "archived"
+
+
+class ChatSession(Base):
+    """Live chat sessions"""
+    __tablename__ = "chat_sessions"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"))
+    guest_email = Column(String(255))  # For non-logged-in users - REQUIRED for guests
+    guest_name = Column(String(255))
+    guest_phone = Column(String(50))  # Phone number - REQUIRED for guests
+    session_token = Column(String(255), unique=True)  # For guest tracking
+    status = Column(Enum(ChatSessionStatus), default=ChatSessionStatus.ACTIVE)
+    assigned_to = Column(String(36), ForeignKey("users.id"))  # Admin assigned
+    subject = Column(String(255))
+    rating = Column(Integer)  # 1-5 star rating after chat
+    feedback = Column(Text)
+    ip_address = Column(String(50))
+    user_agent = Column(String(500))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    closed_at = Column(DateTime(timezone=True))
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    assigned_admin = relationship("User", foreign_keys=[assigned_to])
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+
+
+class MessageSender(str, enum.Enum):
+    USER = "user"
+    ADMIN = "admin"
+    BOT = "bot"
+    SYSTEM = "system"
+
+
+class ChatMessage(Base):
+    """Chat messages in a session"""
+    __tablename__ = "chat_messages"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    session_id = Column(String(36), ForeignKey("chat_sessions.id"), nullable=False)
+    sender_type = Column(Enum(MessageSender), nullable=False)
+    sender_id = Column(String(36), ForeignKey("users.id"))  # Null for bot/system
+    message = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime(timezone=True))
+    message_metadata = Column(JSON)  # For attachments, links, etc. (renamed from 'metadata' - reserved in SQLAlchemy)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    session = relationship("ChatSession", back_populates="messages")
+    sender = relationship("User", foreign_keys=[sender_id])
+
+
 # Import NextPanel models to ensure tables are created
 from app.models.nextpanel_server import NextPanelServer, NextPanelAccount
 

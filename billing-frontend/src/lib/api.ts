@@ -357,6 +357,43 @@ export const supportAPI = {
     api.get('/support/stats'),
 };
 
+// Chat API
+export const chatAPI = {
+  // Sessions
+  createSession: (data?: { subject?: string; guest_email?: string; guest_name?: string }) =>
+    api.post('/chat/sessions', data || {}),
+  
+  listSessions: (params?: { status?: string; limit?: number; offset?: number }) =>
+    api.get('/chat/sessions', { params }),
+  
+  getSession: (id: string) =>
+    api.get(`/chat/sessions/${id}`),
+  
+  closeSession: (id: string) =>
+    api.post(`/chat/sessions/${id}/close`),
+  
+  rateSession: (id: string, rating: number, feedback?: string) =>
+    api.post(`/chat/sessions/${id}/rate`, null, { params: { rating, feedback } }),
+  
+  assignSession: (id: string, admin_id: string) =>
+    api.post(`/chat/sessions/${id}/assign`, null, { params: { admin_id } }),
+  
+  // Messages
+  getMessages: (session_id: string, params?: { limit?: number; offset?: number }) =>
+    api.get(`/chat/sessions/${session_id}/messages`, { params }),
+  
+  sendMessage: (session_id: string, data: { message: string; metadata?: any }) =>
+    api.post(`/chat/sessions/${session_id}/messages`, data),
+  
+  // AI Bot
+  chatWithBot: (data: { message: string; session_id?: string; context?: any }) =>
+    api.post('/chat/bot', data),
+  
+  // Stats
+  stats: () =>
+    api.get('/chat/stats'),
+};
+
 // Admin API
 export const adminAPI = {
   users: {

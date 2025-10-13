@@ -52,9 +52,9 @@ async def list_users():
 async def main():
     if len(sys.argv) < 2:
         print("Usage:")
-        print("  python make_user_admin.py <email>           - Make user admin")
-        print("  python make_user_admin.py --list           - List all users")
-        print("  python make_user_admin.py --list-admins    - List admin users only")
+        print("  python3 make_user_admin.py <email>           - Make user admin")
+        print("  python3 make_user_admin.py --list           - List all users")
+        print("  python3 make_user_admin.py --list-admins    - List admin users only")
         return
     
     if sys.argv[1] == "--list":
@@ -76,3 +76,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

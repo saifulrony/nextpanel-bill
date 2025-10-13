@@ -275,7 +275,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                       type="text"
                       value={item.description}
                       onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                       placeholder="Item description"
                       required
                     />
@@ -290,7 +290,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                       onChange={(e) => updateLineItem(index, 'quantity', e.target.value)}
                       min="1"
                       step="1"
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     />
                   </div>
                   <div className="col-span-2">
@@ -303,7 +303,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                       onChange={(e) => updateLineItem(index, 'unit_price', e.target.value)}
                       min="0"
                       step="0.01"
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     />
                   </div>
                   <div className="col-span-2">
@@ -314,7 +314,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                       type="text"
                       value={`$${item.amount.toFixed(2)}`}
                       disabled
-                      className="block w-full rounded-md border-gray-300 bg-gray-50 text-sm font-medium text-gray-900"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-sm font-medium text-gray-900 cursor-not-allowed"
                     />
                   </div>
                   <div className="col-span-1 flex items-end">
@@ -343,7 +343,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
 
@@ -354,7 +354,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
               <select
                 value={formData.currency}
                 onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -376,7 +376,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                 min="0"
                 max="100"
                 step="0.01"
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
 
@@ -393,7 +393,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                   max="100"
                   step="0.01"
                   placeholder="Discount %"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
                 <input
                   type="number"
@@ -402,7 +402,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                   min="0"
                   step="0.01"
                   placeholder="Discount $"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -447,7 +447,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 placeholder="Internal notes (visible to customer)"
               />
             </div>
@@ -467,7 +467,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                 <select
                   value={formData.recurring_interval}
                   onChange={(e) => setFormData({ ...formData, recurring_interval: e.target.value })}
-                  className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                  className="appearance-none px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 >
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
