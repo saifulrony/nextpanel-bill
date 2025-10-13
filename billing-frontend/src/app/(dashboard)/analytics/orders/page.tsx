@@ -12,7 +12,6 @@ import {
   ArrowPathIcon,
   SignalIcon,
   BellAlertIcon,
-  TrendingUpIcon,
   CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
 

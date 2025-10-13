@@ -165,6 +165,24 @@ export const subscriptionsAPI = {
     api.post(`/subscriptions/${id}/reactivate`),
 };
 
+// Orders API
+export const ordersAPI = {
+  create: (data: any) =>
+    api.post('/orders', data),
+  
+  list: (params?: any) =>
+    api.get('/orders', { params }),
+  
+  get: (id: string) =>
+    api.get(`/orders/${id}`),
+  
+  update: (id: string, data: any) =>
+    api.put(`/orders/${id}`, data),
+  
+  delete: (id: string) =>
+    api.delete(`/orders/${id}`),
+};
+
 // Invoices API
 export const invoicesAPI = {
   create: (data: any) =>

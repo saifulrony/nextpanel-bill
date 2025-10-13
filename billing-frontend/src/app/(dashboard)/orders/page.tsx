@@ -261,7 +261,7 @@ export default function OrdersPage() {
       )}
 
       {/* Filters */}
-      <OrderFilters filters={filters} onFilterChange={setFilters} />
+      <OrderFilters filters={filters} setFilters={setFilters} />
 
       {/* Orders Table */}
       <div className="bg-white shadow-sm rounded-lg border border-gray-200">

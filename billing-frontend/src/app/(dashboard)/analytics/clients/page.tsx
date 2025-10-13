@@ -12,8 +12,8 @@ import {
   ClockIcon,
   SignalIcon,
   BellAlertIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   ChartBarIcon,
 } from '@heroicons/react/24/outline';
 
@@ -267,7 +267,7 @@ export default function ClientNumbersPage() {
                     </div>
                     {customerGrowth > 0 && (
                       <div className="ml-2 flex items-baseline text-sm font-semibold">
-                        <TrendingUpIcon className="self-center flex-shrink-0 h-4 w-4 text-purple-200" />
+                        <ArrowTrendingUpIcon className="self-center flex-shrink-0 h-4 w-4 text-purple-200" />
                         <span className="text-purple-200">
                           {customerGrowth.toFixed(1)}%
                         </span>
