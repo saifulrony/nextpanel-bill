@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Refresh Admin Token</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #4338CA;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .success {
+            background: #D1FAE5;
+            color: #065F46;
+            border: 1px solid #10B981;
+        }
+        .error {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #EF4444;
+        }
+        h1 { color: #1F2937; }
+        p { color: #6B7280; line-height: 1.6; }
+        code {
+            background: #F3F4F6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 Refresh Admin Token</h1>
+        <p>This will clear your current token and redirect you to login. After logging back in, you'll have admin permissions to install addons.</p>
+        
+        <p><strong>What this does:</strong></p>
+        <ul>
+            <li>Clears <code>localStorage</code></li>
+            <li>Clears <code>sessionStorage</code></li>
+            <li>Redirects to login page</li>
+            <li>You log in → Get fresh token with admin flag</li>
+        </ul>
+
+        <button onclick="refreshToken()">🔄 Clear & Login Again</button>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        function refreshToken() {
+            const status = document.getElementById('status');
+            
+            try {
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Show success message
+                status.className = 'status success';
+                status.style.display = 'block';
+                status.innerHTML = '✅ Storage cleared! Redirecting to login in 2 seconds...';
+                
+                // Redirect to login
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:3000/login';
+                }, 2000);
+                
+            } catch (error) {
+                status.className = 'status error';
+                status.style.display = 'block';
+                status.innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
+

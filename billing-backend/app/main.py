@@ -10,7 +10,7 @@ import socket
 
 from app.core.config import settings as config_settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, domains, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, chat, marketplace
+from app.api.v1 import auth, licenses, plans, domains, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace
 from app.api.v1 import settings as settings_api
 from app.schemas import HealthResponse
 
@@ -179,13 +179,19 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(support.router, prefix="/api/v1")
-app.include_router(chat.router, prefix="/api/v1")
 app.include_router(marketplace.router, prefix="/api/v1")
 app.include_router(settings_api.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(nextpanel.router, prefix="/api/v1")
+
+# Load and register installed addon routes dynamically
+from app.core.addon_loader import AddonLoader
+import os
+addons_dir = os.path.join(os.path.dirname(__file__), "addons")
+addon_loader = AddonLoader(addons_dir)
+addon_loader.register_all_addons(app)
 
 
 if __name__ == "__main__":

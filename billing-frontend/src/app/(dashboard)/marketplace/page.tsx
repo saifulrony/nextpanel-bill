@@ -109,13 +109,13 @@ export default function MarketplacePage() {
   };
 
   const handleInstall = async (addonId: string, addonName: string) => {
-    if (!confirm(`Install "${addonName}"? This will add the addon to your system.`)) return;
+    if (!confirm(`Install "${addonName}"?\n\nThis will:\n- Download and add plugin files\n- Create database tables\n- Add new routes\n\nYou'll need to restart Next.js dev server after installation.`)) return;
     
     try {
       setInstalling(addonId);
       await marketplaceAPI.install(addonId);
       await loadAddons();
-      alert('Addon installed successfully! Refresh the page to see changes.');
+      alert(`✅ "${addonName}" installed successfully!\n\n🔄 IMPORTANT: Restart Next.js dev server:\n\n1. Go to your terminal running "npm run dev"\n2. Press Ctrl+C to stop\n3. Run "npm run dev" again\n4. Wait 10 seconds for compilation\n5. Then refresh your browser\n\n📁 Files were added to /app/(dashboard)/ directory`);
     } catch (error: any) {
       console.error('Failed to install addon:', error);
       alert(error.response?.data?.detail || 'Failed to install addon');
@@ -125,13 +125,13 @@ export default function MarketplacePage() {
   };
 
   const handleUninstall = async (addonId: string, addonName: string) => {
-    if (!confirm(`Uninstall "${addonName}"? This will remove the addon from your system.`)) return;
+    if (!confirm(`Uninstall "${addonName}"?\n\nThis will:\n- Delete plugin files\n- Drop database tables\n- Remove routes\n\nYou'll need to restart Next.js dev server after uninstallation.`)) return;
     
     try {
       setInstalling(addonId);
       await marketplaceAPI.uninstall(addonId);
       await loadAddons();
-      alert('Addon uninstalled successfully! Refresh the page to see changes.');
+      alert(`✅ "${addonName}" uninstalled successfully!\n\n🔄 IMPORTANT: Restart Next.js dev server:\n\n1. Go to your terminal running "npm run dev"\n2. Press Ctrl+C to stop\n3. Run "npm run dev" again\n4. Wait 5-10 seconds\n5. /support/chats will be 404 (truly gone!)\n\n📁 Files were removed from /app/(dashboard)/ directory`);
     } catch (error: any) {
       console.error('Failed to uninstall addon:', error);
       alert(error.response?.data?.detail || 'Failed to uninstall addon');

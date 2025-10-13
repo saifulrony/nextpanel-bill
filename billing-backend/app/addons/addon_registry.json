@@ -1,0 +1,29 @@
+{
+  "ai_chatbot": {
+    "id": "ai_chatbot",
+    "name": "AI Chatbot",
+    "version": "1.0.0",
+    "installed_at": "2025-10-13T18:45:20.719096",
+    "enabled": true,
+    "metadata": {
+      "id": "ai_chatbot",
+      "name": "AI Chatbot",
+      "version": "1.0.0",
+      "author": "NextPanel Team",
+      "description": "AI-powered customer support chatbot",
+      "category": "communication",
+      "price": 0,
+      "icon": "\ud83e\udd16",
+      "backend": {
+        "routes": [
+          "/api/v1/chat/*"
+        ]
+      },
+      "frontend": {
+        "routes": [
+          "/support/chats"
+        ]
+      }
+    }
+  }
+}

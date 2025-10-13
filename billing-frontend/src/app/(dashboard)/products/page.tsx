@@ -17,6 +17,7 @@ import {
   CircleStackIcon,
   BoltIcon,
   StarIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import CreateProductModal from '@/components/products/CreateProductModal';
@@ -64,7 +65,7 @@ export default function ProductsPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active'); // Default: show only active products
 
   useEffect(() => {
     loadData();
@@ -152,6 +153,32 @@ export default function ProductsPage() {
     } catch (error) {
       console.error('Failed to update featured status:', error);
       alert('Failed to update featured status');
+    }
+  };
+
+  const handleToggleActive = async (product: Product) => {
+    try {
+      const newStatus = !product.is_active;
+      
+      // Update the product status
+      await plansAPI.update(product.id, {
+        is_active: newStatus,
+      });
+      
+      // Reload all data to get fresh counts and products
+      await loadData();
+      
+      // Show feedback
+      const message = newStatus 
+        ? `✅ "${product.name}" is now ACTIVE and visible to customers`
+        : `⚠️ "${product.name}" is now INACTIVE and hidden from customers`;
+      
+      // Show toast notification (brief)
+      alert(message);
+      
+    } catch (error) {
+      console.error('Failed to update active status:', error);
+      alert('Failed to update active status');
     }
   };
 
@@ -313,17 +340,45 @@ export default function ProductsPage() {
               </select>
             </div>
 
-            {/* Status Filter */}
-            <div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+            {/* Status Filter - Professional Toggle with Counts */}
+            <div className="flex items-center">
+              <div className="inline-flex rounded-md shadow-sm border border-gray-300 bg-white" role="group">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('active')}
+                  className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-l-md focus:z-10 focus:outline-none transition-colors ${
+                    statusFilter === 'active'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <CheckIcon className="h-4 w-4 mr-1.5" />
+                  Active ({products.filter(p => p.is_active).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('inactive')}
+                  className={`relative inline-flex items-center px-4 py-2 text-sm font-medium border-l border-r border-gray-300 focus:z-10 focus:outline-none transition-colors ${
+                    statusFilter === 'inactive'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <EyeIcon className="h-4 w-4 mr-1.5" />
+                  Inactive ({products.filter(p => !p.is_active).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-r-md focus:z-10 focus:outline-none transition-colors ${
+                    statusFilter === 'all'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  All ({products.length})
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -365,26 +420,37 @@ export default function ProductsPage() {
             return (
               <div
                 key={product.id}
-                className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
+                className={`bg-white overflow-hidden shadow-sm rounded-lg border-2 transition-all ${
+                  product.is_active 
+                    ? 'border-gray-200 hover:shadow-md hover:border-indigo-200' 
+                    : 'border-gray-300 opacity-60 hover:opacity-80'
+                }`}
               >
-                <div className="p-5">
+                <div className="p-5 relative">
+                  {/* Inactive Overlay */}
+                  {!product.is_active && (
+                    <div className="absolute top-2 right-2 bg-gray-900 bg-opacity-75 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                      INACTIVE
+                    </div>
+                  )}
+                  
                   {/* Header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center">
-                      <div className={`p-2 rounded-lg ${getCategoryColor(category)}`}>
+                      <div className={`p-2 rounded-lg ${getCategoryColor(category)} ${!product.is_active ? 'opacity-50' : ''}`}>
                         <CategoryIcon className="h-6 w-6" />
                       </div>
                       <div className="ml-3">
-                        <h3 className="text-lg font-medium text-gray-900">
+                        <h3 className={`text-lg font-medium ${product.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
                           {product.name}
                         </h3>
                         <div className="flex items-center space-x-2">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                             product.is_active
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                              : 'bg-red-100 text-red-800'
                           }`}>
-                            {product.is_active ? 'Active' : 'Inactive'}
+                            {product.is_active ? '✓ Active' : '✕ Inactive'}
                           </span>
                           {product.is_featured && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -446,28 +512,54 @@ export default function ProductsPage() {
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="mt-4 flex space-x-2">
-                    <button
-                      onClick={() => handleViewDetails(product)}
-                      className="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      <EyeIcon className="h-4 w-4 mr-1" />
-                      View
-                    </button>
-                    <button
-                      onClick={() => handleEdit(product)}
-                      className="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      <PencilIcon className="h-4 w-4 mr-1" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
+                  {/* Actions - Compact Buttons */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleViewDetails(product)}
+                        className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                        title="View full details"
+                      >
+                        <EyeIcon className="h-3.5 w-3.5 mr-1" />
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                        title="Edit product details"
+                      >
+                        <PencilIcon className="h-3.5 w-3.5 mr-1" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(product)}
+                        className={`flex-1 inline-flex items-center justify-center px-2 py-1.5 border text-xs font-medium rounded transition-colors ${
+                          product.is_active
+                            ? 'border-orange-300 text-orange-700 bg-white hover:bg-orange-50'
+                            : 'border-green-300 text-green-700 bg-white hover:bg-green-50'
+                        }`}
+                        title={product.is_active ? 'Deactivate (hide from customers)' : 'Activate (show to customers)'}
+                      >
+                        {product.is_active ? (
+                          <>
+                            <EyeIcon className="h-3.5 w-3.5 mr-1" />
+                            Hide
+                          </>
+                        ) : (
+                          <>
+                            <CheckIcon className="h-3.5 w-3.5 mr-1" />
+                            Show
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className="p-1.5 border border-red-300 text-red-700 bg-white hover:bg-red-50 rounded transition-colors"
+                        title="Delete product"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

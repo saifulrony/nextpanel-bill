@@ -24,7 +24,7 @@ router = APIRouter(prefix="/plans", tags=["plans"])
 async def list_plans(
     db: AsyncSession = Depends(get_db),
     category: Optional[str] = None,
-    is_active: Optional[bool] = True,
+    is_active: Optional[bool] = None,  # Changed to None - return ALL products by default
     is_featured: Optional[bool] = None
 ):
     """

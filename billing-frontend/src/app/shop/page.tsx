@@ -10,9 +10,9 @@ interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;
-  billing_cycle: string;
-  category: string;
+  price_monthly: number;
+  price_yearly: number;
+  category?: string;
   is_active: boolean;
   features: Record<string, any>;
   subcategory?: string;
@@ -27,6 +27,7 @@ export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   const categories = [
     { id: 'all', name: 'All Products' },
@@ -70,16 +71,16 @@ export default function ShopPage() {
 
     // Filter by category
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(p => p.category.toLowerCase() === selectedCategory);
+      filtered = filtered.filter(p => p.category && p.category.toLowerCase() === selectedCategory);
     }
 
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(query) ||
-        p.description.toLowerCase().includes(query) ||
-        p.category.toLowerCase().includes(query)
+        (p.name && p.name.toLowerCase().includes(query)) ||
+        (p.description && p.description.toLowerCase().includes(query)) ||
+        (p.category && p.category.toLowerCase().includes(query))
       );
     }
 
@@ -87,13 +88,15 @@ export default function ShopPage() {
   };
 
   const handleAddToCart = (product: Product) => {
+    const price = billingCycle === 'monthly' ? product.price_monthly : product.price_yearly;
+    
     addItem({
       id: product.id,
       name: product.name,
       description: product.description,
-      price: product.price,
-      billing_cycle: product.billing_cycle,
-      category: product.category,
+      price: price || 0,
+      billing_cycle: billingCycle,
+      category: product.category || (product.features?.category) || 'general',
       type: 'product',
     });
 
@@ -109,6 +112,11 @@ export default function ShopPage() {
   };
 
   const formatPrice = (price: number, cycle: string) => {
+    // Handle undefined or null values
+    if (price === undefined || price === null || isNaN(price)) {
+      return 'Price not available';
+    }
+    
     const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -116,7 +124,8 @@ export default function ShopPage() {
 
     const cycleText = cycle === 'monthly' ? '/mo' : 
                       cycle === 'yearly' ? '/yr' : 
-                      cycle === 'one-time' ? '' : `/${cycle}`;
+                      cycle === 'one-time' ? '' : 
+                      cycle ? `/${cycle}` : '';
 
     return `${formatted}${cycleText}`;
   };
@@ -205,6 +214,32 @@ export default function ShopPage() {
               </button>
             ))}
           </div>
+
+          {/* Billing Cycle Toggle */}
+          <div className="flex items-center justify-center mt-6">
+            <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${
+                  billingCycle === 'monthly'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                Monthly Billing
+              </button>
+              <button
+                onClick={() => setBillingCycle('yearly')}
+                className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${
+                  billingCycle === 'yearly'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                Yearly Billing <span className="ml-1 text-xs text-green-600">(Save 20%)</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Products Grid */}
@@ -256,7 +291,10 @@ export default function ShopPage() {
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <span className="text-3xl font-bold text-gray-900">
-                          {formatPrice(product.price, product.billing_cycle)}
+                          {formatPrice(
+                            billingCycle === 'monthly' ? product.price_monthly : product.price_yearly, 
+                            billingCycle
+                          )}
                         </span>
                       </div>
                     </div>

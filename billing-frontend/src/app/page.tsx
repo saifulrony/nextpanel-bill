@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { ShoppingCartIcon, CheckIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
-import AIChatBot from '@/components/ui/AIChatBot';
 
 interface FeaturedProduct {
   id: string;
@@ -35,7 +34,8 @@ export default function Home() {
   const [categoryProducts, setCategoryProducts] = useState<Record<string, FeaturedProduct[]>>({});
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [chatbotEnabled, setChatbotEnabled] = useState(false);
+  // Note: Chatbot widget removed from homepage to support true modularity
+  // The chatbot functionality is now available at /support/chats when the plugin is installed
 
   const popularTlds = [
     { extension: '.com', price: '$8.99/yr' },
@@ -49,25 +49,7 @@ export default function Home() {
   useEffect(() => {
     loadFeaturedProducts();
     loadCategoryProducts();
-    checkChatbotAddon();
   }, []);
-
-  const checkChatbotAddon = async () => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
-      const response = await axios.get(`${apiUrl}/api/v1/marketplace/installed`);
-      const installedAddons = response.data;
-      
-      // Check if AI chatbot is installed and enabled
-      const chatbot = installedAddons.find((addon: any) => addon.addon?.name === 'ai_chatbot');
-      setChatbotEnabled(chatbot && chatbot.is_enabled);
-    } catch (error) {
-      // If error (e.g., not authenticated), default to disabled
-      setChatbotEnabled(false);
-    }
-  };
 
   const loadFeaturedProducts = async () => {
     try {
@@ -263,24 +245,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Shop CTA */}
-        <div className="mt-24 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-12 text-center shadow-2xl">
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Browse Our Products
-          </h2>
-          <p className="text-indigo-100 text-lg mb-8 max-w-2xl mx-auto">
-            Explore our full catalog of hosting plans, domains, SSL certificates, and more. 
-            Find the perfect solution for your needs.
-          </p>
-          <button
-            onClick={() => router.push('/shop')}
-            className="inline-flex items-center bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition shadow-lg"
-          >
-            <ShoppingCartIcon className="h-6 w-6 mr-2" />
-            Visit Shop
-          </button>
-        </div>
-
         {/* Features */}
         <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3">
           <div className="bg-white p-8 rounded-xl shadow-sm">
@@ -308,7 +272,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Featured Products */}
+        {/* Featured Products - Only show if there are featured products or loading */}
+        {(loadingProducts || featuredProducts.length > 0) && (
         <div id="pricing" className="mt-24">
           <h3 className="text-3xl font-bold text-center text-gray-900 mb-4">
             Featured Products
@@ -321,13 +286,6 @@ export default function Home() {
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
               <p className="mt-4 text-gray-600">Loading products...</p>
-            </div>
-          ) : featuredProducts.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-              <p className="text-gray-600 mb-4">No featured products yet</p>
-              <p className="text-sm text-gray-500">
-                Administrators can mark products as featured in the dashboard
-              </p>
             </div>
           ) : (
             <div className={`grid grid-cols-1 gap-8 ${
@@ -429,21 +387,22 @@ export default function Home() {
             </button>
           </div>
         </div>
+        )}
       </div>
 
       {/* Browse by Category Section */}
-      <div className="mt-32">
-        <div className="text-center mb-12">
-          <h3 className="text-3xl font-bold text-gray-900 mb-4">
+      <div className="mt-16 max-w-7xl mx-auto px-4">
+        <div className="text-center mb-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">
             Browse by Category
           </h3>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="text-gray-600 text-sm">
             Explore our complete range of products organized by category
           </p>
         </div>
 
         {/* Category Tabs */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
+        <div className="flex flex-wrap justify-center gap-2 mb-8">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`px-6 py-3 rounded-lg font-semibold transition-all ${
@@ -595,8 +554,6 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* AI Chatbot Widget (only if installed) */}
-      {chatbotEnabled && <AIChatBot />}
     </main>
   )
 }

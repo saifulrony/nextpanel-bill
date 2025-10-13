@@ -108,7 +108,7 @@ async def install_addon(
     db: AsyncSession = Depends(get_db),
     current_user_id: str = Depends(require_admin)
 ):
-    """Install an addon (admin only)"""
+    """Install an addon (admin only) - Downloads and installs plugin files"""
     # Check if addon exists
     result = await db.execute(
         select(Addon).where(Addon.id == request.addon_id)
@@ -130,27 +130,40 @@ async def install_addon(
             detail="Addon is already installed"
         )
     
-    # Create installation
-    installation = AddonInstallation(
-        addon_id=request.addon_id,
-        installed_by=current_user_id,
-        settings=request.settings or {},
-        is_enabled=True
-    )
-    
-    # Update install count
-    addon.install_count += 1
-    
-    db.add(installation)
-    await db.commit()
-    await db.refresh(installation)
-    
-    # Load addon details
-    installation.addon = addon
-    
-    logger.info(f"Installed addon: {addon.name} by user {current_user_id}")
-    
-    return installation
+    try:
+        # Install plugin files (download from local/remote source)
+        from app.core.plugin_installer import PluginInstaller
+        installer = PluginInstaller()
+        install_result = await installer.install(addon.name, addon.version)
+        
+        # Create installation record in database
+        installation = AddonInstallation(
+            addon_id=request.addon_id,
+            installed_by=current_user_id,
+            settings=request.settings or {},
+            is_enabled=True
+        )
+        
+        # Update install count
+        addon.install_count += 1
+        
+        db.add(installation)
+        await db.commit()
+        await db.refresh(installation)
+        
+        # Load addon details
+        installation.addon = addon
+        
+        logger.info(f"Installed addon: {addon.name} by user {current_user_id}")
+        
+        return installation
+        
+    except Exception as e:
+        logger.error(f"Failed to install addon {addon.name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Installation failed: {str(e)}"
+        )
 
 
 @router.delete("/uninstall/{addon_id}")
@@ -159,7 +172,7 @@ async def uninstall_addon(
     db: AsyncSession = Depends(get_db),
     current_user_id: str = Depends(require_admin)
 ):
-    """Uninstall an addon (admin only)"""
+    """Uninstall an addon (admin only) - Removes plugin files and database tables"""
     result = await db.execute(
         select(AddonInstallation).where(AddonInstallation.addon_id == addon_id)
     )
@@ -174,15 +187,30 @@ async def uninstall_addon(
     )
     addon = addon_result.scalars().first()
     
-    if addon:
-        addon.install_count = max(0, addon.install_count - 1)
-    
-    await db.delete(installation)
-    await db.commit()
-    
-    logger.info(f"Uninstalled addon: {addon.name if addon else addon_id}")
-    
-    return {"message": "Addon uninstalled successfully"}
+    try:
+        # Uninstall plugin files and drop tables
+        from app.core.plugin_installer import PluginInstaller
+        installer = PluginInstaller()
+        await installer.uninstall(addon.name if addon else addon_id)
+        
+        # Update install count
+        if addon:
+            addon.install_count = max(0, addon.install_count - 1)
+        
+        # Delete installation record
+        await db.delete(installation)
+        await db.commit()
+        
+        logger.info(f"Uninstalled addon: {addon.name if addon else addon_id}")
+        
+        return {"message": "Addon uninstalled successfully. Please restart the application."}
+        
+    except Exception as e:
+        logger.error(f"Failed to uninstall addon: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Uninstallation failed: {str(e)}"
+        )
 
 
 @router.post("/toggle/{addon_id}")

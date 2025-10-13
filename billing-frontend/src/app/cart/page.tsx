@@ -17,24 +17,24 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Header */}
-        <header className="bg-white shadow-sm">
+        <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>
-                NextPanel Shop
-              </h1>
+              <a href="/" className="text-2xl font-bold text-indigo-600 hover:text-indigo-700">
+                NextPanel
+              </a>
               <div className="flex items-center space-x-4">
-                <a href="/shop" className="text-gray-600 hover:text-gray-900">Continue Shopping</a>
-                <a href="/login" className="text-gray-600 hover:text-gray-900">Login</a>
+                <a href="/shop" className="text-gray-600 hover:text-indigo-600">Continue Shopping</a>
+                <a href="/login" className="text-gray-600 hover:text-indigo-600">Login</a>
               </div>
             </div>
           </div>
         </header>
 
         {/* Empty Cart */}
-        <div className="max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+        <div className="flex-1 max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
           <div className="text-center">
             <ShoppingBagIcon className="mx-auto h-24 w-24 text-gray-400" />
             <h2 className="mt-4 text-2xl font-bold text-gray-900">Your cart is empty</h2>
@@ -48,29 +48,45 @@ export default function CartPage() {
             </button>
           </div>
         </div>
+
+        {/* Footer */}
+        <footer className="mt-auto bg-white border-t border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row items-center justify-between">
+              <div className="text-sm text-gray-600 mb-4 md:mb-0">
+                © 2025 NextPanel. All rights reserved.
+              </div>
+              <div className="flex items-center space-x-6 text-sm">
+                <a href="/" className="text-gray-600 hover:text-indigo-600 transition">Home</a>
+                <a href="/shop" className="text-gray-600 hover:text-indigo-600 transition">Shop</a>
+                <a href="/pricing" className="text-gray-600 hover:text-indigo-600 transition">Pricing</a>
+              </div>
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>
-              NextPanel Shop
-            </h1>
+            <a href="/" className="text-2xl font-bold text-indigo-600 hover:text-indigo-700">
+              NextPanel
+            </a>
             <div className="flex items-center space-x-4">
               <a href="/shop" className="text-gray-600 hover:text-gray-900">Continue Shopping</a>
               <a href="/login" className="text-gray-600 hover:text-gray-900">Login</a>
             </div>
           </div>
         </div>
-      </header>
+        </header>
 
       {/* Cart Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex-1 max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full">
         <div className="flex items-center mb-8">
           <button
             onClick={() => router.push('/shop')}
@@ -202,6 +218,23 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-auto bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="text-sm text-gray-600 mb-4 md:mb-0">
+              © 2025 NextPanel. All rights reserved.
+            </div>
+            <div className="flex items-center space-x-6 text-sm">
+              <a href="/" className="text-gray-600 hover:text-indigo-600 transition">Home</a>
+              <a href="/shop" className="text-gray-600 hover:text-indigo-600 transition">Shop</a>
+              <a href="/pricing" className="text-gray-600 hover:text-indigo-600 transition">Pricing</a>
+              <a href="/cart" className="text-gray-600 hover:text-indigo-600 transition">Cart ({items.length})</a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

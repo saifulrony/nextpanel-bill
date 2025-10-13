@@ -25,7 +25,6 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
     max_emails: product.max_emails?.toString() || '0',
     category: product.features?.category || 'hosting',
     subcategory: product.features?.subcategory || product.features?.user_type || '',
-    is_active: product.is_active ?? true,
     // Advanced features
     storage: product.features?.storage || '',
     bandwidth: product.features?.bandwidth || '',
@@ -223,19 +222,6 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
                         </p>
                       </div>
                     )}
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={formData.is_active}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <label className="ml-2 block text-sm text-gray-900">
-                        Active (visible to customers)
-                      </label>
-                    </div>
                   </div>
                 </div>
 

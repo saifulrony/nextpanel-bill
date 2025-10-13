@@ -34,7 +34,6 @@ import {
   PuzzlePieceIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
-import { marketplaceAPI } from '@/lib/api';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -101,6 +100,9 @@ export default function DashboardLayout({
   };
 
   const isMenuExpanded = (menuName: string) => expandedMenus.includes(menuName);
+
+  // Note: Navigation is no longer filtered - pages handle addon checks themselves
+  // This allows "install and use" without restart
 
   // Close dropdown when clicking outside
   useEffect(() => {

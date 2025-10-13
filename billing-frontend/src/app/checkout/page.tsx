@@ -172,15 +172,26 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header with Navigation */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Secure Checkout</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <a href="/" className="text-2xl font-bold text-indigo-600 hover:text-indigo-700">
+                NextPanel
+              </a>
+              <span className="ml-4 text-sm text-gray-500">/ Checkout</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <LockClosedIcon className="h-5 w-5 text-green-600" />
+              <span className="text-sm text-gray-600">Secure Checkout</span>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex-1 max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full">
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Checkout Form */}
@@ -436,6 +447,32 @@ export default function CheckoutPage() {
           </div>
         </form>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-auto bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="text-sm text-gray-600 mb-4 md:mb-0">
+              © 2025 NextPanel. All rights reserved.
+            </div>
+            <div className="flex items-center space-x-6 text-sm">
+              <a href="/" className="text-gray-600 hover:text-indigo-600 transition">
+                Home
+              </a>
+              <a href="/shop" className="text-gray-600 hover:text-indigo-600 transition">
+                Shop
+              </a>
+              <a href="/pricing" className="text-gray-600 hover:text-indigo-600 transition">
+                Pricing
+              </a>
+              <span className="flex items-center text-green-600">
+                <LockClosedIcon className="h-4 w-4 mr-1" />
+                Secure
+              </span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
