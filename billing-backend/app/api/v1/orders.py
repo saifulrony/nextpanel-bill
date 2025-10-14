@@ -3,7 +3,7 @@ Orders API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List, Optional
 from datetime import datetime
 
@@ -13,6 +13,39 @@ from app.models import Order, OrderStatus, User
 from pydantic import BaseModel, Field
 
 router = APIRouter()
+
+
+async def generate_invoice_number(db: AsyncSession) -> str:
+    """Generate sequential invoice number like INV-0008"""
+    from datetime import datetime
+    
+    # Find the highest invoice number
+    result = await db.execute(
+        select(func.max(Order.invoice_number))
+        .where(Order.invoice_number.like('INV-%'))
+    )
+    max_invoice = result.scalar()
+    
+    if max_invoice:
+        # Extract the number part and increment
+        try:
+            # Handle both old format (INV-2024-0001) and new format (INV-0008)
+            parts = max_invoice.split('-')
+            if len(parts) == 3:
+                # Old format: INV-2024-0001
+                number = int(parts[-1])
+            else:
+                # New format: INV-0008
+                number = int(parts[-1])
+            next_number = number + 1
+        except (ValueError, IndexError):
+            next_number = 1
+    else:
+        # First invoice
+        next_number = 1
+    
+    # Format: INV-0008
+    return f"INV-{next_number:04d}"
 
 
 # Schemas
@@ -49,6 +82,8 @@ class OrderResponse(BaseModel):
     id: str
     customer_id: str
     status: str
+    invoice_number: Optional[str]
+    order_number: Optional[str]
     items: List[dict]
     subtotal: float
     tax: float
@@ -154,10 +189,18 @@ async def create_order(
             # Default to 30 days
             due_date = now + timedelta(days=30)
     
+    # Generate invoice number
+    invoice_number = await generate_invoice_number(db)
+    # Extract the number part from invoice (e.g., INV-0008 -> 0008)
+    invoice_num = invoice_number.split('-')[1]
+    order_number = f"ORD-{invoice_num}"
+    
     # Create order
     new_order = Order(
         customer_id=order_data.customer_id,
         status=OrderStatus.PENDING,
+        invoice_number=invoice_number,
+        order_number=order_number,
         items=[item.dict() for item in order_data.items],
         subtotal=order_data.subtotal,
         tax=order_data.tax,
@@ -177,6 +220,8 @@ async def create_order(
         id=new_order.id,
         customer_id=new_order.customer_id,
         status=new_order.status.value,
+        invoice_number=new_order.invoice_number,
+        order_number=new_order.order_number,
         items=new_order.items,
         subtotal=new_order.subtotal,
         tax=new_order.tax,
@@ -273,6 +318,8 @@ async def list_orders(
             id=order.id,
             customer_id=order.customer_id,
             status=order.status.value,
+            invoice_number=order.invoice_number,
+            order_number=order.order_number,
             items=order.items,
             subtotal=order.subtotal,
             tax=order.tax,
@@ -329,6 +376,8 @@ async def get_order(
         id=order.id,
         customer_id=order.customer_id,
         status=order.status.value,
+        invoice_number=order.invoice_number,
+        order_number=order.order_number,
         items=order.items,
         subtotal=order.subtotal,
         tax=order.tax,
@@ -388,6 +437,8 @@ async def update_order_status(
         id=order.id,
         customer_id=order.customer_id,
         status=order.status.value,
+        invoice_number=order.invoice_number,
+        order_number=order.order_number,
         items=order.items,
         subtotal=order.subtotal,
         tax=order.tax,
@@ -480,6 +531,8 @@ async def update_order(
         id=order.id,
         customer_id=order.customer_id,
         status=order.status.value,
+        invoice_number=order.invoice_number,
+        order_number=order.order_number,
         items=order.items,
         subtotal=order.subtotal,
         tax=order.tax,
@@ -626,7 +679,7 @@ async def send_order_email(
     db: AsyncSession = Depends(get_db)
 ):
     """Send order via email (admin or order owner)"""
-16.    import smtplib
+    import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
     import os

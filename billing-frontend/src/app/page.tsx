@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,13 +26,14 @@ interface FeaturedProduct {
 
 export default function Home() {
   const router = useRouter();
-  const { getItemCount, addItem } = useCart();
+  const { getItemCount, addItem, updateQuantity, items } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTld, setSelectedTld] = useState('.com');
   const [isSearching, setIsSearching] = useState(false);
   const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const addingToCartRef = useRef<Set<string>>(new Set());
   const [categoryProducts, setCategoryProducts] = useState<Record<string, FeaturedProduct[]>>({});
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -102,15 +103,35 @@ export default function Home() {
   };
 
   const handleAddToCart = (product: FeaturedProduct) => {
-    addItem({
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: product.price_monthly,
-      billing_cycle: 'monthly',
-      category: product.features?.category || 'product',
-      type: 'product',
-    });
+    // Prevent double-clicks by checking if we're already adding this item
+    if (addingToCartRef.current.has(product.id)) {
+      return;
+    }
+    
+    addingToCartRef.current.add(product.id);
+    
+    // Prevent double-clicks by checking if item already exists with same ID
+    const existingItem = items.find(item => item.id === product.id);
+    if (existingItem) {
+      // Item already in cart, just increment quantity
+      updateQuantity(product.id, existingItem.quantity + 1);
+    } else {
+      // New item, add to cart
+      addItem({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price_monthly,
+        billing_cycle: 'monthly',
+        category: product.features?.category || 'product',
+        type: 'product',
+      });
+    }
+    
+    // Remove from the set after a short delay to allow for the state update
+    setTimeout(() => {
+      addingToCartRef.current.delete(product.id);
+    }, 500);
   };
 
   const handleSearch = (e: React.FormEvent) => {

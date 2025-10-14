@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ShoppingCartIcon, MagnifyingGlassIcon, CheckIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 
@@ -21,6 +22,7 @@ interface Product {
 export default function ShopPage() {
   const router = useRouter();
   const { addItem, getItemCount } = useCart();
+  const { user, isAuthenticated } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);

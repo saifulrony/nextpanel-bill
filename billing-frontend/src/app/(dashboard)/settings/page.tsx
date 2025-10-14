@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { settingsAPI } from '@/lib/api';
+import { useNotification } from '@/contexts/NotificationContext';
+import { settingsAPI, authAPI } from '@/lib/api';
 import { ClockIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const { success, error: showError, warning } = useNotification();
   const [formData, setFormData] = useState({
     full_name: user?.full_name || '',
     email: user?.email || '',
@@ -26,6 +28,14 @@ export default function SettingsPage() {
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
+  
+  // Password change state
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -57,7 +67,90 @@ export default function SettingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Profile update functionality to be implemented');
+    
+    if (!user) {
+      alert('User not found');
+      return;
+    }
+    
+    try {
+      await authAPI.updateProfile({
+        full_name: formData.full_name,
+        company_name: formData.company_name,
+      });
+      
+      // Refresh user data
+      await refreshUser();
+      
+      success('Profile updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      showError(error.response?.data?.detail || 'Failed to update profile');
+    }
+  };
+
+  // Password validation helper
+  const validatePassword = (password: string) => {
+    const hasMinLength = password.length >= 6;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    
+    return {
+      hasMinLength,
+      hasUppercase,
+      hasLowercase,
+      hasNumber,
+      isValid: hasMinLength && hasUppercase && hasLowercase && hasNumber
+    };
+  };
+
+  const handlePasswordChange = async () => {
+    if (!passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password) {
+      warning('Please fill in all password fields');
+      return;
+    }
+    
+    const passwordValidation = validatePassword(passwordData.new_password);
+    if (!passwordValidation.isValid) {
+      warning('New password does not meet the requirements');
+      return;
+    }
+    
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      warning('New password and confirm password do not match');
+      return;
+    }
+    
+    setUpdatingPassword(true);
+    
+    try {
+      console.log('Sending password update request:', {
+        current_password: passwordData.current_password ? '***' : 'empty',
+        new_password: passwordData.new_password ? '***' : 'empty',
+      });
+      
+      await authAPI.updateProfile({
+        current_password: passwordData.current_password,
+        new_password: passwordData.new_password,
+      });
+      
+      // Clear password fields
+      setPasswordData({
+        current_password: '',
+        new_password: '',
+        confirm_password: '',
+      });
+      
+      success('Password updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update password:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error details:', JSON.stringify(error.response?.data, null, 2));
+      showError(error.response?.data?.detail || 'Failed to update password');
+    } finally {
+      setUpdatingPassword(false);
+    }
   };
 
   const handleSystemSettingsSave = async () => {
@@ -383,6 +476,8 @@ export default function SettingsPage() {
               </label>
               <input
                 type="password"
+                value={passwordData.current_password}
+                onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
                 className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
@@ -393,8 +488,26 @@ export default function SettingsPage() {
               </label>
               <input
                 type="password"
+                value={passwordData.new_password}
+                onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
                 className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
+              {passwordData.new_password && (
+                <div className="mt-2 text-xs space-y-1">
+                  <div className={validatePassword(passwordData.new_password).hasMinLength ? 'text-green-600' : 'text-gray-500'}>
+                    {validatePassword(passwordData.new_password).hasMinLength ? '✓' : '✗'} At least 6 characters
+                  </div>
+                  <div className={validatePassword(passwordData.new_password).hasUppercase ? 'text-green-600' : 'text-gray-500'}>
+                    {validatePassword(passwordData.new_password).hasUppercase ? '✓' : '✗'} At least one uppercase letter (A-Z)
+                  </div>
+                  <div className={validatePassword(passwordData.new_password).hasLowercase ? 'text-green-600' : 'text-gray-500'}>
+                    {validatePassword(passwordData.new_password).hasLowercase ? '✓' : '✗'} At least one lowercase letter (a-z)
+                  </div>
+                  <div className={validatePassword(passwordData.new_password).hasNumber ? 'text-green-600' : 'text-gray-500'}>
+                    {validatePassword(passwordData.new_password).hasNumber ? '✓' : '✗'} At least one number (0-9)
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -403,12 +516,18 @@ export default function SettingsPage() {
               </label>
               <input
                 type="password"
+                value={passwordData.confirm_password}
+                onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
                 className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
-            <button className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-              Update Password
+            <button 
+              onClick={handlePasswordChange}
+              disabled={updatingPassword}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {updatingPassword ? 'Updating...' : 'Update Password'}
             </button>
           </div>
         </div>

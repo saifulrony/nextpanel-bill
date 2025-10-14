@@ -373,6 +373,10 @@ class Order(Base):
     customer_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
     
+    # Invoice/Order Number (human-readable)
+    invoice_number = Column(String(50), unique=True, index=True)
+    order_number = Column(String(50), unique=True, index=True)
+    
     # Order details
     items = Column(JSON)  # Array of order items
     subtotal = Column(Float, nullable=False)

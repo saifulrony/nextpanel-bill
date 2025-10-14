@@ -62,14 +62,19 @@ echo ""
 echo -e "${GREEN}Starting Backend (port 8001)...${NC}"
 cd $INSTALL_DIR/billing-backend
 if [ -f "backend.log" ]; then
-    mv backend.log backend.log.old
+    mv -f backend.log backend.log.old
 fi
 
 if [ -f "venv/bin/activate" ]; then
     source venv/bin/activate
 fi
 
-nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
+# Use uvicorn from user's local bin if available
+if [ -f "$HOME/.local/bin/uvicorn" ]; then
+    nohup $HOME/.local/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
+else
+    nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
+fi
 BACKEND_PID=$!
 echo -e "  Backend PID: ${GREEN}$BACKEND_PID${NC}"
 
@@ -86,7 +91,7 @@ echo ""
 echo -e "${GREEN}Starting Frontend (port 4000)...${NC}"
 cd $INSTALL_DIR/billing-frontend
 if [ -f "frontend.log" ]; then
-    mv frontend.log frontend.log.old
+    mv -f frontend.log frontend.log.old
 fi
 
 nohup npm run dev > frontend.log 2>&1 &

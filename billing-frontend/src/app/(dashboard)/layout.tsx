@@ -307,9 +307,6 @@ export default function DashboardLayout({
                       <div className="px-4 py-2 border-b border-gray-100">
                         <div className="font-medium text-gray-900">{user?.full_name}</div>
                         <div className="text-sm text-gray-500">{user?.email}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {user?.is_admin ? 'Administrator' : 'User'}
-                        </div>
                       </div>
                       <Link
                         href="/profile"

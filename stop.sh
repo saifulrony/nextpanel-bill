@@ -26,7 +26,7 @@ fi
 BACKEND_COUNT=$(ps aux | grep "uvicorn app.main:app" | grep -v grep | wc -l)
 if [ "$BACKEND_COUNT" -gt 0 ]; then
     echo -e "${YELLOW}Stopping backend...${NC}"
-    pkill -f "uvicorn app.main:app"
+    sudo pkill -f "uvicorn app.main:app" 2>/dev/null || pkill -f "uvicorn app.main:app" 2>/dev/null
     sleep 2
     echo -e "${GREEN}✓ Backend stopped${NC}"
 else
@@ -37,7 +37,7 @@ fi
 FRONTEND_COUNT=$(ps aux | grep "next dev" | grep -v grep | wc -l)
 if [ "$FRONTEND_COUNT" -gt 0 ]; then
     echo -e "${YELLOW}Stopping frontend...${NC}"
-    pkill -f "next dev"
+    sudo pkill -f "next dev" 2>/dev/null || pkill -f "next dev" 2>/dev/null
     sleep 2
     echo -e "${GREEN}✓ Frontend stopped${NC}"
 else
