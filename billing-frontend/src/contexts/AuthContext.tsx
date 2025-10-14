@@ -47,6 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Also set cookie for middleware
+      document.cookie = `access_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+
       const response = await authAPI.getMe();
       setAuthState({
         user: response.data,
@@ -56,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refresh_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       setAuthState({ user: null, isAuthenticated: false, isLoading: false });
     }
   };
@@ -69,10 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('refresh_token', refresh_token);
 
+      // Also save to cookies for middleware
+      document.cookie = `access_token=${access_token}; path=/; max-age=86400; SameSite=Lax`;
+      document.cookie = `refresh_token=${refresh_token}; path=/; max-age=604800; SameSite=Lax`;
+
       // DON'T update React state - just redirect
       // The dashboard will load fresh and pick up auth from localStorage
       // This prevents double redirect issue
-      window.location.href = '/dashboard';
+      window.location.href = '/admin/dashboard';
     } catch (error) {
       throw error;
     }
@@ -82,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authAPI.register(data);
       await login(data.email, data.password);
-      router.push('/dashboard');
+      router.push('/admin/dashboard');
     } catch (error) {
       throw error;
     }
@@ -91,8 +100,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    
+    // Also remove from cookies with multiple approaches to ensure they're cleared
+    document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'refresh_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'access_token=; path=/; domain=' + window.location.hostname + '; max-age=0';
+    document.cookie = 'refresh_token=; path=/; domain=' + window.location.hostname + '; max-age=0';
+    
     setAuthState({ user: null, isAuthenticated: false, isLoading: false });
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const refreshUser = async () => {

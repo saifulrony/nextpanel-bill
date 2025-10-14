@@ -36,46 +36,46 @@ import {
 import { useState, useRef, useEffect } from 'react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Customers', href: '/customers', icon: UserGroupIcon },
-  { name: 'Products', href: '/products', icon: ShoppingBagIcon },
-  { name: 'Orders', href: '/orders', icon: ShoppingCartIcon },
-  { name: 'Licenses', href: '/licenses', icon: KeyIcon },
-  { name: 'Domains', href: '/domains', icon: GlobeAltIcon },
-  { name: 'Subscriptions', href: '/subscriptions', icon: CubeIcon },
+  { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
+  { name: 'Customers', href: '/admin/customers', icon: UserGroupIcon },
+  { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
+  { name: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
+  { name: 'Licenses', href: '/admin/licenses', icon: KeyIcon },
+  { name: 'Domains', href: '/admin/domains', icon: GlobeAltIcon },
+  { name: 'Subscriptions', href: '/admin/subscriptions', icon: CubeIcon },
   { 
     name: 'Payments', 
-    href: '/payments', 
+    href: '/admin/payments', 
     icon: CreditCardIcon,
     children: [
-      { name: 'Transactions', href: '/payments', icon: DocumentTextIcon },
-      { name: 'Payment Gateways', href: '/payments/gateways', icon: Cog6ToothIcon },
+      { name: 'Transactions', href: '/admin/payments', icon: DocumentTextIcon },
+      { name: 'Payment Gateways', href: '/admin/payments/gateways', icon: Cog6ToothIcon },
     ]
   },
-  { name: 'Server', href: '/server', icon: ServerIcon },
+  { name: 'Server', href: '/admin/server', icon: ServerIcon },
   { 
     name: 'Analytics', 
-    href: '/analytics', 
+    href: '/admin/analytics', 
     icon: ChartBarIcon,
     children: [
-      { name: 'Overview', href: '/analytics', icon: ChartBarIcon },
-      { name: 'Sales Report', href: '/analytics/sales', icon: BanknotesIcon },
-      { name: 'Client Numbers', href: '/analytics/clients', icon: UsersIcon },
-      { name: 'Order Numbers', href: '/analytics/orders', icon: ClipboardDocumentListIcon },
-      { name: 'Support Tickets', href: '/analytics/tickets', icon: ChatBubbleLeftRightIcon },
+      { name: 'Overview', href: '/admin/analytics', icon: ChartBarIcon },
+      { name: 'Sales Report', href: '/admin/analytics/sales', icon: BanknotesIcon },
+      { name: 'Client Numbers', href: '/admin/analytics/clients', icon: UsersIcon },
+      { name: 'Order Numbers', href: '/admin/analytics/orders', icon: ClipboardDocumentListIcon },
+      { name: 'Support Tickets', href: '/admin/analytics/tickets', icon: ChatBubbleLeftRightIcon },
     ]
   },
   { 
     name: 'Support', 
-    href: '/support', 
+    href: '/admin/support', 
     icon: LifebuoyIcon,
     children: [
-      { name: 'Tickets', href: '/support', icon: ClipboardDocumentListIcon },
-      { name: 'Live Chats', href: '/support/chats', icon: ChatBubbleLeftRightIcon },
+      { name: 'Tickets', href: '/admin/support', icon: ClipboardDocumentListIcon },
+      { name: 'Live Chats', href: '/admin/support/chats', icon: ChatBubbleLeftRightIcon },
     ]
   },
-  { name: 'Marketplace', href: '/marketplace', icon: PuzzlePieceIcon },
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+  { name: 'Marketplace', href: '/admin/marketplace', icon: PuzzlePieceIcon },
+  { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
 ];
 
 export default function DashboardLayout({

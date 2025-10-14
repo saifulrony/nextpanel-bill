@@ -150,14 +150,14 @@ export default function CheckoutPage() {
             </p>
           )}
           <div className="space-y-3">
-            {checkoutType === 'register' && (
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition"
-              >
-                Go to Dashboard
-              </button>
-            )}
+                {checkoutType === 'register' && (
+                  <button
+                    onClick={() => router.push('/admin/dashboard')}
+                    className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition"
+                  >
+                    Go to Dashboard
+                  </button>
+                )}
             <button
               onClick={() => router.push('/shop')}
               className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-200 transition"
