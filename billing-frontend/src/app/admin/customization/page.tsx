@@ -16,10 +16,53 @@ import {
   DocumentIcon,
   PlayIcon,
   ArrowPathIcon,
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline';
+import { PageBuilderWithISR } from '@/components/page-builder/PageBuilderWithISR';
+import { Component } from '@/components/page-builder/types';
 
 interface CustomizationSettings {
+  // Front Page Header
   logo: string | null;
+  logoWidth: number;
+  logoHeight: number;
+  logoPosition: 'left' | 'center' | 'right';
+  logoPadding: number;
+  logoOpacity: number;
+  logoMaxWidth: string;
+  
+  // Dashboard Sidebar
+  sidebarLogo: string | null;
+  sidebarBgColor: string;
+  sidebarTextColor: string;
+  sidebarHoverColor: string;
+  sidebarActiveColor: string;
+  sidebarWidth: number;
+  sidebarCollapsed: boolean;
+  
+  // Front Page Footer
+  footerBgColor: string;
+  footerTextColor: string;
+  footerHeadingColor: string;
+  footerLogo: string | null;
+  footerCopyright: string;
+  footerLinks: Array<{ title: string; url: string }>;
+  
+  // Layout Settings
+  headerHeight: number;
+  sidebarWidthLayout: number;
+  contentPadding: number;
+  cardPadding: number;
+  cardBorderRadius: number;
+  cardShadow: string;
+  buttonBorderRadius: number;
+  inputBorderRadius: number;
+  spacingUnit: number;
+  gridGap: number;
+  sectionGap: number;
+  containerMaxWidth: string;
+  
+  // Global Settings
   fontFamily: string;
   primaryColor: string;
   secondaryColor: string;
@@ -40,10 +83,57 @@ interface PageFile {
 }
 
 export default function CustomizationPage() {
-  const [activeTab, setActiveTab] = useState<'logo' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom'>('logo');
+  const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'builder'>('header');
+  const [showPageBuilder, setShowPageBuilder] = useState(false);
+  const [pageBuilderComponents, setPageBuilderComponents] = useState<Component[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
   const [settings, setSettings] = useState<CustomizationSettings>({
+    // Front Page Header
     logo: null,
+    logoWidth: 150,
+    logoHeight: 50,
+    logoPosition: 'left',
+    logoPadding: 10,
+    logoOpacity: 100,
+    logoMaxWidth: '200px',
+    
+    // Dashboard Sidebar
+    sidebarLogo: null,
+    sidebarBgColor: '#FFFFFF',
+    sidebarTextColor: '#1F2937',
+    sidebarHoverColor: '#F3F4F6',
+    sidebarActiveColor: '#EEF2FF',
+    sidebarWidth: 256,
+    sidebarCollapsed: false,
+    
+    // Front Page Footer
+    footerBgColor: '#1F2937',
+    footerTextColor: '#9CA3AF',
+    footerHeadingColor: '#FFFFFF',
+    footerLogo: null,
+    footerCopyright: '© 2025 NextPanel. All rights reserved.',
+    footerLinks: [
+      { title: 'About', url: '/about' },
+      { title: 'Contact', url: '/contact' },
+      { title: 'Privacy', url: '/privacy' },
+      { title: 'Terms', url: '/terms' },
+    ],
+    
+    // Layout Settings
+    headerHeight: 64,
+    sidebarWidthLayout: 256,
+    contentPadding: 24,
+    cardPadding: 24,
+    cardBorderRadius: 8,
+    cardShadow: 'sm',
+    buttonBorderRadius: 6,
+    inputBorderRadius: 6,
+    spacingUnit: 8,
+    gridGap: 24,
+    sectionGap: 48,
+    containerMaxWidth: '1280px',
+    
+    // Global Settings
     fontFamily: 'Inter',
     primaryColor: '#4F46E5',
     secondaryColor: '#818CF8',
@@ -69,13 +159,28 @@ export default function CustomizationPage() {
     // Load saved settings from localStorage
     const saved = localStorage.getItem('customization_settings');
     if (saved) {
-      setSettings(JSON.parse(saved));
+      const parsedSettings = JSON.parse(saved);
+      // Ensure all numeric values are properly set
+      setSettings({
+        ...parsedSettings,
+        logoWidth: parsedSettings.logoWidth || 150,
+        logoHeight: parsedSettings.logoHeight || 50,
+        logoPadding: parsedSettings.logoPadding || 10,
+        logoOpacity: parsedSettings.logoOpacity || 100,
+        logoMaxWidth: parsedSettings.logoMaxWidth || '200px',
+      });
     }
     
     // Load saved themes
     const themes = localStorage.getItem('customization_themes');
     if (themes) {
       setSavedThemes(JSON.parse(themes));
+    }
+
+    // Load saved page builder components
+    const savedComponents = localStorage.getItem('page_builder_components');
+    if (savedComponents) {
+      setPageBuilderComponents(JSON.parse(savedComponents));
     }
   }, []);
 
@@ -87,6 +192,74 @@ export default function CustomizationPage() {
     applySettings();
   }, [settings]);
 
+  // Apply logo styles on mount
+  useEffect(() => {
+    const logoSettings = localStorage.getItem('logo_settings');
+    if (logoSettings) {
+      try {
+        const settings = JSON.parse(logoSettings);
+        const logoStyle = `
+          .logo-container {
+            display: flex;
+            justify-content: ${settings.logoPosition || 'left'};
+            padding: ${settings.logoPadding || 10}px;
+            opacity: ${(settings.logoOpacity || 100) / 100};
+          }
+          .logo-img {
+            max-width: ${settings.logoMaxWidth || '200px'};
+            width: ${settings.logoWidth || 150}px;
+            height: ${settings.logoHeight || 50}px;
+            object-fit: contain;
+          }
+        `;
+        
+        let styleElement = document.getElementById('custom-logo-styles');
+        if (!styleElement) {
+          styleElement = document.createElement('style');
+          styleElement.id = 'custom-logo-styles';
+          document.head.appendChild(styleElement);
+        }
+        styleElement.textContent = logoStyle;
+        
+        // Update logo images if they exist
+        if (settings.logo) {
+          const logoElements = document.querySelectorAll('.logo-img, .sidebar-logo, .header-logo');
+          logoElements.forEach((el) => {
+            (el as HTMLImageElement).src = settings.logo;
+            (el as HTMLElement).style.display = 'block';
+          });
+        }
+      } catch (error) {
+        console.error('Failed to apply logo settings:', error);
+      }
+    }
+  }, []);
+
+  // Apply layout settings on mount
+  useEffect(() => {
+    const layoutSettings = localStorage.getItem('layout_settings');
+    if (layoutSettings) {
+      try {
+        const settings = JSON.parse(layoutSettings);
+        const root = document.documentElement;
+        
+        root.style.setProperty('--header-height', `${settings.headerHeight || 64}px`);
+        root.style.setProperty('--sidebar-width', `${settings.sidebarWidthLayout || 256}px`);
+        root.style.setProperty('--content-padding', `${settings.contentPadding || 24}px`);
+        root.style.setProperty('--card-padding', `${settings.cardPadding || 24}px`);
+        root.style.setProperty('--card-radius', `${settings.cardBorderRadius || 8}px`);
+        root.style.setProperty('--button-radius', `${settings.buttonBorderRadius || 6}px`);
+        root.style.setProperty('--input-radius', `${settings.inputBorderRadius || 6}px`);
+        root.style.setProperty('--spacing-unit', `${settings.spacingUnit || 8}px`);
+        root.style.setProperty('--grid-gap', `${settings.gridGap || 24}px`);
+        root.style.setProperty('--section-gap', `${settings.sectionGap || 48}px`);
+        root.style.setProperty('--container-max-width', settings.containerMaxWidth || '1280px');
+      } catch (error) {
+        console.error('Failed to apply layout settings:', error);
+      }
+    }
+  }, []);
+
   const applySettings = () => {
     // Apply CSS variables
     const root = document.documentElement;
@@ -95,6 +268,19 @@ export default function CustomizationPage() {
     root.style.setProperty('--bg-color', settings.backgroundColor);
     root.style.setProperty('--text-color', settings.textColor);
     root.style.setProperty('--font-family', settings.fontFamily);
+    
+    // Apply layout variables
+    root.style.setProperty('--header-height', `${settings.headerHeight}px`);
+    root.style.setProperty('--sidebar-width', `${settings.sidebarWidthLayout}px`);
+    root.style.setProperty('--content-padding', `${settings.contentPadding}px`);
+    root.style.setProperty('--card-padding', `${settings.cardPadding}px`);
+    root.style.setProperty('--card-radius', `${settings.cardBorderRadius}px`);
+    root.style.setProperty('--button-radius', `${settings.buttonBorderRadius}px`);
+    root.style.setProperty('--input-radius', `${settings.inputBorderRadius}px`);
+    root.style.setProperty('--spacing-unit', `${settings.spacingUnit}px`);
+    root.style.setProperty('--grid-gap', `${settings.gridGap}px`);
+    root.style.setProperty('--section-gap', `${settings.sectionGap}px`);
+    root.style.setProperty('--container-max-width', settings.containerMaxWidth);
     
     // Apply layout class
     document.body.className = document.body.className.replace(/layout-\w+/g, '');
@@ -110,6 +296,55 @@ export default function CustomizationPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleSaveLogo = () => {
+    // Save logo settings to localStorage
+    localStorage.setItem('logo_settings', JSON.stringify({
+      logo: settings.logo,
+      logoWidth: settings.logoWidth,
+      logoHeight: settings.logoHeight,
+      logoPosition: settings.logoPosition,
+      logoPadding: settings.logoPadding,
+      logoOpacity: settings.logoOpacity,
+      logoMaxWidth: settings.logoMaxWidth,
+    }));
+    
+    // Apply logo styles globally
+    const logoStyle = `
+      .logo-container {
+        display: flex;
+        justify-content: ${settings.logoPosition || 'left'};
+        padding: ${settings.logoPadding || 10}px;
+        opacity: ${(settings.logoOpacity || 100) / 100};
+      }
+      .logo-img {
+        max-width: ${settings.logoMaxWidth || '200px'};
+        width: ${settings.logoWidth || 150}px;
+        height: ${settings.logoHeight || 50}px;
+        object-fit: contain;
+      }
+    `;
+    
+    // Inject CSS
+    let styleElement = document.getElementById('custom-logo-styles');
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = 'custom-logo-styles';
+      document.head.appendChild(styleElement);
+    }
+    styleElement.textContent = logoStyle;
+    
+    // Update logo in sidebar and header if they exist
+    const logoElements = document.querySelectorAll('.logo-img, .sidebar-logo, .header-logo');
+    logoElements.forEach((el) => {
+      if (settings.logo) {
+        (el as HTMLImageElement).src = settings.logo;
+        (el as HTMLElement).style.display = 'block';
+      }
+    });
+    
+    alert('Logo settings saved successfully!');
   };
 
   const handleSaveTheme = () => {
@@ -144,6 +379,42 @@ export default function CustomizationPage() {
     if (confirm('Are you sure you want to reset all customizations?')) {
       const defaultSettings: CustomizationSettings = {
         logo: null,
+        logoWidth: 150,
+        logoHeight: 50,
+        logoPosition: 'left',
+        logoPadding: 10,
+        logoOpacity: 100,
+        logoMaxWidth: '200px',
+        sidebarLogo: null,
+        sidebarBgColor: '#FFFFFF',
+        sidebarTextColor: '#1F2937',
+        sidebarHoverColor: '#F3F4F6',
+        sidebarActiveColor: '#EEF2FF',
+        sidebarWidth: 256,
+        sidebarCollapsed: false,
+        footerBgColor: '#1F2937',
+        footerTextColor: '#9CA3AF',
+        footerHeadingColor: '#FFFFFF',
+        footerLogo: null,
+        footerCopyright: '© 2025 NextPanel. All rights reserved.',
+        footerLinks: [
+          { title: 'About', url: '/about' },
+          { title: 'Contact', url: '/contact' },
+          { title: 'Privacy', url: '/privacy' },
+          { title: 'Terms', url: '/terms' },
+        ],
+        headerHeight: 64,
+        sidebarWidthLayout: 256,
+        contentPadding: 24,
+        cardPadding: 24,
+        cardBorderRadius: 8,
+        cardShadow: 'sm',
+        buttonBorderRadius: 6,
+        inputBorderRadius: 6,
+        spacingUnit: 8,
+        gridGap: 24,
+        sectionGap: 48,
+        containerMaxWidth: '1280px',
         fontFamily: 'Inter',
         primaryColor: '#4F46E5',
         secondaryColor: '#818CF8',
@@ -248,6 +519,11 @@ export default function ${page.name}Page() {
     }
   };
 
+  // Open Page Builder in new tab
+  const handleOpenPageBuilder = () => {
+    window.open('/page-builder', '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -296,7 +572,10 @@ export default function ${page.name}Page() {
           <div className="px-6">
             <nav className="flex space-x-8 -mb-px">
               {[
-                { id: 'logo', name: 'Logo', icon: PhotoIcon },
+                { id: 'builder', name: 'Page Builder', icon: Squares2X2Icon, action: 'newTab' },
+                { id: 'header', name: 'Header', icon: PhotoIcon },
+                { id: 'sidebar', name: 'Sidebar', icon: FolderIcon },
+                { id: 'footer', name: 'Footer', icon: DocumentIcon },
                 { id: 'fonts', name: 'Fonts', icon: DocumentTextIcon },
                 { id: 'colors', name: 'Colors', icon: SwatchIcon },
                 { id: 'layout', name: 'Layout', icon: ArrowsRightLeftIcon },
@@ -307,7 +586,13 @@ export default function ${page.name}Page() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => {
+                      if (tab.action === 'newTab') {
+                        handleOpenPageBuilder();
+                      } else {
+                        setActiveTab(tab.id as any);
+                      }
+                    }}
                     className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                       activeTab === tab.id
                         ? 'border-indigo-500 text-indigo-600'
@@ -325,14 +610,15 @@ export default function ${page.name}Page() {
 
         {/* Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              {/* Logo Tab */}
-              {activeTab === 'logo' && (
+            {/* Main Content */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                {/* Header Tab */}
+                {activeTab === 'header' && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">System Logo</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Front Page Header</h2>
                   <div className="space-y-6">
+                    {/* Upload Section */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Upload Logo
@@ -374,14 +660,541 @@ export default function ${page.name}Page() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Logo Settings */}
                     {settings.logo && (
-                      <button
-                        onClick={() => setSettings({ ...settings, logo: null })}
-                        className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        Remove Logo
-                      </button>
+                      <>
+                        <div className="border-t border-gray-200 pt-6">
+                          <h3 className="text-md font-semibold text-gray-900 mb-4">Logo Settings</h3>
+                          
+                          {/* Size Controls */}
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Width (px)
+                              </label>
+                              <input
+                                type="number"
+                                value={settings.logoWidth}
+                                onChange={(e) => setSettings({ ...settings, logoWidth: parseInt(e.target.value) || 150 })}
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                min="50"
+                                max="500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Height (px)
+                              </label>
+                              <input
+                                type="number"
+                                value={settings.logoHeight}
+                                onChange={(e) => setSettings({ ...settings, logoHeight: parseInt(e.target.value) || 50 })}
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                min="20"
+                                max="300"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Max Width */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Max Width
+                            </label>
+                            <input
+                              type="text"
+                              value={settings.logoMaxWidth}
+                              onChange={(e) => setSettings({ ...settings, logoMaxWidth: e.target.value })}
+                              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              placeholder="200px"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Use px, %, vw, etc.</p>
+                          </div>
+
+                          {/* Position */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Position
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(['left', 'center', 'right'] as const).map((pos) => (
+                                <button
+                                  key={pos}
+                                  onClick={() => setSettings({ ...settings, logoPosition: pos })}
+                                  className={`px-4 py-2 rounded-md border-2 transition-colors ${
+                                    settings.logoPosition === pos
+                                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                      : 'border-gray-200 hover:border-gray-300'
+                                  }`}
+                                >
+                                  {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Padding */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Padding: {settings.logoPadding}px
+                            </label>
+                            <input
+                              type="range"
+                              value={settings.logoPadding}
+                              onChange={(e) => setSettings({ ...settings, logoPadding: parseInt(e.target.value) })}
+                              className="w-full"
+                              min="0"
+                              max="50"
+                            />
+                          </div>
+
+                          {/* Opacity */}
+                          <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Opacity: {settings.logoOpacity}%
+                            </label>
+                            <input
+                              type="range"
+                              value={settings.logoOpacity}
+                              onChange={(e) => setSettings({ ...settings, logoOpacity: parseInt(e.target.value) })}
+                              className="w-full"
+                              min="0"
+                              max="100"
+                            />
+                          </div>
+
+                          {/* Live Preview */}
+                          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Preview</h4>
+                            <div
+                              className="border border-gray-200 rounded p-4 bg-white"
+                              style={{
+                                display: 'flex',
+                                justifyContent: settings.logoPosition,
+                                padding: `${settings.logoPadding || 10}px`,
+                                opacity: (settings.logoOpacity || 100) / 100,
+                              }}
+                            >
+                              <img
+                                src={settings.logo}
+                                alt="Logo preview"
+                                style={{
+                                  maxWidth: settings.logoMaxWidth || '200px',
+                                  width: `${settings.logoWidth || 150}px`,
+                                  height: `${settings.logoHeight || 50}px`,
+                                  objectFit: 'contain',
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex space-x-3">
+                            <button
+                              onClick={handleSaveLogo}
+                              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                              Save Logo Settings
+                            </button>
+                            <button
+                              onClick={() => setSettings({ ...settings, logo: null })}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            >
+                              Remove Logo
+                            </button>
+                          </div>
+                        </div>
+                      </>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Sidebar Tab */}
+              {activeTab === 'sidebar' && (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Dashboard Sidebar</h2>
+                  <div className="space-y-6">
+                    {/* Sidebar Logo */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Sidebar Logo
+                      </label>
+                      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
+                        <div className="space-y-1 text-center">
+                          {settings.sidebarLogo ? (
+                            <div>
+                              <img
+                                src={settings.sidebarLogo}
+                                alt="Sidebar logo preview"
+                                className="mx-auto h-16 w-auto object-contain"
+                              />
+                              <p className="text-xs text-gray-500 mt-2">Current Sidebar Logo</p>
+                            </div>
+                          ) : (
+                            <>
+                              <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
+                              <div className="flex text-sm text-gray-600">
+                                <label
+                                  htmlFor="sidebar-logo-upload"
+                                  className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none"
+                                >
+                                  <span>Upload a file</span>
+                                  <input
+                                    id="sidebar-logo-upload"
+                                    name="sidebar-logo-upload"
+                                    type="file"
+                                    className="sr-only"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                          setSettings({ ...settings, sidebarLogo: reader.result as string });
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sidebar Colors */}
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-900 mb-4">Sidebar Colors</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Background Color
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="color"
+                              value={settings.sidebarBgColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarBgColor: e.target.value })}
+                              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings.sidebarBgColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarBgColor: e.target.value })}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Text Color
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="color"
+                              value={settings.sidebarTextColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarTextColor: e.target.value })}
+                              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings.sidebarTextColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarTextColor: e.target.value })}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Hover Color
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="color"
+                              value={settings.sidebarHoverColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarHoverColor: e.target.value })}
+                              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings.sidebarHoverColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarHoverColor: e.target.value })}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Active Color
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="color"
+                              value={settings.sidebarActiveColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarActiveColor: e.target.value })}
+                              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings.sidebarActiveColor}
+                              onChange={(e) => setSettings({ ...settings, sidebarActiveColor: e.target.value })}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sidebar Width */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Sidebar Width: {settings.sidebarWidth}px
+                      </label>
+                      <input
+                        type="range"
+                        value={settings.sidebarWidth}
+                        onChange={(e) => setSettings({ ...settings, sidebarWidth: parseInt(e.target.value) })}
+                        className="w-full"
+                        min="200"
+                        max="400"
+                      />
+                    </div>
+
+                    {/* Save Button */}
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('sidebar_settings', JSON.stringify({
+                          sidebarLogo: settings.sidebarLogo,
+                          sidebarBgColor: settings.sidebarBgColor,
+                          sidebarTextColor: settings.sidebarTextColor,
+                          sidebarHoverColor: settings.sidebarHoverColor,
+                          sidebarActiveColor: settings.sidebarActiveColor,
+                          sidebarWidth: settings.sidebarWidth,
+                        }));
+                        alert('Sidebar settings saved!');
+                      }}
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Save Sidebar Settings
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer Tab */}
+              {activeTab === 'footer' && (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Front Page Footer</h2>
+                  <div className="space-y-6">
+                    {/* Footer Logo */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Footer Logo
+                      </label>
+                      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
+                        <div className="space-y-1 text-center">
+                          {settings.footerLogo ? (
+                            <div>
+                              <img
+                                src={settings.footerLogo}
+                                alt="Footer logo preview"
+                                className="mx-auto h-16 w-auto object-contain"
+                              />
+                              <button
+                                onClick={() => setSettings({ ...settings, footerLogo: null })}
+                                className="mt-2 text-xs text-red-600 hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
+                              <div className="flex text-sm text-gray-600">
+                                <label
+                                  htmlFor="footer-logo-upload"
+                                  className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none"
+                                >
+                                  <span>Upload a file</span>
+                                  <input
+                                    id="footer-logo-upload"
+                                    name="footer-logo-upload"
+                                    type="file"
+                                    className="sr-only"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                          setSettings({ ...settings, footerLogo: reader.result as string });
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Colors */}
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-900 mb-4">Footer Colors</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Background Color
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="color"
+                              value={settings.footerBgColor}
+                              onChange={(e) => setSettings({ ...settings, footerBgColor: e.target.value })}
+                              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings.footerBgColor}
+                              onChange={(e) => setSettings({ ...settings, footerBgColor: e.target.value })}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Text Color
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="color"
+                              value={settings.footerTextColor}
+                              onChange={(e) => setSettings({ ...settings, footerTextColor: e.target.value })}
+                              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings.footerTextColor}
+                              onChange={(e) => setSettings({ ...settings, footerTextColor: e.target.value })}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Heading Color
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="color"
+                              value={settings.footerHeadingColor}
+                              onChange={(e) => setSettings({ ...settings, footerHeadingColor: e.target.value })}
+                              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings.footerHeadingColor}
+                              onChange={(e) => setSettings({ ...settings, footerHeadingColor: e.target.value })}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Copyright */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Copyright Text
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.footerCopyright}
+                        onChange={(e) => setSettings({ ...settings, footerCopyright: e.target.value })}
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="© 2025 NextPanel. All rights reserved."
+                      />
+                    </div>
+
+                    {/* Footer Links */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Footer Links
+                      </label>
+                      <div className="space-y-2">
+                        {settings.footerLinks.map((link, index) => (
+                          <div key={index} className="flex space-x-2">
+                            <input
+                              type="text"
+                              value={link.title}
+                              onChange={(e) => {
+                                const newLinks = [...settings.footerLinks];
+                                newLinks[index].title = e.target.value;
+                                setSettings({ ...settings, footerLinks: newLinks });
+                              }}
+                              placeholder="Link Title"
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                            <input
+                              type="text"
+                              value={link.url}
+                              onChange={(e) => {
+                                const newLinks = [...settings.footerLinks];
+                                newLinks[index].url = e.target.value;
+                                setSettings({ ...settings, footerLinks: newLinks });
+                              }}
+                              placeholder="/url"
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            />
+                            <button
+                              onClick={() => {
+                                const newLinks = settings.footerLinks.filter((_, i) => i !== index);
+                                setSettings({ ...settings, footerLinks: newLinks });
+                              }}
+                              className="px-3 py-1 text-sm text-red-600 hover:text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            setSettings({
+                              ...settings,
+                              footerLinks: [...settings.footerLinks, { title: 'New Link', url: '/' }]
+                            });
+                          }}
+                          className="w-full px-4 py-2 text-sm text-indigo-600 border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors"
+                        >
+                          Add Link
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('footer_settings', JSON.stringify({
+                          footerBgColor: settings.footerBgColor,
+                          footerTextColor: settings.footerTextColor,
+                          footerHeadingColor: settings.footerHeadingColor,
+                          footerLogo: settings.footerLogo,
+                          footerCopyright: settings.footerCopyright,
+                          footerLinks: settings.footerLinks,
+                        }));
+                        alert('Footer settings saved!');
+                      }}
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Save Footer Settings
+                    </button>
                   </div>
                 </div>
               )}
@@ -493,29 +1306,264 @@ export default function ${page.name}Page() {
               {/* Layout Tab */}
               {activeTab === 'layout' && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Layout Options</h2>
-                  <div className="space-y-4">
-                    {layouts.map((layout) => (
-                      <div
-                        key={layout.id}
-                        onClick={() => setSettings({ ...settings, layout: layout.id as any })}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          settings.layout === layout.id
-                            ? 'border-indigo-500 bg-indigo-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">{layout.name}</h3>
-                            <p className="text-sm text-gray-500">{layout.description}</p>
-                          </div>
-                          {settings.layout === layout.id && (
-                            <CheckCircleIcon className="h-6 w-6 text-indigo-600" />
-                          )}
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">System Layout & Structure</h2>
+                  
+                  {/* Quick Presets */}
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Presets</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      {layouts.map((layout) => (
+                        <button
+                          key={layout.id}
+                          onClick={() => setSettings({ ...settings, layout: layout.id as any })}
+                          className={`p-3 border-2 rounded-lg transition-all ${
+                            settings.layout === layout.id
+                              ? 'border-indigo-500 bg-indigo-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <h4 className="text-sm font-medium text-gray-900">{layout.name}</h4>
+                          <p className="text-xs text-gray-500 mt-1">{layout.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-md font-semibold text-gray-900 mb-4">Custom Layout Settings</h3>
+                    
+                    {/* Header & Sidebar */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Header & Sidebar</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Header Height: {settings.headerHeight}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.headerHeight}
+                            onChange={(e) => setSettings({ ...settings, headerHeight: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="48"
+                            max="120"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Sidebar Width: {settings.sidebarWidthLayout}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.sidebarWidthLayout}
+                            onChange={(e) => setSettings({ ...settings, sidebarWidthLayout: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="200"
+                            max="400"
+                          />
                         </div>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Spacing */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Spacing</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Content Padding: {settings.contentPadding}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.contentPadding}
+                            onChange={(e) => setSettings({ ...settings, contentPadding: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="8"
+                            max="64"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Card Padding: {settings.cardPadding}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.cardPadding}
+                            onChange={(e) => setSettings({ ...settings, cardPadding: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="8"
+                            max="48"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Grid Gap: {settings.gridGap}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.gridGap}
+                            onChange={(e) => setSettings({ ...settings, gridGap: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="8"
+                            max="64"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Section Gap: {settings.sectionGap}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.sectionGap}
+                            onChange={(e) => setSettings({ ...settings, sectionGap: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="24"
+                            max="128"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Border Radius */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Border Radius</h4>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Cards: {settings.cardBorderRadius}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.cardBorderRadius}
+                            onChange={(e) => setSettings({ ...settings, cardBorderRadius: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="0"
+                            max="24"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Buttons: {settings.buttonBorderRadius}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.buttonBorderRadius}
+                            onChange={(e) => setSettings({ ...settings, buttonBorderRadius: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="0"
+                            max="24"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Inputs: {settings.inputBorderRadius}px
+                          </label>
+                          <input
+                            type="range"
+                            value={settings.inputBorderRadius}
+                            onChange={(e) => setSettings({ ...settings, inputBorderRadius: parseInt(e.target.value) })}
+                            className="w-full"
+                            min="0"
+                            max="24"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Shadow & Container */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Shadow & Container</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Card Shadow
+                          </label>
+                          <select
+                            value={settings.cardShadow}
+                            onChange={(e) => setSettings({ ...settings, cardShadow: e.target.value })}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          >
+                            <option value="none">None</option>
+                            <option value="sm">Small</option>
+                            <option value="md">Medium</option>
+                            <option value="lg">Large</option>
+                            <option value="xl">Extra Large</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Max Container Width
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.containerMaxWidth}
+                            onChange={(e) => setSettings({ ...settings, containerMaxWidth: e.target.value })}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            placeholder="1280px"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Preview */}
+                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Preview</h4>
+                      <div className="space-y-3">
+                        <div
+                          className="bg-white p-4 rounded"
+                          style={{
+                            borderRadius: `${settings.cardBorderRadius}px`,
+                            padding: `${settings.cardPadding}px`,
+                            boxShadow: settings.cardShadow === 'none' ? 'none' : 
+                                       settings.cardShadow === 'sm' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' :
+                                       settings.cardShadow === 'md' ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' :
+                                       settings.cardShadow === 'lg' ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)' :
+                                       '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+                          }}
+                        >
+                          <div className="text-sm font-medium text-gray-900">Card Example</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Border Radius: {settings.cardBorderRadius}px | Padding: {settings.cardPadding}px
+                          </div>
+                        </div>
+                        <button
+                          className="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                          style={{ borderRadius: `${settings.buttonBorderRadius}px` }}
+                        >
+                          Button Example (Border Radius: {settings.buttonBorderRadius}px)
+                        </button>
+                        <input
+                          type="text"
+                          placeholder="Input Example"
+                          className="w-full px-3 py-2 border border-gray-300 rounded"
+                          style={{ borderRadius: `${settings.inputBorderRadius}px` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('layout_settings', JSON.stringify({
+                          headerHeight: settings.headerHeight,
+                          sidebarWidthLayout: settings.sidebarWidthLayout,
+                          contentPadding: settings.contentPadding,
+                          cardPadding: settings.cardPadding,
+                          cardBorderRadius: settings.cardBorderRadius,
+                          cardShadow: settings.cardShadow,
+                          buttonBorderRadius: settings.buttonBorderRadius,
+                          inputBorderRadius: settings.inputBorderRadius,
+                          spacingUnit: settings.spacingUnit,
+                          gridGap: settings.gridGap,
+                          sectionGap: settings.sectionGap,
+                          containerMaxWidth: settings.containerMaxWidth,
+                        }));
+                        alert('Layout settings saved!');
+                      }}
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Save Layout Settings
+                    </button>
                   </div>
                 </div>
               )}

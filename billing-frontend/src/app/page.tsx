@@ -38,6 +38,7 @@ export default function Home() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   // Note: Chatbot widget removed from homepage to support true modularity
   // The chatbot functionality is now available at /support/chats when the plugin is installed
 
@@ -53,6 +54,19 @@ export default function Home() {
   useEffect(() => {
     loadFeaturedProducts();
     loadCategoryProducts();
+    
+    // Load logo from localStorage
+    const logoSettings = localStorage.getItem('logo_settings');
+    if (logoSettings) {
+      try {
+        const settings = JSON.parse(logoSettings);
+        if (settings.logo) {
+          setLogoUrl(settings.logo);
+        }
+      } catch (error) {
+        console.error('Failed to load logo settings:', error);
+      }
+    }
   }, []);
 
   const loadFeaturedProducts = async () => {
@@ -151,9 +165,18 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>
-                NextPanel
-              </h1>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="h-10 w-auto cursor-pointer logo-img"
+                  onClick={() => router.push('/')}
+                />
+              ) : (
+                <h1 className="text-2xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>
+                  NextPanel
+                </h1>
+              )}
               <nav className="hidden md:flex space-x-6">
                 <a href="/" className="text-gray-600 hover:text-gray-900 font-medium">Home</a>
                 <a href="/shop" className="text-indigo-600 hover:text-indigo-700 font-medium">Shop</a>
