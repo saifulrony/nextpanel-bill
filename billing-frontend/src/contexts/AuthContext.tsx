@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem('access_token');
       
       if (!token) {
+        console.log('No token found, user not authenticated');
         setAuthState({ user: null, isAuthenticated: false, isLoading: false });
         return;
       }
@@ -50,13 +51,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Also set cookie for middleware
       document.cookie = `access_token=${token}; path=/; max-age=86400; SameSite=Lax`;
 
-      const response = await authAPI.getMe();
+      console.log('Checking authentication...');
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+      );
+      
+      const response = await Promise.race([
+        authAPI.getMe(),
+        timeoutPromise
+      ]) as any;
+      
+      console.log('Auth check successful:', response.data);
       setAuthState({
         user: response.data,
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Auth check failed:', error);
+      console.error('Error details:', error.response?.data || error.message);
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';

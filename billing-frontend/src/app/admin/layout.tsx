@@ -32,6 +32,7 @@ import {
   ClipboardDocumentListIcon,
   ArrowRightOnRectangleIcon,
   PuzzlePieceIcon,
+  PaintBrushIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
 
@@ -75,6 +76,7 @@ const navigation = [
     ]
   },
   { name: 'Marketplace', href: '/admin/marketplace', icon: PuzzlePieceIcon },
+  { name: 'Customization', href: '/admin/customization', icon: PaintBrushIcon },
   { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
 ];
 
@@ -87,9 +89,13 @@ export default function DashboardLayout({
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Analytics', 'Payments', 'Support']); // Default expand analytics, payments, and support
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]); // All menus closed by default
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev => 
@@ -104,11 +110,86 @@ export default function DashboardLayout({
   // Note: Navigation is no longer filtered - pages handle addon checks themselves
   // This allows "install and use" without restart
 
+  // Search function
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchDropdownOpen(false);
+      return;
+    }
+
+    const results: any[] = [];
+    const lowerQuery = query.toLowerCase();
+
+    // Search through navigation items
+    navigation.forEach((item) => {
+      // Check main item
+      if (item.name.toLowerCase().includes(lowerQuery)) {
+        results.push({
+          name: item.name,
+          href: item.href,
+          icon: item.icon,
+          type: 'page',
+          category: 'Navigation'
+        });
+      }
+
+      // Check children
+      if (item.children) {
+        item.children.forEach((child: any) => {
+          if (child.name.toLowerCase().includes(lowerQuery)) {
+            results.push({
+              name: child.name,
+              href: child.href,
+              icon: child.icon,
+              type: 'page',
+              category: item.name
+            });
+          }
+        });
+      }
+    });
+
+    // Add predefined search suggestions
+    const suggestions = [
+      { name: 'Dashboard Overview', href: '/admin/dashboard', category: 'Quick Access' },
+      { name: 'Customer Management', href: '/admin/customers', category: 'Quick Access' },
+      { name: 'Product Catalog', href: '/admin/products', category: 'Quick Access' },
+      { name: 'Order History', href: '/admin/orders', category: 'Quick Access' },
+      { name: 'License Keys', href: '/admin/licenses', category: 'Quick Access' },
+      { name: 'Domain Management', href: '/admin/domains', category: 'Quick Access' },
+      { name: 'Payment Settings', href: '/admin/payments/gateways', category: 'Quick Access' },
+      { name: 'Analytics & Reports', href: '/admin/analytics', category: 'Quick Access' },
+      { name: 'Support Tickets', href: '/admin/support', category: 'Quick Access' },
+      { name: 'System Settings', href: '/admin/settings', category: 'Quick Access' },
+      { name: 'Customization', href: '/admin/customization', category: 'Quick Access' },
+      { name: 'Marketplace', href: '/admin/marketplace', category: 'Quick Access' },
+    ];
+
+    suggestions.forEach((suggestion) => {
+      if (suggestion.name.toLowerCase().includes(lowerQuery) && 
+          !results.find(r => r.href === suggestion.href)) {
+        results.push({
+          ...suggestion,
+          type: 'suggestion'
+        });
+      }
+    });
+
+    setSearchResults(results);
+    setSearchDropdownOpen(results.length > 0);
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setSearchDropdownOpen(false);
       }
     }
 
@@ -227,26 +308,6 @@ export default function DashboardLayout({
           <nav className="flex-1 px-2 py-4 space-y-1">
             {navigation.map((item) => renderNavigationItem(item, sidebarCollapsed))}
           </nav>
-          
-          {/* User info at bottom */}
-          {!sidebarCollapsed && (
-            <div className="flex-shrink-0 border-t border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <UserCircleIcon className="h-10 w-10 text-gray-400" />
-                </div>
-                <div className="ml-3 min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          {sidebarCollapsed && (
-            <div className="flex-shrink-0 border-t border-gray-200 p-4 flex justify-center">
-              <UserCircleIcon className="h-8 w-8 text-gray-400" />
-            </div>
-          )}
         </div>
       </div>
 
@@ -265,15 +326,70 @@ export default function DashboardLayout({
           <div className="flex-1 px-4 flex justify-between items-center">
             <div className="flex-1 flex">
               <div className="w-full flex md:ml-0">
-                <div className="relative w-full text-gray-400 focus-within:text-gray-600">
+                <div className="relative w-full text-gray-400 focus-within:text-gray-600" ref={searchRef}>
                   <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none pl-3">
                     <MagnifyingGlassIcon className="h-5 w-5" />
                   </div>
                   <input
                     className="block w-full h-full pl-10 pr-3 py-2 border-transparent text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-0 focus:border-transparent sm:text-sm"
-                    placeholder="Search licenses, domains..."
+                    placeholder="Search pages, features..."
                     type="search"
+                    value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    onFocus={() => searchResults.length > 0 && setSearchDropdownOpen(true)}
                   />
+                  
+                  {/* Search Results Dropdown */}
+                  {searchDropdownOpen && searchResults.length > 0 && (
+                    <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-y-auto">
+                      <div className="py-2">
+                        {searchResults.map((result, index) => {
+                          const Icon = result.icon || HomeIcon;
+                          return (
+                            <Link
+                              key={index}
+                              href={result.href}
+                              onClick={() => {
+                                setSearchDropdownOpen(false);
+                                setSearchQuery('');
+                                setSearchResults([]);
+                              }}
+                              className="flex items-center px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                            >
+                              <Icon className="h-5 w-5 text-gray-400 mr-3 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900">{result.name}</p>
+                                <p className="text-xs text-gray-500">{result.category}</p>
+                              </div>
+                              <div className="ml-3">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                                  {result.type === 'suggestion' ? 'Quick Access' : 'Page'}
+                                </span>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Footer with search info */}
+                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                        <p className="text-xs text-gray-500">
+                          Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* No results message */}
+                  {searchDropdownOpen && searchResults.length === 0 && searchQuery.trim() && (
+                    <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-lg border border-gray-200">
+                      <div className="px-4 py-8 text-center">
+                        <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-900">No results found</p>
+                        <p className="text-xs text-gray-500">Try searching for something else</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
