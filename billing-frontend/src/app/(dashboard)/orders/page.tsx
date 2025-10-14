@@ -1,29 +1,46 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { invoicesAPI } from '@/lib/api';
+import { ordersAPI } from '@/lib/api';
 import CreateOrderModal from '@/components/orders/CreateOrderModal';
 import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
 import OrderFilters from '@/components/orders/OrderFilters';
 
+interface Customer {
+  id: string;
+  email: string;
+  full_name: string;
+  company_name?: string;
+}
+
 interface Order {
   id: string;
-  invoice_number: string;
+  invoice_number?: string;
+  order_number?: string;
+  customer_id?: string;
+  customer?: Customer;
   status: string;
   subtotal: number;
   discount_amount: number;
+  discount_percent?: number;
   tax: number;
+  tax_rate?: number;
   total: number;
   amount_paid: number;
   amount_due: number;
   currency: string;
-  invoice_date: string;
+  invoice_date?: string;
+  order_date?: string;
   due_date: string;
   paid_at: string | null;
   items: any[];
   notes: string | null;
+  terms?: string | null;
+  payment_instructions?: string | null;
   is_recurring: boolean;
+  recurring_interval?: string | null;
   sent_to_customer: boolean;
+  reminder_count?: number;
   created_at: string;
 }
 
@@ -67,16 +84,33 @@ export default function OrdersPage() {
       if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
       if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
 
-      const [ordersResponse, statsResponse] = await Promise.all([
-        invoicesAPI.list(params),
-        invoicesAPI.stats()
-      ]);
-      
+      const ordersResponse = await ordersAPI.list(params);
       setOrders(ordersResponse.data);
-      setStats(statsResponse.data);
-    } catch (error) {
+      
+      // Try to get stats
+      try {
+        const statsResponse = await ordersAPI.stats();
+        setStats(statsResponse.data);
+      } catch (error) {
+        console.log('Stats not available yet');
+        setStats(null);
+      }
+    } catch (error: any) {
       console.error('Failed to load data:', error);
-      alert('Failed to load order data');
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        const errorDetail = error.response?.data?.detail || '';
+        if (errorDetail.includes('Could not validate') || 
+            errorDetail.includes('credentials')) {
+          // The interceptor will handle the redirect
+          console.log('Authentication error - redirecting to login');
+          return;
+        }
+      }
+      
+      // For other errors, show a message
+      alert(error.response?.data?.detail || 'Failed to load order data');
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +118,7 @@ export default function OrdersPage() {
 
   const downloadPDF = async (order: Order) => {
     try {
-      const response = await invoicesAPI.downloadPDF(order.id);
+      const response = await ordersAPI.downloadPDF(order.id);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -100,7 +134,7 @@ export default function OrdersPage() {
 
   const sendOrder = async (order: Order) => {
     try {
-      await invoicesAPI.send(order.id);
+      await ordersAPI.send(order.id);
       alert('Order sent successfully!');
       loadData();
     } catch (error) {
@@ -110,7 +144,7 @@ export default function OrdersPage() {
 
   const markAsPaid = async (order: Order) => {
     try {
-      await invoicesAPI.pay(order.id);
+      await ordersAPI.pay(order.id);
       alert('Order marked as paid!');
       loadData();
     } catch (error) {
@@ -124,7 +158,7 @@ export default function OrdersPage() {
     }
     
     try {
-      await invoicesAPI.void(order.id);
+      await ordersAPI.void(order.id);
       alert('Order voided successfully');
       loadData();
     } catch (error) {
@@ -134,6 +168,14 @@ export default function OrdersPage() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
+      // Backend statuses
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      completed: 'bg-green-100 text-green-800',
+      cancelled: 'bg-gray-100 text-gray-600',
+      failed: 'bg-red-100 text-red-800',
+      
+      // Legacy/alternative statuses
       draft: 'bg-gray-100 text-gray-800',
       open: 'bg-blue-100 text-blue-800',
       paid: 'bg-green-100 text-green-800',
@@ -327,10 +369,10 @@ export default function OrdersPage() {
                 {orders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {order.invoice_number}
+                      {order.invoice_number || order.order_number || order.id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(order.invoice_date)}
+                      {formatDate(order.invoice_date || order.order_date || order.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(order.due_date)}
@@ -364,7 +406,7 @@ export default function OrdersPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                         </button>
-                        {order.status === 'open' && (
+                        {(order.status === 'pending' || order.status === 'processing' || order.status === 'open') && (
                           <button
                             onClick={() => markAsPaid(order)}
                             className="text-blue-600 hover:text-blue-900"
@@ -375,7 +417,7 @@ export default function OrdersPage() {
                             </svg>
                           </button>
                         )}
-                        {!order.sent_to_customer && order.status !== 'void' && (
+                        {!order.sent_to_customer && order.status !== 'void' && order.status !== 'cancelled' && (
                           <button
                             onClick={() => sendOrder(order)}
                             className="text-purple-600 hover:text-purple-900"
@@ -386,7 +428,7 @@ export default function OrdersPage() {
                             </svg>
                           </button>
                         )}
-                        {order.status !== 'void' && order.status !== 'paid' && (
+                        {order.status !== 'void' && order.status !== 'cancelled' && order.status !== 'completed' && order.status !== 'paid' && (
                           <button
                             onClick={() => voidOrder(order)}
                             className="text-red-600 hover:text-red-900"

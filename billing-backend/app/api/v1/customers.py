@@ -43,6 +43,12 @@ async def verify_admin(user_id: str = Depends(get_current_user_id), db: AsyncSes
 
 
 # Customer-specific schemas
+class GuestCustomerCreateRequest(BaseModel):
+    email: EmailStr
+    full_name: str
+    company_name: Optional[str] = None
+
+
 class CustomerCreateRequest(BaseModel):
     email: EmailStr
     full_name: str
@@ -468,6 +474,47 @@ async def get_customer(
         outstanding_invoices=outstanding_invoices,
         last_payment_date=last_payment.created_at if last_payment else None,
         licenses=license_responses
+    )
+
+
+@router.post("/guest", response_model=UserResponse)
+async def create_guest_customer(
+    customer_data: GuestCustomerCreateRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a guest customer (no auth required, for checkout)"""
+    
+    # Check if email already exists
+    result = await db.execute(select(User).where(User.email == customer_data.email))
+    existing_user = result.scalars().first()
+    
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate a random password for guest customers
+    guest_password = secrets.token_urlsafe(16)
+    
+    # Create new customer
+    new_customer = User(
+        email=customer_data.email,
+        password_hash=hash_password(guest_password),
+        full_name=customer_data.full_name,
+        company_name=customer_data.company_name,
+        is_active=True,
+        is_admin=False
+    )
+    
+    db.add(new_customer)
+    await db.commit()
+    await db.refresh(new_customer)
+    
+    return UserResponse(
+        id=new_customer.id,
+        email=new_customer.email,
+        full_name=new_customer.full_name,
+        company_name=new_customer.company_name,
+        is_active=new_customer.is_active,
+        created_at=new_customer.created_at
     )
 
 

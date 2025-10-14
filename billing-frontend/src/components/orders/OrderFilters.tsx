@@ -54,7 +54,7 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
             id="status"
             value={filters.status}
             onChange={(e) => handleChange('status', e.target.value)}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
@@ -75,7 +75,7 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
             id="start_date"
             value={filters.start_date}
             onChange={(e) => handleChange('start_date', e.target.value)}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
 
@@ -88,7 +88,7 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
             id="end_date"
             value={filters.end_date}
             onChange={(e) => handleChange('end_date', e.target.value)}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
 
@@ -104,7 +104,7 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
             placeholder="0.00"
             min="0"
             step="0.01"
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
 
@@ -120,7 +120,7 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
             placeholder="0.00"
             min="0"
             step="0.01"
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
         </div>
       </div>

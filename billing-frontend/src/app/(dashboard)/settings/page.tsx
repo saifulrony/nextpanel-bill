@@ -20,6 +20,10 @@ export default function SettingsPage() {
     date_format: 'YYYY-MM-DD',
     time_format: '24h',
   });
+  const [currencySettings, setCurrencySettings] = useState({
+    default_currency: 'USD',
+    currency_symbol: '$',
+  });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
 
@@ -35,13 +39,17 @@ export default function SettingsPage() {
       const settings = response.data;
       
       const timeSettingsData: any = {};
+      const currencySettingsData: any = {};
       settings.forEach((setting: any) => {
         if (setting.key === 'system_timezone') timeSettingsData.timezone = setting.value;
         if (setting.key === 'date_format') timeSettingsData.date_format = setting.value;
         if (setting.key === 'time_format') timeSettingsData.time_format = setting.value;
+        if (setting.key === 'default_currency') currencySettingsData.default_currency = setting.value;
+        if (setting.key === 'currency_symbol') currencySettingsData.currency_symbol = setting.value;
       });
       
       setTimeSettings(timeSettingsData);
+      setCurrencySettings(currencySettingsData);
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
@@ -61,6 +69,8 @@ export default function SettingsPage() {
         'system_timezone': timeSettings.timezone,
         'date_format': timeSettings.date_format,
         'time_format': timeSettings.time_format,
+        'default_currency': currencySettings.default_currency,
+        'currency_symbol': currencySettings.currency_symbol,
       });
       
       setSettingsMessage('Settings saved successfully!');
@@ -84,6 +94,26 @@ export default function SettingsPage() {
     }
   };
 
+  const getCurrencySymbol = (currency: string): string => {
+    const symbols: Record<string, string> = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'JPY': '¥',
+      'CNY': '¥',
+      'AUD': 'A$',
+      'CAD': 'C$',
+      'CHF': 'CHF',
+      'INR': '₹',
+      'BRL': 'R$',
+      'MXN': '$',
+      'SGD': 'S$',
+      'AED': 'د.إ',
+      'ZAR': 'R',
+    };
+    return symbols[currency] || currency;
+  };
+
   return (
     <div className="px-4 py-8 sm:px-0">
       <div className="mb-8">
@@ -95,119 +125,187 @@ export default function SettingsPage() {
 
       {/* System Settings (Admin Only) */}
       {user?.is_admin && (
-        <div className="bg-white shadow sm:rounded-lg mb-8">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                  <ClockIcon className="h-5 w-5 mr-2 text-indigo-600" />
-                  System Time Settings
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Configure system-wide time and date preferences
-                </p>
-              </div>
-              <button
-                onClick={initializeSettings}
-                className="text-xs text-indigo-600 hover:text-indigo-700"
-              >
-                Initialize Defaults
-              </button>
-            </div>
-            
-            {settingsMessage && (
-              <div className={`mb-4 p-3 rounded-md ${
-                settingsMessage.includes('success') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-              }`}>
-                <p className="text-sm flex items-center">
-                  {settingsMessage.includes('success') && <CheckCircleIcon className="h-4 w-4 mr-2" />}
-                  {settingsMessage}
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <>
+          <div className="bg-white shadow sm:rounded-lg mb-8">
+            <div className="px-4 py-5 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-1">
-                    System Timezone
-                  </label>
-                  <select
-                    id="timezone"
-                    value={timeSettings.timezone}
-                    onChange={(e) => setTimeSettings({ ...timeSettings, timezone: e.target.value })}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option value="UTC">UTC</option>
-                    <option value="America/New_York">Eastern Time (US)</option>
-                    <option value="America/Chicago">Central Time (US)</option>
-                    <option value="America/Denver">Mountain Time (US)</option>
-                    <option value="America/Los_Angeles">Pacific Time (US)</option>
-                    <option value="Europe/London">London (GMT)</option>
-                    <option value="Europe/Paris">Paris (CET)</option>
-                    <option value="Asia/Tokyo">Tokyo (JST)</option>
-                    <option value="Asia/Shanghai">Shanghai (CST)</option>
-                    <option value="Asia/Dubai">Dubai (GST)</option>
-                    <option value="Australia/Sydney">Sydney (AEDT)</option>
-                  </select>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+                    <ClockIcon className="h-5 w-5 mr-2 text-indigo-600" />
+                    System Time Settings
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Configure system-wide time and date preferences
+                  </p>
                 </div>
-                
-                <div>
-                  <label htmlFor="date_format" className="block text-sm font-medium text-gray-700 mb-1">
-                    Date Format
-                  </label>
-                  <select
-                    id="date_format"
-                    value={timeSettings.date_format}
-                    onChange={(e) => setTimeSettings({ ...timeSettings, date_format: e.target.value })}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option value="YYYY-MM-DD">YYYY-MM-DD (2025-10-13)</option>
-                    <option value="MM/DD/YYYY">MM/DD/YYYY (10/13/2025)</option>
-                    <option value="DD/MM/YYYY">DD/MM/YYYY (13/10/2025)</option>
-                    <option value="DD-MM-YYYY">DD-MM-YYYY (13-10-2025)</option>
-                    <option value="MMMM DD, YYYY">MMMM DD, YYYY (October 13, 2025)</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label htmlFor="time_format" className="block text-sm font-medium text-gray-700 mb-1">
-                    Time Format
-                  </label>
-                  <select
-                    id="time_format"
-                    value={timeSettings.time_format}
-                    onChange={(e) => setTimeSettings({ ...timeSettings, time_format: e.target.value })}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option value="24h">24-hour (13:30)</option>
-                    <option value="12h">12-hour (1:30 PM)</option>
-                  </select>
-                </div>
+                <button
+                  onClick={initializeSettings}
+                  className="text-xs text-indigo-600 hover:text-indigo-700"
+                >
+                  Initialize Defaults
+                </button>
               </div>
               
-              <div className="pt-4 border-t">
-                <button
-                  onClick={handleSystemSettingsSave}
-                  disabled={savingSettings}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                >
-                  {savingSettings ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircleIcon className="h-4 w-4 mr-2" />
-                      Save System Settings
-                    </>
-                  )}
-                </button>
+              {settingsMessage && (
+                <div className={`mb-4 p-3 rounded-md ${
+                  settingsMessage.includes('success') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                }`}>
+                  <p className="text-sm flex items-center">
+                    {settingsMessage.includes('success') && <CheckCircleIcon className="h-4 w-4 mr-2" />}
+                    {settingsMessage}
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-1">
+                      System Timezone
+                    </label>
+                    <select
+                      id="timezone"
+                      value={timeSettings.timezone}
+                      onChange={(e) => setTimeSettings({ ...timeSettings, timezone: e.target.value })}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="UTC">UTC</option>
+                      <option value="America/New_York">Eastern Time (US)</option>
+                      <option value="America/Chicago">Central Time (US)</option>
+                      <option value="America/Denver">Mountain Time (US)</option>
+                      <option value="America/Los_Angeles">Pacific Time (US)</option>
+                      <option value="Europe/London">London (GMT)</option>
+                      <option value="Europe/Paris">Paris (CET)</option>
+                      <option value="Asia/Tokyo">Tokyo (JST)</option>
+                      <option value="Asia/Shanghai">Shanghai (CST)</option>
+                      <option value="Asia/Dubai">Dubai (GST)</option>
+                      <option value="Australia/Sydney">Sydney (AEDT)</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="date_format" className="block text-sm font-medium text-gray-700 mb-1">
+                      Date Format
+                    </label>
+                    <select
+                      id="date_format"
+                      value={timeSettings.date_format}
+                      onChange={(e) => setTimeSettings({ ...timeSettings, date_format: e.target.value })}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="YYYY-MM-DD">YYYY-MM-DD (2025-10-13)</option>
+                      <option value="MM/DD/YYYY">MM/DD/YYYY (10/13/2025)</option>
+                      <option value="DD/MM/YYYY">DD/MM/YYYY (13/10/2025)</option>
+                      <option value="DD-MM-YYYY">DD-MM-YYYY (13-10-2025)</option>
+                      <option value="MMMM DD, YYYY">MMMM DD, YYYY (October 13, 2025)</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="time_format" className="block text-sm font-medium text-gray-700 mb-1">
+                      Time Format
+                    </label>
+                    <select
+                      id="time_format"
+                      value={timeSettings.time_format}
+                      onChange={(e) => setTimeSettings({ ...timeSettings, time_format: e.target.value })}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="24h">24-hour (13:30)</option>
+                      <option value="12h">12-hour (1:30 PM)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+
+          {/* Currency Settings */}
+          <div className="bg-white shadow sm:rounded-lg mb-8">
+            <div className="px-4 py-5 sm:p-6">
+              <div className="mb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+                  <svg className="h-5 w-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Currency Settings
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Set default currency for all transactions and invoices
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="default_currency" className="block text-sm font-medium text-gray-700 mb-1">
+                      Default Currency
+                    </label>
+                    <select
+                      id="default_currency"
+                      value={currencySettings.default_currency}
+                      onChange={(e) => {
+                        const currency = e.target.value;
+                        const symbol = getCurrencySymbol(currency);
+                        setCurrencySettings({ ...currencySettings, default_currency: currency, currency_symbol: symbol });
+                      }}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="USD">USD - US Dollar</option>
+                      <option value="EUR">EUR - Euro</option>
+                      <option value="GBP">GBP - British Pound</option>
+                      <option value="JPY">JPY - Japanese Yen</option>
+                      <option value="CNY">CNY - Chinese Yuan</option>
+                      <option value="AUD">AUD - Australian Dollar</option>
+                      <option value="CAD">CAD - Canadian Dollar</option>
+                      <option value="CHF">CHF - Swiss Franc</option>
+                      <option value="INR">INR - Indian Rupee</option>
+                      <option value="BRL">BRL - Brazilian Real</option>
+                      <option value="MXN">MXN - Mexican Peso</option>
+                      <option value="SGD">SGD - Singapore Dollar</option>
+                      <option value="AED">AED - UAE Dirham</option>
+                      <option value="ZAR">ZAR - South African Rand</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="currency_symbol" className="block text-sm font-medium text-gray-700 mb-1">
+                      Currency Symbol
+                    </label>
+                    <input
+                      type="text"
+                      id="currency_symbol"
+                      value={currencySettings.currency_symbol}
+                      onChange={(e) => setCurrencySettings({ ...currencySettings, currency_symbol: e.target.value })}
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="$"
+                    />
+                  </div>
+                </div>
+                
+                <div className="pt-4 border-t">
+                  <button
+                    onClick={handleSystemSettingsSave}
+                    disabled={savingSettings}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                  >
+                    {savingSettings ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircleIcon className="h-4 w-4 mr-2" />
+                        Save System Settings
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Profile Settings */}
@@ -219,7 +317,7 @@ export default function SettingsPage() {
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
                 Full Name
               </label>
               <input
@@ -227,12 +325,12 @@ export default function SettingsPage() {
                 id="full_name"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email Address
               </label>
               <input
@@ -240,14 +338,14 @@ export default function SettingsPage() {
                 id="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-gray-50"
                 disabled
               />
               <p className="mt-1 text-sm text-gray-500">Email cannot be changed</p>
             </div>
 
             <div>
-              <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">
                 Company Name
               </label>
               <input
@@ -255,7 +353,7 @@ export default function SettingsPage() {
                 id="company_name"
                 value={formData.company_name}
                 onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
@@ -280,32 +378,32 @@ export default function SettingsPage() {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Current Password
               </label>
               <input
                 type="password"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 New Password
               </label>
               <input
                 type="password"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm New Password
               </label>
               <input
                 type="password"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 

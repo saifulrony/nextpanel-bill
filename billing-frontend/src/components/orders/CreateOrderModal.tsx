@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { invoicesAPI, plansAPI } from '@/lib/api';
+import { ordersAPI, plansAPI } from '@/lib/api';
 import { XMarkIcon, PlusIcon, TrashIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
 
 interface LineItem {
@@ -10,6 +10,7 @@ interface LineItem {
   amount: number;
   unit_price: number;
   product_id?: string;
+  billing_period?: 'monthly' | 'yearly';
 }
 
 interface Product {
@@ -76,6 +77,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
       unit_price: price,
       amount: price,
       product_id: product.id,
+      billing_period: billingCycle,
     };
 
     setItems([...items, newItem]);
@@ -138,29 +140,44 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
         return;
       }
 
+      // Determine billing period from items
+      // If all items have the same billing_period, use that; otherwise default to monthly
+      const billingPeriods = validItems
+        .map(item => item.billing_period)
+        .filter((bp): bp is 'monthly' | 'yearly' => bp !== undefined);
+      
+      const billingPeriod = billingPeriods.length > 0 
+        ? (billingPeriods.every(bp => bp === billingPeriods[0]) ? billingPeriods[0] : 'monthly')
+        : 'monthly';
+
+      // Calculate totals
+      const subtotal = validItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+      const discountAmount = formData.discount_percent > 0 
+        ? (subtotal * formData.discount_percent / 100)
+        : formData.discount_amount;
+      const afterDiscount = subtotal - discountAmount;
+      const tax = afterDiscount * (formData.tax_rate / 100);
+      const total = afterDiscount + tax;
+
       // Prepare order data
       const orderData = {
+        customer_id: 'temp', // This needs to be selected from a customer list
         items: validItems.map(item => ({
           description: item.description,
           quantity: item.quantity,
           amount: item.unit_price,
           unit_price: item.unit_price,
+          product_id: item.product_id,
         })),
-        due_date: formData.due_date || undefined,
-        tax_rate: formData.tax_rate,
-        discount_percent: formData.discount_percent,
-        discount_amount: formData.discount_amount,
-        currency: formData.currency,
-        notes: formData.notes || undefined,
-        terms: formData.terms || undefined,
-        payment_instructions: formData.payment_instructions || undefined,
-        customer_po_number: formData.customer_po_number || undefined,
-        is_recurring: formData.is_recurring,
-        recurring_interval: formData.is_recurring ? formData.recurring_interval : undefined,
-        send_email: formData.send_email,
+        subtotal,
+        tax,
+        total,
+        payment_method: 'manual',
+        billing_info: {},
+        billing_period,
       };
 
-      await invoicesAPI.create(orderData);
+      await ordersAPI.create(orderData);
       alert('Order created successfully!');
       onSuccess();
     } catch (error: any) {

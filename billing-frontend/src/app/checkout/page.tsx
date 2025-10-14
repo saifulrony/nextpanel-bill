@@ -82,17 +82,12 @@ export default function CheckoutPage() {
         localStorage.setItem('access_token', loginResponse.data.access_token);
       }
 
-      // Step 2: Create customer record if guest
-      if (checkoutType === 'guest') {
-        const customerResponse = await api.post('/customers', {
+      // Step 2: Create customer record if guest (and not already logged in)
+      if (checkoutType === 'guest' && !user) {
+        const customerResponse = await api.post('/customers/guest', {
           email: customerInfo.email,
           full_name: customerInfo.full_name,
           company_name: customerInfo.company_name,
-          phone: customerInfo.phone,
-          address: customerInfo.address,
-          city: customerInfo.city,
-          country: customerInfo.country,
-          postal_code: customerInfo.postal_code,
         });
         
         customerId = customerResponse.data.id;
@@ -103,6 +98,7 @@ export default function CheckoutPage() {
         customer_id: customerId,
         items: items.map(item => ({
           product_id: item.id,
+          product_name: item.name,
           quantity: item.quantity,
           price: item.price,
         })),

@@ -10,8 +10,8 @@ from typing import Dict, Any, List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user_id
 from app.models import (
-    User, License, Plan, Payment, Domain, Invoice, Subscription,
-    LicenseStatus, PaymentStatus, InvoiceStatus, SubscriptionStatus
+    User, License, Plan, Payment, Domain, Invoice, Subscription, Order,
+    LicenseStatus, PaymentStatus, InvoiceStatus, SubscriptionStatus, OrderStatus
 )
 from pydantic import BaseModel
 
@@ -292,50 +292,50 @@ async def get_dashboard_stats(
     )
     cancelled_subscriptions = result.scalar() or 0
     
-    # Order/Payment Stats (using payments as orders, filtered by period)
+    # Order Stats (from Order table, filtered by period)
     result = await db.execute(
-        select(func.count(Payment.id)).where(
-            Payment.created_at.between(period_start, period_end)
+        select(func.count(Order.id)).where(
+            Order.created_at.between(period_start, period_end)
         )
     )
     total_orders = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Payment.id)).where(
+        select(func.count(Order.id)).where(
             and_(
-                Payment.status == PaymentStatus.PENDING,
-                Payment.created_at.between(period_start, period_end)
+                Order.status == OrderStatus.PENDING,
+                Order.created_at.between(period_start, period_end)
             )
         )
     )
     pending_orders = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Payment.id)).where(
+        select(func.count(Order.id)).where(
             and_(
-                Payment.status == PaymentStatus.SUCCEEDED,
-                Payment.created_at.between(period_start, period_end)
+                Order.status == OrderStatus.COMPLETED,
+                Order.created_at.between(period_start, period_end)
             )
         )
     )
     completed_orders = result.scalar() or 0
     
     result = await db.execute(
-        select(func.count(Payment.id)).where(
+        select(func.count(Order.id)).where(
             and_(
-                Payment.created_at >= day_ago,
-                Payment.created_at.between(period_start, period_end)
+                Order.created_at >= day_ago,
+                Order.created_at.between(period_start, period_end)
             )
         )
     )
     recent_orders = result.scalar() or 0
     
-    # Revenue Stats (filtered by period)
+    # Revenue Stats (from Order table, filtered by period)
     result = await db.execute(
-        select(func.sum(Payment.amount)).where(
+        select(func.sum(Order.total)).where(
             and_(
-                Payment.status == PaymentStatus.SUCCEEDED,
-                Payment.created_at.between(period_start, period_end)
+                Order.status == OrderStatus.COMPLETED,
+                Order.created_at.between(period_start, period_end)
             )
         )
     )
@@ -344,20 +344,20 @@ async def get_dashboard_stats(
     # For monthly and weekly revenue, we'll use the selected period's total
     # These fields now represent revenue within the selected period
     result = await db.execute(
-        select(func.sum(Payment.amount)).where(
+        select(func.sum(Order.total)).where(
             and_(
-                Payment.status == PaymentStatus.SUCCEEDED,
-                Payment.created_at.between(period_start, period_end)
+                Order.status == OrderStatus.COMPLETED,
+                Order.created_at.between(period_start, period_end)
             )
         )
     )
     monthly_revenue = result.scalar() or 0.0
     
     result = await db.execute(
-        select(func.sum(Payment.amount)).where(
+        select(func.sum(Order.total)).where(
             and_(
-                Payment.status == PaymentStatus.SUCCEEDED,
-                Payment.created_at.between(period_start, period_end)
+                Order.status == OrderStatus.COMPLETED,
+                Order.created_at.between(period_start, period_end)
             )
         )
     )

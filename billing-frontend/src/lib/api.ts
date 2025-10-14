@@ -44,15 +44,21 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only logout on 401 (unauthorized), not 403 (forbidden/no permission)
-    if (error.response?.status === 401) {
-      // Token is invalid or expired
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        // Redirect to login if not already there
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
+    // Handle 401 (unauthorized) and 403 (forbidden) errors
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      // Check if it's an authentication error
+      const errorDetail = error.response?.data?.detail || '';
+      if (errorDetail.includes('Could not validate') || 
+          errorDetail.includes('credentials') ||
+          errorDetail.includes('Not authenticated')) {
+        // Token is invalid or expired
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          // Redirect to login if not already there
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
         }
       }
     }
@@ -232,6 +238,27 @@ export const ordersAPI = {
   
   delete: (id: string) =>
     api.delete(`/orders/${id}`),
+  
+  stats: () =>
+    api.get('/orders/stats'),
+  
+  downloadPDF: (id: string) =>
+    api.get(`/orders/${id}/pdf`, { responseType: 'blob' }),
+  
+  send: (id: string) =>
+    api.post(`/orders/${id}/send`),
+  
+  pay: (id: string) =>
+    api.post(`/orders/${id}/pay`),
+  
+  void: (id: string) =>
+    api.post(`/orders/${id}/void`),
+  
+  partialPayment: (id: string, data: any) =>
+    api.post(`/orders/${id}/partial-payment`, data),
+  
+  getPartialPayments: (id: string) =>
+    api.get(`/orders/${id}/partial-payments`),
 };
 
 // Invoices API

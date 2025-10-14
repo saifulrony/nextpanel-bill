@@ -58,6 +58,14 @@ class DomainStatus(str, enum.Enum):
     TRANSFERRED = "transferred"
 
 
+class OrderStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+
+
 class User(Base):
     """User model - customers who buy licenses"""
     __tablename__ = "users"
@@ -77,6 +85,7 @@ class User(Base):
     licenses = relationship("License", back_populates="user")
     payments = relationship("Payment", back_populates="user")
     domains = relationship("Domain", back_populates="user")
+    orders = relationship("Order", back_populates="customer")
 
 
 class Plan(Base):
@@ -354,6 +363,36 @@ class InvoiceTemplate(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Order(Base):
+    """Customer orders for products"""
+    __tablename__ = "orders"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    customer_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
+    
+    # Order details
+    items = Column(JSON)  # Array of order items
+    subtotal = Column(Float, nullable=False)
+    tax = Column(Float, default=0.0)
+    total = Column(Float, nullable=False)
+    
+    # Payment info
+    payment_method = Column(String(50))
+    billing_info = Column(JSON)  # Customer billing information
+    billing_period = Column(String(20))  # monthly, yearly, one-time
+    
+    # Due date for payment
+    due_date = Column(DateTime(timezone=True))
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    customer = relationship("User", back_populates="orders")
 
 
 class TicketStatus(str, enum.Enum):

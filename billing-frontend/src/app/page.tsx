@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ShoppingCartIcon, CheckIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 
@@ -26,6 +27,7 @@ interface FeaturedProduct {
 export default function Home() {
   const router = useRouter();
   const { getItemCount, addItem } = useCart();
+  const { user, isAuthenticated, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTld, setSelectedTld] = useState('.com');
   const [isSearching, setIsSearching] = useState(false);
@@ -34,6 +36,7 @@ export default function Home() {
   const [categoryProducts, setCategoryProducts] = useState<Record<string, FeaturedProduct[]>>({});
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showUserMenu, setShowUserMenu] = useState(false);
   // Note: Chatbot widget removed from homepage to support true modularity
   // The chatbot functionality is now available at /support/chats when the plugin is installed
 
@@ -148,10 +151,53 @@ export default function Home() {
                   </span>
                 )}
               </button>
-              <a href="/login" className="text-gray-600 hover:text-gray-900 font-medium">Login</a>
-              <a href="/auth/register" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
-                Get Started
-              </a>
+              {isAuthenticated && user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition"
+                  >
+                    <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
+                      {user.full_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-medium">{user.full_name || user.email}</span>
+                  </button>
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
+                      <a
+                        href="/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Dashboard
+                      </a>
+                      <a
+                        href="/shop"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Shop
+                      </a>
+                      <button
+                        onClick={() => {
+                          logout();
+                          setShowUserMenu(false);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <a href="/login" className="text-gray-600 hover:text-gray-900 font-medium">Login</a>
+                  <a href="/auth/register" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
+                    Get Started
+                  </a>
+                </>
+              )}
             </nav>
           </div>
         </div>
