@@ -332,6 +332,36 @@ export default function ComponentRenderer({
     }
   };
 
+  // Custom code wrapper
+  const CustomCodeWrapper = ({ children }: { children: React.ReactNode }) => {
+    const hasCustomCode = component.props?.htmlCode || component.props?.cssCode || component.props?.jsCode;
+    
+    if (!hasCustomCode) {
+      return <>{children}</>;
+    }
+
+    return (
+      <>
+        {/* Custom CSS */}
+        {component.props?.cssCode && (
+          <style dangerouslySetInnerHTML={{ __html: component.props.cssCode }} />
+        )}
+        
+        {/* Custom HTML wrapper */}
+        {component.props?.htmlCode ? (
+          <div dangerouslySetInnerHTML={{ __html: component.props.htmlCode }} />
+        ) : (
+          children
+        )}
+        
+        {/* Custom JavaScript */}
+        {component.props?.jsCode && (
+          <script dangerouslySetInnerHTML={{ __html: component.props.jsCode }} />
+        )}
+      </>
+    );
+  };
+
   return (
     <div
       className={baseClasses}
@@ -339,7 +369,9 @@ export default function ComponentRenderer({
       onMouseLeave={onMouseLeave}
       style={{ cursor: 'pointer' }}
     >
-      {renderComponent()}
+      <CustomCodeWrapper>
+        {renderComponent()}
+      </CustomCodeWrapper>
       {isSelected && (
         <div className="absolute -top-8 left-0 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
           {component.type}

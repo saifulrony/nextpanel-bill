@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface DefaultPageConfig {
+  homepage: string | null;
   cart: string | null;
   shop: string | null;
   checkout: string | null;
@@ -24,6 +25,7 @@ const DefaultPageContext = createContext<DefaultPageContextType | undefined>(und
 
 export function DefaultPageProvider({ children }: { children: ReactNode }) {
   const [defaultPageConfig, setDefaultPageConfig] = useState<DefaultPageConfig>({
+    homepage: null,
     cart: null,
     shop: null,
     checkout: null,

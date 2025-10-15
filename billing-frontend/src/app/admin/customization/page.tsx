@@ -85,7 +85,7 @@ interface PageFile {
 
 export default function CustomizationPage() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'builder' | 'homepage' | 'default-pages'>('header');
+  const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'builder' | 'default-pages'>('header');
   const [showPageBuilder, setShowPageBuilder] = useState(false);
   const [pageBuilderComponents, setPageBuilderComponents] = useState<Component[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
@@ -166,6 +166,7 @@ export default function CustomizationPage() {
 
   // Default pages management states
   const [defaultPageConfig, setDefaultPageConfig] = useState<Record<string, any>>({
+    homepage: null,
     cart: null,
     shop: null,
     checkout: null,
@@ -1285,7 +1286,6 @@ export default function ${page.name}Page() {
             <nav className="flex space-x-8 -mb-px">
                       {[
                         { id: 'builder', name: 'Page Builder', icon: Squares2X2Icon, action: 'newTab' },
-                        { id: 'homepage', name: 'Homepage', icon: PlayIcon },
                         { id: 'default-pages', name: 'Default Pages', icon: DocumentTextIcon },
                         { id: 'header', name: 'Header', icon: PhotoIcon },
                 { id: 'sidebar', name: 'Sidebar', icon: FolderIcon },
@@ -1323,166 +1323,10 @@ export default function ${page.name}Page() {
         </div>
 
         {/* Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="w-full">
             {/* Main Content */}
-            <div className="lg:col-span-2">
+            <div className="w-full">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                {/* Homepage Tab */}
-                {activeTab === 'homepage' && (
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Homepage Management</h2>
-                    
-                    {/* Login Status Indicator */}
-                    {!localStorage.getItem('access_token') && (
-                      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div className="ml-3">
-                            <h3 className="text-sm font-medium text-yellow-800">
-                              Authentication Required
-                            </h3>
-                            <div className="mt-2 text-sm text-yellow-700">
-                              <p>You need to be logged in to manage homepages. Please log in from the admin panel first.</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-6">
-                      {/* Current Homepage Status */}
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <h3 className="text-md font-semibold text-gray-900 mb-2">Current Homepage</h3>
-                        {currentHomepage ? (
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{currentHomepage.title}</p>
-                              <p className="text-xs text-gray-500">Slug: /{currentHomepage.slug}</p>
-                              <p className="text-xs text-gray-500">
-                                Created: {new Date(currentHomepage.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <a
-                                href={`/dynamic-page/${currentHomepage.slug}`}
-                                target="_blank"
-                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                              >
-                                Preview
-                              </a>
-                              <button
-                                onClick={handleUnsetHomepage}
-                                disabled={loadingHomepage}
-                                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              >
-                                {loadingHomepage ? 'Removing...' : 'Remove'}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-600">
-                            Using default homepage. Select a page below to set as custom homepage.
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Page Builder Quick Link */}
-                      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-md font-semibold text-indigo-900 mb-1">Create New Homepage</h3>
-                            <p className="text-sm text-indigo-700">
-                              Use the page builder to create a custom homepage from scratch.
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => window.open('/page-builder', '_blank')}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                          >
-                            Open Page Builder
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Available Pages */}
-                      <div>
-                        <h3 className="text-md font-semibold text-gray-900 mb-3">
-                          Available Pages ({homepagePages.length})
-                        </h3>
-                        {homepagePages.length > 0 ? (
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {homepagePages.map((page) => (
-                              <div
-                                key={page.id}
-                                className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                                  currentHomepage?.id === page.id
-                                    ? 'border-green-500 bg-green-50'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <div className="flex-1">
-                                  <h4 className="text-sm font-medium text-gray-900">{page.title}</h4>
-                                  <p className="text-xs text-gray-500">Slug: /{page.slug}</p>
-                                  {page.description && (
-                                    <p className="text-xs text-gray-600 mt-1">{page.description}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  {currentHomepage?.id === page.id && (
-                                    <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                                      Current Homepage
-                                    </span>
-                                  )}
-                                  <a
-                                    href={`/dynamic-page/${page.slug}`}
-                                    target="_blank"
-                                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-                                  >
-                                    Preview
-                                  </a>
-                                  {currentHomepage?.id !== page.id && (
-                                    <button
-                                      onClick={() => handleSetHomepage(page.slug)}
-                                      disabled={loadingHomepage}
-                                      className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                      {loadingHomepage ? 'Setting...' : 'Set as Homepage'}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8">
-                            <Squares2X2Icon className="mx-auto h-12 w-12 text-gray-400" />
-                            <p className="text-sm text-gray-600 mt-2">No pages found</p>
-                            <p className="text-xs text-gray-500">Create pages using the Page Builder to set them as homepage</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Instructions */}
-                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h3 className="text-sm font-semibold text-blue-900 mb-2">How to Set Custom Homepage</h3>
-                        <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                          <li>Create a new page using the <strong>Page Builder</strong></li>
-                          <li>Design your custom homepage with components</li>
-                          <li>Save the page with a memorable slug (e.g., "custom-home")</li>
-                          <li>Return here and click <strong>"Set as Homepage"</strong> next to your page</li>
-                          <li>Your custom page will now appear at the root URL (/)</li>
-                        </ol>
-                        <p className="text-xs text-blue-600 mt-2">
-                          <strong>Note:</strong> You can always revert to the default homepage by clicking "Remove" on the current homepage.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Default Pages Tab */}
                 {activeTab === 'default-pages' && (
@@ -1510,17 +1354,18 @@ export default function ${page.name}Page() {
                       </div>
                     )}
                     
-                    <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Page Type Selection */}
                       {[
-                        { key: 'cart', name: 'Cart Page', icon: '🛒', description: 'Shopping cart with items and checkout button' },
-                        { key: 'shop', name: 'Shop Page', icon: '🛍️', description: 'Product listing with filters and search' },
-                        { key: 'checkout', name: 'Checkout Page', icon: '💳', description: 'Order form with billing and payment details' },
-                        { key: 'order_success', name: 'Order Success Page', icon: '✅', description: 'Order confirmation and thank you page' },
-                        { key: 'about', name: 'About Page', icon: 'ℹ️', description: 'Company information and story' },
-                        { key: 'contact', name: 'Contact Page', icon: '📞', description: 'Contact form and information' },
-                        { key: 'privacy', name: 'Privacy Policy', icon: '🔒', description: 'Privacy policy and data protection' },
-                        { key: 'terms', name: 'Terms of Service', icon: '📋', description: 'Terms and conditions' },
+                        { key: 'homepage', name: 'Homepage', icon: '🏠' },
+                        { key: 'cart', name: 'Cart Page', icon: '🛒' },
+                        { key: 'shop', name: 'Shop Page', icon: '🛍️' },
+                        { key: 'checkout', name: 'Checkout Page', icon: '💳' },
+                        { key: 'order_success', name: 'Order Success Page', icon: '✅' },
+                        { key: 'about', name: 'About Page', icon: 'ℹ️' },
+                        { key: 'contact', name: 'Contact Page', icon: '📞' },
+                        { key: 'privacy', name: 'Privacy Policy', icon: '🔒' },
+                        { key: 'terms', name: 'Terms of Service', icon: '📋' },
                       ].map((pageType) => (
                         <div key={pageType.key} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                           <div className="flex items-center justify-between mb-3">
@@ -1528,27 +1373,35 @@ export default function ${page.name}Page() {
                               <span className="text-2xl mr-3">{pageType.icon}</span>
                               <div>
                                 <h3 className="text-md font-semibold text-gray-900">{pageType.name}</h3>
-                                <p className="text-sm text-gray-600">{pageType.description}</p>
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                              {defaultPageConfig[pageType.key] ? (
+                              <button
+                                onClick={() => {
+                                  setCurrentPageType(pageType.key);
+                                  setShowPageBuilder(true);
+                                }}
+                                className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              {defaultPageConfig[pageType.key] && (
                                 <>
-                                  <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                                    Custom Page Set
-                                  </span>
+                                  <a
+                                    href={`/dynamic-page/${defaultPageConfig[pageType.key]}`}
+                                    target="_blank"
+                                    className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                                  >
+                                    Preview
+                                  </a>
                                   <button
                                     onClick={() => handleUnsetDefaultPage(pageType.key)}
                                     disabled={loadingDefaultPages}
-                                    className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
-                                    {loadingDefaultPages ? 'Removing...' : 'Remove'}
+                                    Delete
                                   </button>
                                 </>
-                              ) : (
-                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded">
-                                  Using Default
-                                </span>
                               )}
                             </div>
                           </div>
@@ -1577,38 +1430,6 @@ export default function ${page.name}Page() {
                                     </option>
                                   ))}
                                 </select>
-                                
-                                {/* Selected Page Info */}
-                                {defaultPageConfig[pageType.key] && (
-                                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <p className="text-sm font-medium text-green-800">
-                                          Selected: {homepagePages.find(p => p.slug === defaultPageConfig[pageType.key])?.title}
-                                        </p>
-                                        <p className="text-xs text-green-600">
-                                          Slug: /{defaultPageConfig[pageType.key]}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <a
-                                          href={`/dynamic-page/${defaultPageConfig[pageType.key]}`}
-                                          target="_blank"
-                                          className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                                        >
-                                          Preview
-                                        </a>
-                                        <button
-                                          onClick={() => handleUnsetDefaultPage(pageType.key)}
-                                          disabled={loadingDefaultPages}
-                                          className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                                        >
-                                          Remove
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             ) : (
                               <div className="text-center py-4">
@@ -1855,162 +1676,6 @@ export default function ${page.name}Page() {
                 </div>
               )}
 
-              {/* Homepage Tab */}
-              {activeTab === 'homepage' && (
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Homepage Management</h2>
-                  
-                  {/* Login Status Indicator */}
-                  {!localStorage.getItem('access_token') && (
-                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="ml-3">
-                          <h3 className="text-sm font-medium text-yellow-800">
-                            Authentication Required
-                          </h3>
-                          <div className="mt-2 text-sm text-yellow-700">
-                            <p>You need to be logged in to manage homepages. Please log in from the admin panel first.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-6">
-                    {/* Current Homepage Status */}
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <h3 className="text-md font-semibold text-gray-900 mb-2">Current Homepage</h3>
-                      {currentHomepage ? (
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{currentHomepage.title}</p>
-                            <p className="text-xs text-gray-500">Slug: /{currentHomepage.slug}</p>
-                            <p className="text-xs text-gray-500">
-                              Created: {new Date(currentHomepage.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <a
-                              href={`/dynamic-page/${currentHomepage.slug}`}
-                              target="_blank"
-                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                            >
-                              Preview
-                            </a>
-                            <button
-                              onClick={handleUnsetHomepage}
-                              disabled={loadingHomepage}
-                              className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                              {loadingHomepage ? 'Removing...' : 'Remove'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-600">
-                          Using default homepage. Select a page below to set as custom homepage.
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Page Builder Quick Link */}
-                    <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-md font-semibold text-indigo-900 mb-1">Create New Homepage</h3>
-                          <p className="text-sm text-indigo-700">
-                            Use the page builder to create a custom homepage from scratch.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => window.open('/page-builder', '_blank')}
-                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                        >
-                          Open Page Builder
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Available Pages */}
-                    <div>
-                      <h3 className="text-md font-semibold text-gray-900 mb-3">
-                        Available Pages ({homepagePages.length})
-                      </h3>
-                      {homepagePages.length > 0 ? (
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {homepagePages.map((page) => (
-                            <div
-                              key={page.id}
-                              className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                                currentHomepage?.id === page.id
-                                  ? 'border-green-500 bg-green-50'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <div className="flex-1">
-                                <h4 className="text-sm font-medium text-gray-900">{page.title}</h4>
-                                <p className="text-xs text-gray-500">Slug: /{page.slug}</p>
-                                {page.description && (
-                                  <p className="text-xs text-gray-600 mt-1">{page.description}</p>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {currentHomepage?.id === page.id && (
-                                  <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                                    Current Homepage
-                                  </span>
-                                )}
-                                <a
-                                  href={`/dynamic-page/${page.slug}`}
-                                  target="_blank"
-                                  className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-                                >
-                                  Preview
-                                </a>
-                                {currentHomepage?.id !== page.id && (
-                                  <button
-                                    onClick={() => handleSetHomepage(page.slug)}
-                                    disabled={loadingHomepage}
-                                    className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                  >
-                                    {loadingHomepage ? 'Setting...' : 'Set as Homepage'}
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <Squares2X2Icon className="mx-auto h-12 w-12 text-gray-400" />
-                          <p className="text-sm text-gray-600 mt-2">No pages found</p>
-                          <p className="text-xs text-gray-500">Create pages using the Page Builder to set them as homepage</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Instructions */}
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <h3 className="text-sm font-semibold text-blue-900 mb-2">How to Set Custom Homepage</h3>
-                      <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                        <li>Create a new page using the <strong>Page Builder</strong></li>
-                        <li>Design your custom homepage with components</li>
-                        <li>Save the page with a memorable slug (e.g., "custom-home")</li>
-                        <li>Return here and click <strong>"Set as Homepage"</strong> next to your page</li>
-                        <li>Your custom page will now appear at the root URL (/)</li>
-                      </ol>
-                      <p className="text-xs text-blue-600 mt-2">
-                        <strong>Note:</strong> You can always revert to the default homepage by clicking "Remove" on the current homepage.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Sidebar Tab */}
               {activeTab === 'sidebar' && (
@@ -3009,71 +2674,6 @@ export default function ${page.name}Page() {
             </div>
           </div>
 
-          {/* Sidebar - Live Preview */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Live Preview</h2>
-              <div className="space-y-4">
-                {/* Logo Preview */}
-                {settings.logo && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Logo</h3>
-                    <img
-                      src={settings.logo}
-                      alt="Logo preview"
-                      className="h-12 w-auto object-contain"
-                    />
-                  </div>
-                )}
-
-                {/* Colors Preview */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Colors</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div
-                      className="p-2 rounded text-white text-xs text-center"
-                      style={{ backgroundColor: settings.primaryColor }}
-                    >
-                      Primary
-                    </div>
-                    <div
-                      className="p-2 rounded text-white text-xs text-center"
-                      style={{ backgroundColor: settings.secondaryColor }}
-                    >
-                      Secondary
-                    </div>
-                  </div>
-                </div>
-
-                {/* Typography Preview */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Typography</h3>
-                  <div style={{ fontFamily: settings.fontFamily }}>
-                    <p className="text-lg font-bold">Heading</p>
-                    <p className="text-sm">Body text</p>
-                  </div>
-                </div>
-
-                {/* Layout Preview */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Layout</h3>
-                  <p className="text-sm text-gray-600 capitalize">{settings.layout}</p>
-                </div>
-
-                {/* Custom Code Status */}
-                {(settings.customCSS || settings.customJS || settings.customHTML) && (
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <h3 className="text-sm font-medium text-green-900 mb-2">Custom Code Active</h3>
-                    <div className="text-xs text-green-700 space-y-1">
-                      {settings.customCSS && <p>✓ CSS</p>}
-                      {settings.customJS && <p>✓ JavaScript</p>}
-                      {settings.customHTML && <p>✓ HTML</p>}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

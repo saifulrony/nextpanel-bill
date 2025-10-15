@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ComponentRenderer } from '@/components/page-builder';
 import { Component } from '@/components/page-builder/types';
+import { useDefaultPages } from '@/contexts/DefaultPageContext';
 
 interface HomepageData {
   id: string;
@@ -17,18 +18,32 @@ export function DynamicHomepage() {
   const [homepageData, setHomepageData] = useState<HomepageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const { defaultPageConfig, isLoading: isLoadingConfig } = useDefaultPages();
 
   useEffect(() => {
     loadHomepage();
-  }, []);
+  }, [defaultPageConfig]);
 
   const loadHomepage = async () => {
     try {
       setLoading(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+      setError(false);
+      
+      // Check if there's a custom homepage configured in default pages
+      const customHomepage = defaultPageConfig?.homepage;
+      
+      let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
-      const response = await fetch(`${apiUrl}/api/v1/pages/homepage`);
+      let response;
+      
+      if (customHomepage) {
+        // Load the custom homepage page
+        response = await fetch(`${apiUrl}/api/v1/pages/${customHomepage}`);
+      } else {
+        // Load the default homepage (marked as is_homepage)
+        response = await fetch(`${apiUrl}/api/v1/pages/homepage`);
+      }
       
       if (response.ok) {
         const data = await response.json();

@@ -29,7 +29,7 @@ export default function CartComponent({
   props = {}
 }: CartComponentProps) {
   const router = useRouter();
-  const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCart();
+  const { items, removeItem, updateQuantity, getTotal, clearCart } = useCart();
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
   const {
@@ -183,7 +183,7 @@ export default function CartComponent({
           <div className="flex justify-between items-center mb-4">
             <span className="text-lg font-semibold">Total:</span>
             <span className="text-xl font-bold">
-              ${getTotalPrice().toFixed(2)}
+              ${getTotal().toFixed(2)}
             </span>
           </div>
         </div>

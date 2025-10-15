@@ -665,6 +665,51 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
             placeholder="custom-class"
           />
         </div>
+
+        {/* Code Editor */}
+        <div>
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">Code Editor</h4>
+          <div className="space-y-4">
+            {/* HTML Editor */}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">HTML</label>
+              <textarea
+                value={component.props?.htmlCode || ''}
+                onChange={(e) => updateProp('htmlCode', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                rows={4}
+                placeholder="<div>Custom HTML code</div>"
+                spellCheck={false}
+              />
+            </div>
+            
+            {/* CSS Editor */}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">CSS</label>
+              <textarea
+                value={component.props?.cssCode || ''}
+                onChange={(e) => updateProp('cssCode', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                rows={4}
+                placeholder=".custom-style { color: red; }"
+                spellCheck={false}
+              />
+            </div>
+            
+            {/* JavaScript Editor */}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">JavaScript</label>
+              <textarea
+                value={component.props?.jsCode || ''}
+                onChange={(e) => updateProp('jsCode', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                rows={4}
+                placeholder="console.log('Custom JavaScript');"
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

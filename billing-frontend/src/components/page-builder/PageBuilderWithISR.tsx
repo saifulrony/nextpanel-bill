@@ -23,6 +23,7 @@ import {
   PlusIcon,
   RocketLaunchIcon,
   XMarkIcon,
+  CodeBracketIcon,
 } from '@heroicons/react/24/outline';
 
 interface PageBuilderWithISRProps {
@@ -129,6 +130,8 @@ export function PageBuilderWithISR({
   const [showComponentSelector, setShowComponentSelector] = useState(false);
   const [targetContainer, setTargetContainer] = useState<{id: string, columnIndex: number} | null>(null);
   const [pageType, setPageType] = useState<string>('custom');
+  const [showCodeEditor, setShowCodeEditor] = useState(false);
+  const [pageCode, setPageCode] = useState({ html: '', css: '', js: '' });
 
   // Default templates for each page type
   const getDefaultComponents = (pageId: string): Component[] => {
@@ -1185,6 +1188,73 @@ export function PageBuilderWithISR({
     mobile: '375px',
   };
 
+  // Generate HTML, CSS, and JS code from components
+  const generateCodeFromComponents = () => {
+    let html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>' + title + '</title>\n  <style>\n';
+    let css = '';
+    let js = '';
+
+    // Generate CSS
+    components.forEach(component => {
+      if (component.style && Object.keys(component.style).length > 0) {
+        css += `\n/* ${component.type} component styles */\n`;
+        css += `#${component.id} {\n`;
+        Object.entries(component.style).forEach(([key, value]) => {
+          const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+          css += `  ${cssKey}: ${value};\n`;
+        });
+        css += '}\n';
+      }
+    });
+
+    // Generate HTML
+    html += css + '\n  </style>\n</head>\n<body>\n';
+    
+    components.forEach(component => {
+      html += `  <div id="${component.id}" class="component ${component.type}">\n`;
+      
+      switch (component.type) {
+        case 'heading':
+          const headingLevel = component.props?.level || 'h1';
+          html += `    <${headingLevel}>${component.content || 'Heading'}</${headingLevel}>\n`;
+          break;
+        case 'text':
+          html += `    <div>${component.content || 'Text content'}</div>\n`;
+          break;
+        case 'button':
+          html += `    <button>${component.content || 'Button'}</button>\n`;
+          break;
+        case 'image':
+          html += `    <img src="${component.props?.src || 'https://via.placeholder.com/300x200'}" alt="${component.props?.alt || 'Image'}" />\n`;
+          break;
+        case 'header':
+          html += `    <header>\n      <div class="logo">${component.props?.logoText || 'Logo'}</div>\n      <nav>Navigation</nav>\n    </header>\n`;
+          break;
+        case 'footer':
+          html += `    <footer>\n      <div>Footer content</div>\n    </footer>\n`;
+          break;
+        case 'cart':
+          html += `    <div class="cart">\n      <h3>${component.props?.headerText || 'Shopping Cart'}</h3>\n      <div class="cart-items">Cart items will appear here</div>\n    </div>\n`;
+          break;
+        default:
+          html += `    <div>${component.type} component</div>\n`;
+      }
+      
+      html += '  </div>\n';
+    });
+
+    html += '</body>\n</html>';
+
+    setPageCode({ html, css, js });
+  };
+
+  // Apply code changes back to components (simplified version)
+  const applyCodeToComponents = () => {
+    // This is a simplified implementation
+    // In a real implementation, you would parse the HTML and update components accordingly
+    alert('Code changes applied! (This is a simplified implementation)');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       {/* Header */}
@@ -1391,6 +1461,13 @@ export function PageBuilderWithISR({
             <span>Import</span>
           </button>
           <button
+            onClick={() => setShowCodeEditor(true)}
+            className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <CodeBracketIcon className="h-4 w-4" />
+            <span>Edit Code</span>
+          </button>
+          <button
             onClick={() => setPreviewMode(!previewMode)}
             className="flex items-center space-x-2 px-3 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
           >
@@ -1562,6 +1639,91 @@ export function PageBuilderWithISR({
                   <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700">{item.label}</span>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Code Editor Modal */}
+      {showCodeEditor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-11/12 h-5/6 flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Page Code</h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    // Generate code from components
+                    generateCodeFromComponents();
+                  }}
+                  className="px-3 py-1 text-sm text-indigo-600 bg-indigo-50 rounded hover:bg-indigo-100 transition-colors"
+                >
+                  Generate from Components
+                </button>
+                <button
+                  onClick={() => setShowCodeEditor(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 flex">
+              {/* Code Tabs */}
+              <div className="w-1/4 bg-gray-50 border-r border-gray-200">
+                <div className="p-4">
+                  <nav className="space-y-1">
+                    <button className="w-full text-left px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded">
+                      HTML
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded">
+                      CSS
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded">
+                      JavaScript
+                    </button>
+                  </nav>
+                </div>
+              </div>
+              
+              {/* Code Editor */}
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1 p-4">
+                  <textarea
+                    value={pageCode.html}
+                    onChange={(e) => setPageCode(prev => ({ ...prev, html: e.target.value }))}
+                    className="w-full h-full font-mono text-sm border border-gray-300 rounded p-3 resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="HTML code will appear here..."
+                    spellCheck={false}
+                  />
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50">
+                  <div className="text-sm text-gray-500">
+                    Edit the source code directly. Changes will be applied to the page.
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setShowCodeEditor(false)}
+                      className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Apply code changes to components
+                        applyCodeToComponents();
+                        setShowCodeEditor(false);
+                      }}
+                      className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Apply Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

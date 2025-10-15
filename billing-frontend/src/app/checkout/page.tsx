@@ -1,226 +1,134 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { CheckCircleIcon, LockClosedIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
-import { api } from '@/lib/api';
+import { useDefaultPages } from '@/contexts/DefaultPageContext';
+import { TrashIcon, ShoppingBagIcon, ArrowLeftIcon, ShoppingCartIcon, CreditCardIcon } from '@heroicons/react/24/outline';
+import { DynamicPageRenderer } from '@/components/page-builder/DynamicPageRenderer';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, getTotal, clearCart, getItemCount } = useCart();
+  const { items, removeItem, updateQuantity, getTotal, clearCart, getItemCount } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  
-  const [checkoutType, setCheckoutType] = useState<'guest' | 'register' | 'login'>('guest');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [orderId, setOrderId] = useState<string>('');
-  const [invoiceNumber, setInvoiceNumber] = useState<string>('');
+  const { defaultPageConfig, isLoading: isLoadingConfig } = useDefaultPages();
 
-  // Customer Info
-  const [customerInfo, setCustomerInfo] = useState({
-    email: user?.email || '',
-    full_name: user?.full_name || '',
-    company_name: '',
-    phone: '',
-    address: '',
-    city: '',
-    country: '',
-    postal_code: '',
-  });
+  // Check if a custom checkout page is configured
+  const customCheckoutPage = defaultPageConfig?.checkout;
 
-  // Registration Info (if creating account)
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
-  // Payment Info
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
-  const [cardInfo, setCardInfo] = useState({
-    card_number: '',
-    expiry: '',
-    cvv: '',
-    cardholder_name: '',
-  });
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(price);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (checkoutType === 'register' && password !== confirmPassword) {
-      alert('Passwords do not match!');
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      let customerId = user?.id;
-
-      // Step 1: Create account if registering
-      if (checkoutType === 'register' && !user) {
-        const registerResponse = await api.post('/auth/register', {
-          email: customerInfo.email,
-          password: password,
-          full_name: customerInfo.full_name,
-          company_name: customerInfo.company_name,
-        });
-        
-        customerId = registerResponse.data.user.id;
-        
-        // Auto login after registration
-        const loginResponse = await api.post('/auth/login', {
-          email: customerInfo.email,
-          password: password,
-        });
-        
-        localStorage.setItem('access_token', loginResponse.data.access_token);
-      }
-
-      // Step 2: Create customer record if guest (and not already logged in)
-      if (checkoutType === 'guest' && !user) {
-        const customerResponse = await api.post('/customers/guest', {
-          email: customerInfo.email,
-          full_name: customerInfo.full_name,
-          company_name: customerInfo.company_name,
-        });
-        
-        customerId = customerResponse.data.id;
-      }
-
-      // Step 3: Create order
-      const orderData = {
-        customer_id: customerId,
-        items: items.map(item => ({
-          product_id: item.id,
-          product_name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        subtotal: getTotal(),
-        tax: getTotal() * 0.1,
-        total: getTotal() * 1.1,
-        payment_method: paymentMethod,
-        billing_info: customerInfo,
-      };
-
-      const orderResponse = await api.post('/orders', orderData);
-      setOrderId(orderResponse.data.id);
-      setInvoiceNumber(orderResponse.data.invoice_number || '');
-
-      // Step 4: Process payment (mock for now)
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate payment processing
-
-      // Clear cart and show success
-      clearCart();
-      setOrderComplete(true);
-
-    } catch (error: any) {
-      console.error('Checkout error:', error);
-      alert(error.response?.data?.detail || 'Checkout failed. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  if (items.length === 0 && !orderComplete) {
-    router.push('/cart');
-    return null;
-  }
-
-  if (orderComplete) {
+  // Show loading while checking for custom page configuration
+  if (isLoadingConfig) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Complete!</h2>
-          <p className="text-gray-600 mb-6">
-            Thank you for your purchase. Your order has been received and is being processed.
-          </p>
-          {invoiceNumber && (
-            <p className="text-sm text-gray-500 mb-6">
-              Invoice Number: <span className="font-mono font-semibold text-indigo-600">{invoiceNumber}</span>
-            </p>
-          )}
-          <div className="space-y-3">
-                {checkoutType === 'register' && (
-                  <button
-                    onClick={() => router.push('/admin/dashboard')}
-                    className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition"
-                  >
-                    Go to Dashboard
-                  </button>
-                )}
-            <button
-              onClick={() => router.push('/shop')}
-              className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-200 transition"
-            >
-              Continue Shopping
-            </button>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading checkout page...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header with Navigation */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <a href="/" className="text-2xl font-bold text-indigo-600 hover:text-indigo-700">
-                NextPanel
-              </a>
-              <span className="ml-4 text-sm text-gray-500">/ Checkout</span>
-            </div>
-            <nav className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/cart')}
-                className="relative p-2 text-gray-600 hover:text-gray-900"
-              >
-                <ShoppingCartIcon className="h-6 w-6" />
-                {getItemCount() > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {getItemCount()}
-                  </span>
-                )}
-              </button>
-              {isAuthenticated && user ? (
+  // If custom checkout page is configured, render it
+  if (customCheckoutPage) {
+    console.log('Rendering custom checkout page:', customCheckoutPage);
+    return <DynamicPageRenderer slug={customCheckoutPage} fallbackComponent={<DefaultCheckoutPage />} />;
+  }
+
+  // Default checkout page component
+  function DefaultCheckoutPage() {
+    const [formData, setFormData] = useState({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'US',
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      nameOnCard: ''
+    });
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const formatPrice = (price: number) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(price);
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const { name, value } = e.target;
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsProcessing(true);
+      
+      // Simulate payment processing
+      setTimeout(() => {
+        setIsProcessing(false);
+        router.push('/order-success');
+      }, 2000);
+    };
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center">
+                <button
+                  onClick={() => router.push('/cart')}
+                  className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <ArrowLeftIcon className="h-5 w-5 mr-2" />
+                  Back to Cart
+                </button>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                {/* Cart Button */}
+                <button
+                  onClick={() => router.push('/cart')}
+                  className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <ShoppingCartIcon className="h-6 w-6" />
+                  {getItemCount() > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {getItemCount()}
+                    </span>
+                  )}
+                </button>
+
+                {/* User Menu */}
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition"
+                    className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
-                    <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
-                      {user.full_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                    <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center">
+                      <span className="text-sm font-medium text-white">
+                        {user?.email?.charAt(0).toUpperCase() || 'U'}
+                      </span>
                     </div>
-                    <span className="font-medium">{user.full_name || user.email}</span>
                   </button>
+
                   {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
-                      <a
-                        href="/dashboard"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        Dashboard
-                      </a>
-                      <a
-                        href="/shop"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        Shop
-                      </a>
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                      <div className="px-4 py-2 text-sm text-gray-700 border-b">
+                        <p className="font-medium">{user?.email || 'User'}</p>
+                      </div>
                       <button
                         onClick={() => {
                           logout();
@@ -228,307 +136,249 @@ export default function CheckoutPage() {
                         }}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
-                        Logout
+                        Sign out
                       </button>
                     </div>
                   )}
                 </div>
-              ) : (
-                <>
-                  <a href="/login" className="text-gray-600 hover:text-gray-900 font-medium">Login</a>
-                  <a href="/auth/register" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
-                    Get Started
-                  </a>
-                </>
-              )}
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full">
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Checkout Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Checkout Type Selection */}
-              {!user && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Checkout Options</h2>
-                  <div className="space-y-3">
-                    <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition">
-                      <input
-                        type="radio"
-                        name="checkout_type"
-                        value="guest"
-                        checked={checkoutType === 'guest'}
-                        onChange={(e) => setCheckoutType(e.target.value as any)}
-                        className="mr-3"
-                      />
-                      <div>
-                        <p className="font-semibold text-gray-900">Checkout as Guest</p>
-                        <p className="text-sm text-gray-600">Quick checkout without creating an account</p>
-                      </div>
-                    </label>
-                    <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition border-indigo-500 bg-indigo-50">
-                      <input
-                        type="radio"
-                        name="checkout_type"
-                        value="register"
-                        checked={checkoutType === 'register'}
-                        onChange={(e) => setCheckoutType(e.target.value as any)}
-                        className="mr-3"
-                      />
-                      <div>
-                        <p className="font-semibold text-gray-900">Create Account & Checkout</p>
-                        <p className="text-sm text-gray-600">Track orders and manage services easily</p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* Customer Information */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Customer Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
-                    <input
-                      type="email"
-                      required
-                      value={customerInfo.email}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      disabled={!!user}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={customerInfo.full_name}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, full_name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                    <input
-                      type="text"
-                      value={customerInfo.company_name}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, company_name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                    <input
-                      type="tel"
-                      value={customerInfo.phone}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-                    <input
-                      type="text"
-                      value={customerInfo.country}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, country: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Password fields for registration */}
-                {checkoutType === 'register' && !user && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        minLength={6}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password *</label>
-                      <input
-                        type="password"
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        minLength={6}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Payment Information */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                  <LockClosedIcon className="h-5 w-5 mr-2 text-green-500" />
-                  Payment Information
-                </h2>
-                
-                <div className="mb-4">
-                  <label className="flex items-center p-3 border-2 rounded-lg cursor-pointer mb-2">
-                    <input
-                      type="radio"
-                      name="payment_method"
-                      value="card"
-                      checked={paymentMethod === 'card'}
-                      onChange={(e) => setPaymentMethod(e.target.value as any)}
-                      className="mr-3"
-                    />
-                    <span className="font-medium">Credit/Debit Card</span>
-                  </label>
-                </div>
-
-                {paymentMethod === 'card' && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Cardholder Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={cardInfo.cardholder_name}
-                        onChange={(e) => setCardInfo({ ...cardInfo, cardholder_name: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Card Number *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="1234 5678 9012 3456"
-                        value={cardInfo.card_number}
-                        onChange={(e) => setCardInfo({ ...cardInfo, card_number: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        maxLength={19}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="MM/YY"
-                          value={cardInfo.expiry}
-                          onChange={(e) => setCardInfo({ ...cardInfo, expiry: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                          maxLength={5}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">CVV *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="123"
-                          value={cardInfo.cvv}
-                          onChange={(e) => setCardInfo({ ...cardInfo, cvv: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                          maxLength={4}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
+          </div>
+        </header>
 
-            {/* Order Summary */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow p-6 sticky top-24">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Order Summary</h2>
-                
-                <div className="divide-y divide-gray-200 mb-6">
-                  {items.map((item) => (
-                    <div key={item.id} className="py-3">
-                      <div className="flex justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{item.name}</p>
-                          <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-                        </div>
-                        <p className="font-semibold text-gray-900">
-                          {formatPrice(item.price * item.quantity)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Checkout</h1>
+            <p className="text-lg text-gray-600">Complete your order</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Checkout Form */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold mb-6">Billing Information</h2>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Personal Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
-                    <span className="font-medium">{formatPrice(getTotal())}</span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Address *
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Tax</span>
-                    <span className="font-medium">{formatPrice(getTotal() * 0.1)}</span>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </div>
-                  <div className="border-t border-gray-200 pt-3">
-                    <div className="flex justify-between text-xl font-bold text-gray-900">
-                      <span>Total</span>
-                      <span>{formatPrice(getTotal() * 1.1)}</span>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ZIP Code *
+                    </label>
+                    <input
+                      type="text"
+                      name="zipCode"
+                      value={formData.zipCode}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Payment Information */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <CreditCardIcon className="h-5 w-5 mr-2" />
+                    Payment Information
+                  </h3>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Card Number *
+                    </label>
+                    <input
+                      type="text"
+                      name="cardNumber"
+                      value={formData.cardNumber}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="1234 5678 9012 3456"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Expiry Date *
+                      </label>
+                      <input
+                        type="text"
+                        name="expiryDate"
+                        value={formData.expiryDate}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="MM/YY"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        CVV *
+                      </label>
+                      <input
+                        type="text"
+                        name="cvv"
+                        value={formData.cvv}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="123"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Name on Card *
+                    </label>
+                    <input
+                      type="text"
+                      name="nameOnCard"
+                      value={formData.nameOnCard}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isProcessing}
-                  className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isProcessing || items.length === 0}
+                  className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {isProcessing ? 'Processing...' : `Pay ${formatPrice(getTotal() * 1.1)}`}
+                  {isProcessing ? 'Processing...' : `Complete Order - ${formatPrice(getTotal())}`}
                 </button>
+              </form>
+            </div>
 
-                <p className="mt-4 text-xs text-gray-500 text-center">
-                  <LockClosedIcon className="h-4 w-4 inline mr-1" />
-                  Secure checkout powered by NextPanel
-                </p>
+            {/* Order Summary */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
+              
+              <div className="space-y-4">
+                {items.map((item) => (
+                  <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div>
+                      <h4 className="font-medium">{item.name}</h4>
+                      <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                    </div>
+                    <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center text-lg font-semibold">
+                  <span>Total:</span>
+                  <span>{formatPrice(getTotal())}</span>
+                </div>
               </div>
             </div>
           </div>
-        </form>
+        </main>
       </div>
+    );
+  }
 
-      {/* Footer */}
-      <footer className="mt-auto bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="text-sm text-gray-600 mb-4 md:mb-0">
-              © 2025 NextPanel. All rights reserved.
-            </div>
-            <div className="flex items-center space-x-6 text-sm">
-              <a href="/" className="text-gray-600 hover:text-indigo-600 transition">
-                Home
-              </a>
-              <a href="/shop" className="text-gray-600 hover:text-indigo-600 transition">
-                Shop
-              </a>
-              <a href="/pricing" className="text-gray-600 hover:text-indigo-600 transition">
-                Pricing
-              </a>
-              <span className="flex items-center text-green-600">
-                <LockClosedIcon className="h-4 w-4 mr-1" />
-                Secure
-              </span>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
+  return <DefaultCheckoutPage />;
 }
-
