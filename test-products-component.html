@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products Component Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .product { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .featured { background-color: #fef3c7; border-color: #f59e0b; }
+        .loading { text-align: center; padding: 40px; }
+        .error { color: #ef4444; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Products Component Test</h1>
+    
+    <div id="products-container">
+        <div class="loading">
+            <div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #3b82f6; border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite;"></div>
+            <p>Loading products...</p>
+        </div>
+    </div>
+
+    <script>
+        // Simulate the products component behavior
+        async function loadProducts() {
+            const container = document.getElementById('products-container');
+            
+            try {
+                // Try to fetch from API
+                const response = await fetch('http://localhost:8001/api/v1/plans?is_active=true&is_featured=true');
+                
+                if (!response.ok) {
+                    throw new Error('API not available');
+                }
+                
+                const data = await response.json();
+                
+                // Check if API returned empty data
+                if (data && data.length === 0) {
+                    console.log('API returned empty products, using demo data...');
+                    renderProducts(getDemoProducts());
+                } else {
+                    renderProducts(data);
+                }
+            } catch (error) {
+                console.error('Error loading products:', error);
+                // Use demo products as fallback
+                renderProducts(getDemoProducts());
+            }
+        }
+
+        function getDemoProducts() {
+            return [
+                {
+                    id: 'prod-1',
+                    name: 'Starter Hosting',
+                    description: 'Perfect for small websites and blogs. Includes 1 hosting account, 1 domain, and basic support.',
+                    price_monthly: 9.99,
+                    price_yearly: 99.99,
+                    max_accounts: 1,
+                    max_domains: 1,
+                    max_databases: 1,
+                    max_emails: 5,
+                    is_featured: true,
+                    features: {
+                        category: 'hosting',
+                        storage: '10GB',
+                        bandwidth: '100GB',
+                        ssl: true,
+                        backup: 'Daily',
+                        support: 'Email'
+                    }
+                },
+                {
+                    id: 'prod-2',
+                    name: 'Professional Hosting',
+                    description: 'Ideal for growing businesses. Includes 5 hosting accounts, 5 domains, and priority support.',
+                    price_monthly: 29.99,
+                    price_yearly: 299.99,
+                    max_accounts: 5,
+                    max_domains: 5,
+                    max_databases: 10,
+                    max_emails: 25,
+                    is_featured: true,
+                    features: {
+                        category: 'hosting',
+                        storage: '50GB',
+                        bandwidth: '500GB',
+                        ssl: true,
+                        backup: 'Daily',
+                        support: 'Priority',
+                        cdn: true
+                    }
+                },
+                {
+                    id: 'prod-3',
+                    name: 'Enterprise Hosting',
+                    description: 'For large businesses and agencies. Unlimited resources and 24/7 phone support.',
+                    price_monthly: 99.99,
+                    price_yearly: 999.99,
+                    max_accounts: 999999,
+                    max_domains: 999999,
+                    max_databases: 999999,
+                    max_emails: 999999,
+                    is_featured: true,
+                    features: {
+                        category: 'hosting',
+                        storage: 'Unlimited',
+                        bandwidth: 'Unlimited',
+                        ssl: true,
+                        backup: 'Real-time',
+                        support: '24/7 Phone',
+                        cdn: true,
+                        dedicated: true
+                    }
+                }
+            ];
+        }
+
+        function renderProducts(products) {
+            const container = document.getElementById('products-container');
+            
+            if (products.length === 0) {
+                container.innerHTML = `
+                    <div class="error">
+                        <p>No products available</p>
+                        <p style="font-size: 14px; color: #666;">Check your backend API at /api/v1/plans or add products in the admin panel</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <h2 style="text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: bold;">Our Products</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    ${products.map(product => `
+                        <div class="product ${product.is_featured ? 'featured' : ''}" style="background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h3 style="margin: 0; font-size: 20px; font-weight: 600;">${product.name}</h3>
+                                ${product.is_featured ? '<span style="background: #fbbf24; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Featured</span>' : ''}
+                            </div>
+                            <p style="margin-bottom: 15px; color: #4b5563; min-height: 60px;">${product.description}</p>
+                            
+                            <div style="margin-bottom: 15px;">
+                                ${product.max_accounts ? `<p style="font-size: 14px; margin: 5px 0; color: #4b5563;">✓ ${product.max_accounts} NextPanel Accounts</p>` : ''}
+                                ${product.max_domains ? `<p style="font-size: 14px; margin: 5px 0; color: #4b5563;">✓ ${product.max_domains} Domains</p>` : ''}
+                                ${product.max_databases ? `<p style="font-size: 14px; margin: 5px 0; color: #4b5563;">✓ ${product.max_databases} Databases</p>` : ''}
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                                <div>
+                                    <span style="font-size: 24px; font-weight: bold; color: #4f46e5;">$${product.price_monthly}</span>
+                                    <span style="color: #6b7280; font-size: 14px;">/mo</span>
+                                </div>
+                                <button style="background: #4f46e5; color: white; padding: 8px 16px; border-radius: 6px; border: none; font-weight: 500; cursor: pointer;">
+                                    Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Load products when page loads
+        loadProducts();
+    </script>
+
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>

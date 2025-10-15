@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { plansAPI } from '@/lib/api';
+import { getDemoData } from '@/lib/demoData';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -55,6 +56,7 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUsingDemoData, setIsUsingDemoData] = useState(false);
   
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -78,15 +80,54 @@ export default function ProductsPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [productsRes, categoriesRes, statsRes] = await Promise.all([
-        plansAPI.list(),
-        plansAPI.categories(),
-        plansAPI.stats().catch(() => ({ data: null })),
-      ]);
-      
-      setProducts(productsRes.data);
-      setCategories(categoriesRes.data.categories || []);
-      setStats(statsRes.data);
+      try {
+        const [productsRes, categoriesRes, statsRes] = await Promise.all([
+          plansAPI.list(),
+          plansAPI.categories(),
+          plansAPI.stats().catch(() => ({ data: null })),
+        ]);
+        
+        // Check if API returned empty data (no products in database)
+        if (productsRes.data && productsRes.data.length === 0) {
+          console.log('📦 API returned empty data, using demo products...');
+          throw new Error('No products in database');
+        }
+        
+        setProducts(productsRes.data);
+        setCategories(categoriesRes.data.categories || []);
+        setStats(statsRes.data);
+        setIsUsingDemoData(false);
+        console.log('✅ Products loaded from API');
+      } catch (apiError) {
+        console.log('📦 API not available, using demo data...');
+        
+        // Use demo data when API is not available
+        const demoProducts = getDemoData('products');
+        const demoCategories = [
+          { id: 'hosting', name: 'Hosting' },
+          { id: 'domain', name: 'Domain' },
+          { id: 'ssl', name: 'SSL' },
+          { id: 'email', name: 'Email' }
+        ];
+        const demoStats = {
+          total_active_plans: demoProducts.length,
+          plans_by_category: {
+            hosting: 3,
+            domain: 1,
+            ssl: 1,
+            email: 1
+          },
+          average_price: 29.99,
+          min_price: 4.99,
+          max_price: 99.99
+        };
+        
+        setProducts(demoProducts);
+        setCategories(demoCategories);
+        setStats(demoStats);
+        setIsUsingDemoData(true);
+        console.log('✅ Demo products loaded');
+      }
     } catch (error) {
       console.error('Failed to load products:', error);
     } finally {
@@ -210,6 +251,29 @@ export default function ProductsPage() {
 
   return (
     <div>
+      {/* Demo Data Banner */}
+      {isUsingDemoData && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                Demo Data Mode
+              </h3>
+              <div className="mt-1 text-sm text-blue-700">
+                <p>
+                  Showing demo products including hosting plans, domain registration, SSL certificates, and email hosting.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ShoppingCartIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { DynamicHomepage } from '@/components/page-builder/DynamicHomepage';
 import axios from 'axios';
 
 interface FeaturedProduct {
@@ -39,6 +40,9 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [hasCustomHomepage, setHasCustomHomepage] = useState<boolean | null>(null);
+  const [checkingHomepage, setCheckingHomepage] = useState(true);
+  const [addedToCart, setAddedToCart] = useState<string | null>(null);
   // Note: Chatbot widget removed from homepage to support true modularity
   // The chatbot functionality is now available at /support/chats when the plugin is installed
 
@@ -52,6 +56,7 @@ export default function Home() {
   ];
 
   useEffect(() => {
+    checkForCustomHomepage();
     loadFeaturedProducts();
     loadCategoryProducts();
     
@@ -69,6 +74,33 @@ export default function Home() {
     }
   }, []);
 
+  const checkForCustomHomepage = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      console.log('Checking for custom homepage at:', `${apiUrl}/api/v1/pages/homepage`);
+      
+      const response = await fetch(`${apiUrl}/api/v1/pages/homepage`);
+      
+      console.log('Homepage response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Homepage data:', data);
+        setHasCustomHomepage(!!data);
+      } else {
+        console.log('No custom homepage found');
+        setHasCustomHomepage(false);
+      }
+    } catch (error) {
+      console.error('Error checking for custom homepage:', error);
+      setHasCustomHomepage(false);
+    } finally {
+      setCheckingHomepage(false);
+    }
+  };
+
   const loadFeaturedProducts = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
@@ -78,9 +110,153 @@ export default function Home() {
         params: { is_active: true, is_featured: true }
       });
       
-      setFeaturedProducts(response.data);
+      // Check if API returned empty data
+      if (response.data && response.data.length === 0) {
+        console.log('API returned empty products, using demo data...');
+        const demoProducts: FeaturedProduct[] = [
+          {
+            id: 'demo-1',
+            name: 'Starter Hosting',
+            description: 'Perfect for small websites and blogs. Includes 1 hosting account, 1 domain, and basic support.',
+            price_monthly: 9.99,
+            price_yearly: 99.99,
+            max_accounts: 1,
+            max_domains: 1,
+            max_databases: 1,
+            max_emails: 5,
+            is_featured: true,
+            features: {
+              category: 'hosting',
+              storage: '10GB',
+              bandwidth: '100GB',
+              ssl: true,
+              backup: 'Daily',
+              support: 'Email'
+            },
+            sort_order: 1
+          },
+          {
+            id: 'demo-2',
+            name: 'Professional Hosting',
+            description: 'Ideal for growing businesses. Includes 5 hosting accounts, 5 domains, and priority support.',
+            price_monthly: 29.99,
+            price_yearly: 299.99,
+            max_accounts: 5,
+            max_domains: 5,
+            max_databases: 10,
+            max_emails: 25,
+            is_featured: true,
+            features: {
+              category: 'hosting',
+              storage: '50GB',
+              bandwidth: '500GB',
+              ssl: true,
+              backup: 'Daily',
+              support: 'Priority',
+              cdn: true
+            },
+            sort_order: 2
+          },
+          {
+            id: 'demo-3',
+            name: 'Enterprise Hosting',
+            description: 'For large businesses and agencies. Unlimited resources and 24/7 phone support.',
+            price_monthly: 99.99,
+            price_yearly: 999.99,
+            max_accounts: 999999,
+            max_domains: 999999,
+            max_databases: 999999,
+            max_emails: 999999,
+            is_featured: true,
+            features: {
+              category: 'hosting',
+              storage: 'Unlimited',
+              bandwidth: 'Unlimited',
+              ssl: true,
+              backup: 'Real-time',
+              support: '24/7 Phone',
+              cdn: true,
+              dedicated: true
+            },
+            sort_order: 3
+          }
+        ];
+        setFeaturedProducts(demoProducts);
+      } else {
+        setFeaturedProducts(response.data);
+      }
     } catch (error) {
       console.error('Failed to load featured products:', error);
+      // Use demo products as fallback
+      const demoProducts: FeaturedProduct[] = [
+        {
+          id: 'demo-1',
+          name: 'Starter Hosting',
+          description: 'Perfect for small websites and blogs. Includes 1 hosting account, 1 domain, and basic support.',
+          price_monthly: 9.99,
+          price_yearly: 99.99,
+          max_accounts: 1,
+          max_domains: 1,
+          max_databases: 1,
+          max_emails: 5,
+          is_featured: true,
+          features: {
+            category: 'hosting',
+            storage: '10GB',
+            bandwidth: '100GB',
+            ssl: true,
+            backup: 'Daily',
+            support: 'Email'
+          },
+          sort_order: 1
+        },
+        {
+          id: 'demo-2',
+          name: 'Professional Hosting',
+          description: 'Ideal for growing businesses. Includes 5 hosting accounts, 5 domains, and priority support.',
+          price_monthly: 29.99,
+          price_yearly: 299.99,
+          max_accounts: 5,
+          max_domains: 5,
+          max_databases: 10,
+          max_emails: 25,
+          is_featured: true,
+          features: {
+            category: 'hosting',
+            storage: '50GB',
+            bandwidth: '500GB',
+            ssl: true,
+            backup: 'Daily',
+            support: 'Priority',
+            cdn: true
+          },
+          sort_order: 2
+        },
+        {
+          id: 'demo-3',
+          name: 'Enterprise Hosting',
+          description: 'For large businesses and agencies. Unlimited resources and 24/7 phone support.',
+          price_monthly: 99.99,
+          price_yearly: 999.99,
+          max_accounts: 999999,
+          max_domains: 999999,
+          max_databases: 999999,
+          max_emails: 999999,
+          is_featured: true,
+          features: {
+            category: 'hosting',
+            storage: 'Unlimited',
+            bandwidth: 'Unlimited',
+            ssl: true,
+            backup: 'Real-time',
+            support: '24/7 Phone',
+            cdn: true,
+            dedicated: true
+          },
+          sort_order: 3
+        }
+      ];
+      setFeaturedProducts(demoProducts);
     } finally {
       setLoadingProducts(false);
     }
@@ -117,8 +293,11 @@ export default function Home() {
   };
 
   const handleAddToCart = (product: FeaturedProduct) => {
+    console.log('Add to cart clicked for product:', product);
+    
     // Prevent double-clicks by checking if we're already adding this item
     if (addingToCartRef.current.has(product.id)) {
+      console.log('Already adding this item, skipping...');
       return;
     }
     
@@ -128,19 +307,28 @@ export default function Home() {
     const existingItem = items.find(item => item.id === product.id);
     if (existingItem) {
       // Item already in cart, just increment quantity
+      console.log('Item exists, updating quantity:', existingItem.quantity + 1);
       updateQuantity(product.id, existingItem.quantity + 1);
     } else {
       // New item, add to cart
-      addItem({
+      const cartItem = {
         id: product.id,
         name: product.name,
         description: product.description,
         price: product.price_monthly,
         billing_cycle: 'monthly',
         category: product.features?.category || 'product',
-        type: 'product',
-      });
+        type: 'product' as const,
+      };
+      console.log('Adding new item to cart:', cartItem);
+      addItem(cartItem);
     }
+    
+    // Show visual feedback
+    setAddedToCart(product.id);
+    setTimeout(() => {
+      setAddedToCart(null);
+    }, 2000);
     
     // Remove from the set after a short delay to allow for the state update
     setTimeout(() => {
@@ -158,6 +346,24 @@ export default function Home() {
     window.location.href = `/dashboard/domains?search=${encodeURIComponent(fullDomain)}`;
   };
 
+  // Show loading state while checking for custom homepage
+  if (checkingHomepage) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If there's a custom homepage, render it
+  if (hasCustomHomepage) {
+    return <DynamicHomepage />;
+  }
+
+  // Otherwise, render the default homepage
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
@@ -455,12 +661,14 @@ export default function Home() {
                     <button
                       onClick={() => handleAddToCart(product)}
                       className={`mt-8 block w-full px-6 py-3 rounded-lg text-center font-semibold transition ${
-                        isPopular
+                        addedToCart === product.id
+                          ? 'bg-green-600 text-white'
+                          : isPopular
                           ? 'bg-white text-indigo-600 hover:bg-gray-100'
                           : 'bg-indigo-600 text-white hover:bg-indigo-700'
                       }`}
                     >
-                      Add to Cart
+                      {addedToCart === product.id ? '✓ Added to Cart!' : 'Add to Cart'}
                     </button>
                   </div>
                 );
@@ -593,9 +801,13 @@ export default function Home() {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleAddToCart(product)}
-                    className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition text-sm"
+                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition text-sm ${
+                      addedToCart === product.id
+                        ? 'bg-green-600 text-white'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
                   >
-                    Add to Cart
+                    {addedToCart === product.id ? '✓ Added!' : 'Add to Cart'}
                   </button>
                   <button
                     onClick={() => router.push('/shop')}

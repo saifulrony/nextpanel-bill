@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
+import { getDemoData } from '@/lib/demoData';
 import {
   UserGroupIcon,
   ShoppingCartIcon,
@@ -35,6 +36,7 @@ export default function DashboardPage() {
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [isUsingDemoData, setIsUsingDemoData] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -46,20 +48,48 @@ export default function DashboardPage() {
         params += `&start_date=${customStartDate}&end_date=${customEndDate}`;
       }
       
-      const [statsResponse, customersResponse] = await Promise.all([
-        api.get(`/dashboard/stats?${params}`),
-        api.get(`/dashboard/customers/analytics?${params}`),
-      ]);
-      
-      // Force new object to trigger React updates
-      setStats({
-        ...statsResponse.data,
-        _timestamp: Date.now(),
-      });
-      
-      setTopCustomers(customersResponse.data.top_customers || []);
-      setLastUpdate(new Date());
-      console.log('✅ Dashboard stats loaded');
+      try {
+        const [statsResponse, customersResponse] = await Promise.all([
+          api.get(`/dashboard/stats?${params}`),
+          api.get(`/dashboard/customers/analytics?${params}`),
+        ]);
+        
+        // Check if API returned empty or minimal data
+        if (!statsResponse.data || 
+            (statsResponse.data.total_customers === 0 && 
+             statsResponse.data.total_orders === 0 && 
+             statsResponse.data.total_revenue === 0)) {
+          console.log('📊 API returned empty data, using demo dashboard...');
+          throw new Error('No data in database');
+        }
+        
+        // Force new object to trigger React updates
+        setStats({
+          ...statsResponse.data,
+          _timestamp: Date.now(),
+        });
+        
+        setTopCustomers(Array.isArray(customersResponse.data.top_customers) ? customersResponse.data.top_customers : []);
+        setLastUpdate(new Date());
+        setIsUsingDemoData(false);
+        console.log('✅ Dashboard stats loaded from API');
+      } catch (apiError) {
+        console.log('📊 API not available, using demo data...');
+        
+        // Use demo data when API is not available
+        const demoStats = getDemoData('stats');
+        const demoCustomers = getDemoData('customers');
+        
+        setStats({
+          ...demoStats,
+          _timestamp: Date.now(),
+        });
+        
+        setTopCustomers(Array.isArray(demoCustomers) ? demoCustomers : []);
+        setLastUpdate(new Date());
+        setIsUsingDemoData(true);
+        console.log('✅ Demo data loaded');
+      }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
     } finally {
@@ -204,6 +234,32 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6" key={lastUpdate.getTime()}>
+      {/* Demo Data Banner */}
+      {isUsingDemoData && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                Demo Data Mode
+              </h3>
+              <div className="mt-1 text-sm text-blue-700">
+                <p>
+                  The dashboard is currently displaying demo data. This includes sample products, orders, and customer information to demonstrate the system's capabilities.
+                </p>
+                <p className="mt-2">
+                  <strong>Demo includes:</strong> 6 products, 5 orders, 5 customers, and realistic analytics data.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Notification Banner */}
       {notification && (
         <div className="fixed top-20 right-4 z-50 animate-slide-in-right">
@@ -571,21 +627,21 @@ export default function DashboardPage() {
           </Link>
         </div>
         
-        {topCustomers.length > 0 ? (
+        {(topCustomers && topCustomers.length > 0) ? (
           <>
             {/* Bar Chart */}
             <div className="mb-6">
               <BarChart
                 xAxis={[{ 
                   scaleType: 'band', 
-                  data: topCustomers.map(c => c.customer_name.length > 15 
-                    ? c.customer_name.substring(0, 15) + '...' 
-                    : c.customer_name
-                  ),
+                  data: (topCustomers || []).map(c => {
+                    const name = c.customer_name || c.full_name || 'Unknown Customer';
+                    return name.length > 15 ? name.substring(0, 15) + '...' : name;
+                  }),
                 }]}
                 series={[
                   { 
-                    data: topCustomers.map(c => c.total_orders), 
+                    data: (topCustomers || []).map(c => c.total_orders || 0), 
                     label: 'Orders',
                     color: '#6366f1',
                   }
@@ -620,27 +676,27 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {topCustomers.map((customer, index) => (
-                    <tr key={customer.customer_id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  {(topCustomers || []).map((customer, index) => (
+                    <tr key={customer.customer_id || customer.id || index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {customer.customer_name}
+                        {customer.customer_name || customer.full_name || 'Unknown Customer'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {customer.customer_email}
+                        {customer.customer_email || customer.email || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {customer.total_orders}
+                          {customer.total_orders || 0}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                        {formatCurrency(customer.total_spent)}
+                        {formatCurrency(customer.total_spent || 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {customer.active_licenses}
+                        {customer.active_licenses || 0}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {customer.percentage.toFixed(1)}%
+                        {(customer.percentage || 0).toFixed(1)}%
                       </td>
                     </tr>
                   ))}

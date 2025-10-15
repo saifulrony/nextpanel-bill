@@ -70,6 +70,9 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
     'product-search': 'Product Search',
     'contact-form': 'Contact Form',
     newsletter: 'Newsletter',
+    header: 'Header',
+    footer: 'Footer',
+    cart: 'Cart',
   };
 
   return (
@@ -120,6 +123,259 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 {component.type === 'newsletter' && (
                   <p className="text-xs text-blue-600">API: /api/v1/newsletter</p>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Header Component Properties */}
+        {component.type === 'header' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Text</label>
+              <input
+                type="text"
+                value={component.props?.logoText || 'NextPanel'}
+                onChange={(e) => updateProp('logoText', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Company Name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
+              <input
+                type="text"
+                value={component.props?.logoUrl || ''}
+                onChange={(e) => updateProp('logoUrl', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showNavigation !== false}
+                  onChange={(e) => updateProp('showNavigation', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Navigation</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showCart !== false}
+                  onChange={(e) => updateProp('showCart', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Cart</span>
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={component.props?.backgroundColor || '#ffffff'}
+                  onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={component.props?.backgroundColor || '#ffffff'}
+                  onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={component.props?.textColor || '#374151'}
+                  onChange={(e) => updateProp('textColor', e.target.value)}
+                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={component.props?.textColor || '#374151'}
+                  onChange={(e) => updateProp('textColor', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Footer Component Properties */}
+        {component.type === 'footer' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+              <input
+                type="text"
+                value={component.props?.companyName || 'NextPanel Billing'}
+                onChange={(e) => updateProp('companyName', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Company Name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Copyright Text</label>
+              <input
+                type="text"
+                value={component.props?.copyrightText || 'All rights reserved.'}
+                onChange={(e) => updateProp('copyrightText', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Copyright text"
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showLinks !== false}
+                  onChange={(e) => updateProp('showLinks', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Links</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showSocial || false}
+                  onChange={(e) => updateProp('showSocial', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Social</span>
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={component.props?.backgroundColor || '#111827'}
+                  onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={component.props?.backgroundColor || '#111827'}
+                  onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={component.props?.textColor || '#ffffff'}
+                  onChange={(e) => updateProp('textColor', e.target.value)}
+                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={component.props?.textColor || '#ffffff'}
+                  onChange={(e) => updateProp('textColor', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cart Component Properties */}
+        {component.type === 'cart' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Header Text</label>
+              <input
+                type="text"
+                value={component.props?.headerText || 'Shopping Cart'}
+                onChange={(e) => updateProp('headerText', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Cart Header"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Empty State Text</label>
+              <input
+                type="text"
+                value={component.props?.emptyStateText || 'Your cart is empty'}
+                onChange={(e) => updateProp('emptyStateText', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Empty cart message"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Checkout Button Text</label>
+              <input
+                type="text"
+                value={component.props?.checkoutButtonText || 'Proceed to Checkout'}
+                onChange={(e) => updateProp('checkoutButtonText', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Checkout button text"
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showHeader !== false}
+                  onChange={(e) => updateProp('showHeader', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Header</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showCheckoutButton !== false}
+                  onChange={(e) => updateProp('showCheckoutButton', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Checkout Button</span>
+              </label>
+            </div>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showItemCount !== false}
+                  onChange={(e) => updateProp('showItemCount', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Item Count</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showTotal !== false}
+                  onChange={(e) => updateProp('showTotal', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Total</span>
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Button Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={component.props?.buttonColor || '#4f46e5'}
+                  onChange={(e) => updateProp('buttonColor', e.target.value)}
+                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={component.props?.buttonColor || '#4f46e5'}
+                  onChange={(e) => updateProp('buttonColor', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                />
               </div>
             </div>
           </div>
@@ -181,6 +437,33 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               onChange={(e) => updateProp('height', `${e.target.value}px`)}
               className="w-full"
             />
+          </div>
+        )}
+
+        {/* Container Columns */}
+        {component.type === 'container' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Number of Columns
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {[1, 2, 3, 4].map((cols) => (
+                <button
+                  key={cols}
+                  onClick={() => updateProp('columns', cols)}
+                  className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                    (component.props?.columns || 1) === cols
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50'
+                  }`}
+                >
+                  {cols}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Drag elements from the left panel into the container to add them to columns.
+            </p>
           </div>
         )}
 

@@ -723,3 +723,13 @@ class HealthResponse(BaseModel):
     database: str
     timestamp: datetime
 
+
+# Import Page schemas
+from app.schemas.page import (
+    ComponentSchema,
+    PageBase,
+    PageCreate,
+    PageUpdate,
+    PageResponse
+)
+

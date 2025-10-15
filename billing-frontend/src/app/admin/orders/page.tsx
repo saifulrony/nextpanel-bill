@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ordersAPI } from '@/lib/api';
+import { getDemoData } from '@/lib/demoData';
 import CreateOrderModal from '@/components/orders/CreateOrderModal';
 import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
 import OrderFilters from '@/components/orders/OrderFilters';
@@ -59,6 +60,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUsingDemoData, setIsUsingDemoData] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [filters, setFilters] = useState({
@@ -76,24 +78,56 @@ export default function OrdersPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const params: any = {};
       
-      if (filters.status) params.status = filters.status;
-      if (filters.start_date) params.start_date = filters.start_date;
-      if (filters.end_date) params.end_date = filters.end_date;
-      if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
-      if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
-
-      const ordersResponse = await ordersAPI.list(params);
-      setOrders(ordersResponse.data);
-      
-      // Try to get stats
       try {
-        const statsResponse = await ordersAPI.stats();
-        setStats(statsResponse.data);
-      } catch (error) {
-        console.log('Stats not available yet');
-        setStats(null);
+        const params: any = {};
+        
+        if (filters.status) params.status = filters.status;
+        if (filters.start_date) params.start_date = filters.start_date;
+        if (filters.end_date) params.end_date = filters.end_date;
+        if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
+        if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
+
+        const ordersResponse = await ordersAPI.list(params);
+        
+        // Check if API returned empty data (no orders in database)
+        if (ordersResponse.data && ordersResponse.data.length === 0) {
+          console.log('📋 API returned empty data, using demo orders...');
+          throw new Error('No orders in database');
+        }
+        
+        setOrders(ordersResponse.data);
+        
+        // Try to get stats
+        try {
+          const statsResponse = await ordersAPI.stats();
+          setStats(statsResponse.data);
+        } catch (error) {
+          console.log('Stats not available yet');
+          setStats(null);
+        }
+        setIsUsingDemoData(false);
+        console.log('✅ Orders loaded from API');
+      } catch (apiError) {
+        console.log('📋 API not available, using demo data...');
+        
+        // Use demo data when API is not available
+        const demoOrders = getDemoData('orders');
+        const demoStats = {
+          total_invoiced: 1025.57,
+          total_paid: 156.77,
+          total_outstanding: 868.80,
+          overdue_amount: 32.39,
+          open_invoices: 2,
+          paid_invoices: 2,
+          overdue_invoices: 1,
+          partially_paid_invoices: 0
+        };
+        
+        setOrders(demoOrders);
+        setStats(demoStats);
+        setIsUsingDemoData(true);
+        console.log('✅ Demo orders loaded');
       }
     } catch (error: any) {
       console.error('Failed to load data:', error);
@@ -198,6 +232,29 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Demo Data Banner */}
+      {isUsingDemoData && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                Demo Data Mode
+              </h3>
+              <div className="mt-1 text-sm text-blue-700">
+                <p>
+                  Showing demo orders with various statuses including completed, pending, processing, and overdue orders.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>

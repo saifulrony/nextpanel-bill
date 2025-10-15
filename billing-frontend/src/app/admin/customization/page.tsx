@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   PhotoIcon,
   SwatchIcon,
@@ -83,10 +84,13 @@ interface PageFile {
 }
 
 export default function CustomizationPage() {
-  const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'builder'>('header');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'builder' | 'homepage' | 'default-pages'>('header');
   const [showPageBuilder, setShowPageBuilder] = useState(false);
   const [pageBuilderComponents, setPageBuilderComponents] = useState<Component[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
+  const [currentPageId, setCurrentPageId] = useState<string | null>(null);
+  const [currentPageType, setCurrentPageType] = useState<string | null>(null);
   const [settings, setSettings] = useState<CustomizationSettings>({
     // Front Page Header
     logo: null,
@@ -154,8 +158,488 @@ export default function CustomizationPage() {
   const [originalCode, setOriginalCode] = useState('');
   const [isCodeModified, setIsCodeModified] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Homepage management states
+  const [homepagePages, setHomepagePages] = useState<any[]>([]);
+  const [currentHomepage, setCurrentHomepage] = useState<any>(null);
+  const [loadingHomepage, setLoadingHomepage] = useState(false);
+
+  // Handle URL parameters for page editing
+  useEffect(() => {
+    const pageId = searchParams.get('page');
+    const pageType = searchParams.get('type');
+    const action = searchParams.get('action');
+    
+    if (pageId) {
+      setCurrentPageId(pageId);
+      setActiveTab('builder');
+      setShowPageBuilder(true);
+      // Load page components based on pageId
+      loadPageComponents(pageId);
+    } else if (pageType && action === 'create') {
+      setCurrentPageType(pageType);
+      setActiveTab('builder');
+      setShowPageBuilder(true);
+      // Create new page with default template
+      createDefaultPageTemplate(pageType);
+    }
+  }, [searchParams]);
+
+  // Load page components based on page ID
+  const loadPageComponents = (pageId: string) => {
+    // For now, load demo components based on page type
+    const pageType = getPageTypeFromId(pageId);
+    const defaultComponents = getDefaultPageTemplate(pageType);
+    setPageBuilderComponents(defaultComponents);
+  };
+
+  // Create default page template based on page type
+  const createDefaultPageTemplate = (pageType: string) => {
+    const defaultComponents = getDefaultPageTemplate(pageType);
+    setPageBuilderComponents(defaultComponents);
+  };
+
+  // Get page type from page ID (demo implementation)
+  const getPageTypeFromId = (pageId: string): string => {
+    const pageTypeMap: Record<string, string> = {
+      'page-1': 'homepage',
+      'page-2': 'cart',
+      'page-3': 'shop',
+      'page-4': 'checkout',
+      'page-5': 'order_success',
+      'page-6': 'about',
+      'page-7': 'contact',
+      'page-8': 'privacy',
+      'page-9': 'terms',
+    };
+    return pageTypeMap[pageId] || 'homepage';
+  };
+
+  // Get default page template based on page type
+  const getDefaultPageTemplate = (pageType: string): Component[] => {
+    const templates: Record<string, Component[]> = {
+      homepage: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'hero-1',
+          type: 'heading',
+          content: '<h1>Welcome to NextPanel Billing</h1>',
+          props: {},
+          style: { fontSize: '48px', textAlign: 'center', marginBottom: '24px' }
+        },
+        {
+          id: 'hero-text-1',
+          type: 'text',
+          content: '<p>Professional billing and hosting management made simple.</p>',
+          props: {},
+          style: { fontSize: '20px', textAlign: 'center', color: '#666', marginBottom: '48px' }
+        },
+        {
+          id: 'products-grid-1',
+          type: 'products-grid',
+          props: {},
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      cart: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Shopping Cart</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'cart-1',
+          type: 'cart',
+          props: {
+            showHeader: true,
+            showCheckoutButton: true,
+            showEmptyState: true,
+            showItemCount: true,
+            showTotal: true,
+            headerText: 'Shopping Cart',
+            emptyStateText: 'Your cart is empty',
+            checkoutButtonText: 'Proceed to Checkout',
+            buttonColor: '#4f46e5'
+          },
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      shop: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Our Products</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'products-grid-1',
+          type: 'products-grid',
+          props: {},
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      checkout: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Checkout</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>Complete your purchase securely.</p>',
+          props: {},
+          style: { color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      order_success: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Order Successful!</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px', color: '#10b981' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>Thank you for your purchase. Your order has been confirmed and you will receive an email shortly.</p>',
+          props: {},
+          style: { color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      about: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>About Us</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>We are a leading provider of hosting and billing solutions, helping businesses grow online.</p>',
+          props: {},
+          style: { color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      contact: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Contact Us</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>Get in touch with our team for support or inquiries.</p>',
+          props: {},
+          style: { color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      privacy: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Privacy Policy</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>This privacy policy explains how we collect, use, and protect your information.</p>',
+          props: {},
+          style: { color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      terms: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Terms of Service</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>These terms and conditions govern your use of our services.</p>',
+          props: {},
+          style: { color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ]
+    };
+    
+    return templates[pageType] || templates.homepage;
+  };
 
   useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      console.log('User not logged in, homepage management will be limited');
+    }
+    
     // Load saved settings from localStorage
     const saved = localStorage.getItem('customization_settings');
     if (saved) {
@@ -182,7 +666,137 @@ export default function CustomizationPage() {
     if (savedComponents) {
       setPageBuilderComponents(JSON.parse(savedComponents));
     }
+    
+    // Load homepage data
+    loadHomepageData();
   }, []);
+
+  const loadHomepageData = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.log('No auth token found, skipping homepage data load');
+        return;
+      }
+      
+      console.log('Loading homepage data...');
+      
+      // Load all pages
+      const pagesResponse = await fetch(`${apiUrl}/api/v1/pages/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (pagesResponse.ok) {
+        const pages = await pagesResponse.json();
+        setHomepagePages(pages);
+        console.log('Loaded pages:', pages.length);
+      } else {
+        console.error('Failed to load pages:', pagesResponse.status);
+      }
+      
+      // Load current homepage (no auth required)
+      const homepageResponse = await fetch(`${apiUrl}/api/v1/pages/homepage`);
+      if (homepageResponse.ok) {
+        const homepage = await homepageResponse.json();
+        setCurrentHomepage(homepage);
+        console.log('Loaded homepage:', homepage?.title);
+      } else {
+        console.log('No custom homepage set');
+      }
+    } catch (error) {
+      console.error('Error loading homepage data:', error);
+    }
+  };
+
+  const handleSetHomepage = async (pageSlug: string) => {
+    try {
+      setLoadingHomepage(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Please log in first. You can log in from the admin panel.');
+        return;
+      }
+      
+      console.log('Setting homepage for slug:', pageSlug);
+      console.log('Using API URL:', apiUrl);
+      
+      const response = await fetch(`${apiUrl}/api/v1/pages/homepage/${pageSlug}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Homepage set response status:', response.status);
+      
+      if (response.ok) {
+        const homepage = await response.json();
+        setCurrentHomepage(homepage);
+        alert(`Homepage set to "${homepage.title}" successfully!`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Homepage set error:', errorData);
+        alert(`Failed to set homepage: ${errorData.detail || 'Please check your permissions.'}`);
+      }
+    } catch (error) {
+      console.error('Error setting homepage:', error);
+      alert(`Error setting homepage: ${error.message}`);
+    } finally {
+      setLoadingHomepage(false);
+    }
+  };
+
+  const handleUnsetHomepage = async () => {
+    if (!confirm('Are you sure you want to remove the custom homepage and revert to the default?')) {
+      return;
+    }
+    
+    try {
+      setLoadingHomepage(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Please log in first. You can log in from the admin panel.');
+        return;
+      }
+      
+      console.log('Unsetting homepage');
+      console.log('Using API URL:', apiUrl);
+      
+      const response = await fetch(`${apiUrl}/api/v1/pages/homepage`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Homepage unset response status:', response.status);
+      
+      if (response.ok) {
+        setCurrentHomepage(null);
+        alert('Homepage unset successfully! Reverted to default homepage.');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Homepage unset error:', errorData);
+        alert(`Failed to unset homepage: ${errorData.detail || 'Please check your permissions.'}`);
+      }
+    } catch (error) {
+      console.error('Error unsetting homepage:', error);
+      alert(`Error unsetting homepage: ${error.message}`);
+    } finally {
+      setLoadingHomepage(false);
+    }
+  };
 
   useEffect(() => {
     // Save settings to localStorage
@@ -571,9 +1185,11 @@ export default function ${page.name}Page() {
           {/* Tabs */}
           <div className="px-6">
             <nav className="flex space-x-8 -mb-px">
-              {[
-                { id: 'builder', name: 'Page Builder', icon: Squares2X2Icon, action: 'newTab' },
-                { id: 'header', name: 'Header', icon: PhotoIcon },
+                      {[
+                        { id: 'builder', name: 'Page Builder', icon: Squares2X2Icon, action: 'newTab' },
+                        { id: 'homepage', name: 'Homepage', icon: PlayIcon },
+                        { id: 'default-pages', name: 'Default Pages', icon: DocumentTextIcon },
+                        { id: 'header', name: 'Header', icon: PhotoIcon },
                 { id: 'sidebar', name: 'Sidebar', icon: FolderIcon },
                 { id: 'footer', name: 'Footer', icon: DocumentIcon },
                 { id: 'fonts', name: 'Fonts', icon: DocumentTextIcon },
@@ -613,6 +1229,236 @@ export default function ${page.name}Page() {
             {/* Main Content */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                {/* Homepage Tab */}
+                {activeTab === 'homepage' && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Homepage Management</h2>
+                    
+                    {/* Login Status Indicator */}
+                    {!localStorage.getItem('access_token') && (
+                      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-yellow-800">
+                              Authentication Required
+                            </h3>
+                            <div className="mt-2 text-sm text-yellow-700">
+                              <p>You need to be logged in to manage homepages. Please log in from the admin panel first.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-6">
+                      {/* Current Homepage Status */}
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <h3 className="text-md font-semibold text-gray-900 mb-2">Current Homepage</h3>
+                        {currentHomepage ? (
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{currentHomepage.title}</p>
+                              <p className="text-xs text-gray-500">Slug: /{currentHomepage.slug}</p>
+                              <p className="text-xs text-gray-500">
+                                Created: {new Date(currentHomepage.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <a
+                                href={`/dynamic-page/${currentHomepage.slug}`}
+                                target="_blank"
+                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                              >
+                                Preview
+                              </a>
+                              <button
+                                onClick={handleUnsetHomepage}
+                                disabled={loadingHomepage}
+                                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {loadingHomepage ? 'Removing...' : 'Remove'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-600">
+                            Using default homepage. Select a page below to set as custom homepage.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Page Builder Quick Link */}
+                      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-md font-semibold text-indigo-900 mb-1">Create New Homepage</h3>
+                            <p className="text-sm text-indigo-700">
+                              Use the page builder to create a custom homepage from scratch.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => window.open('/page-builder', '_blank')}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                          >
+                            Open Page Builder
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Available Pages */}
+                      <div>
+                        <h3 className="text-md font-semibold text-gray-900 mb-3">
+                          Available Pages ({homepagePages.length})
+                        </h3>
+                        {homepagePages.length > 0 ? (
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {homepagePages.map((page) => (
+                              <div
+                                key={page.id}
+                                className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                                  currentHomepage?.id === page.id
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-gray-900">{page.title}</h4>
+                                  <p className="text-xs text-gray-500">Slug: /{page.slug}</p>
+                                  {page.description && (
+                                    <p className="text-xs text-gray-600 mt-1">{page.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {currentHomepage?.id === page.id && (
+                                    <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                                      Current Homepage
+                                    </span>
+                                  )}
+                                  <a
+                                    href={`/dynamic-page/${page.slug}`}
+                                    target="_blank"
+                                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                                  >
+                                    Preview
+                                  </a>
+                                  {currentHomepage?.id !== page.id && (
+                                    <button
+                                      onClick={() => handleSetHomepage(page.slug)}
+                                      disabled={loadingHomepage}
+                                      className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      {loadingHomepage ? 'Setting...' : 'Set as Homepage'}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <Squares2X2Icon className="mx-auto h-12 w-12 text-gray-400" />
+                            <p className="text-sm text-gray-600 mt-2">No pages found</p>
+                            <p className="text-xs text-gray-500">Create pages using the Page Builder to set them as homepage</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Instructions */}
+                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 className="text-sm font-semibold text-blue-900 mb-2">How to Set Custom Homepage</h3>
+                        <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                          <li>Create a new page using the <strong>Page Builder</strong></li>
+                          <li>Design your custom homepage with components</li>
+                          <li>Save the page with a memorable slug (e.g., "custom-home")</li>
+                          <li>Return here and click <strong>"Set as Homepage"</strong> next to your page</li>
+                          <li>Your custom page will now appear at the root URL (/)</li>
+                        </ol>
+                        <p className="text-xs text-blue-600 mt-2">
+                          <strong>Note:</strong> You can always revert to the default homepage by clicking "Remove" on the current homepage.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Default Pages Tab */}
+                {activeTab === 'default-pages' && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Default Pages Management</h2>
+                    <div className="space-y-6">
+                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 className="text-md font-semibold text-blue-900 mb-2">System Default Pages</h3>
+                        <p className="text-sm text-blue-800 mb-4">
+                          These are the default pages created for your e-commerce store. You can edit any of these pages using the Page Builder.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h4 className="font-medium text-gray-900 mb-2">🏠 Homepage</h4>
+                            <p className="text-sm text-gray-600 mb-3">Main landing page with hero section and features</p>
+                            <div className="flex space-x-2">
+                              <a href="/dynamic-page/homepage" target="_blank" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Preview</a>
+                              <button onClick={() => window.open('/page-builder?page=homepage', '_blank')} className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Edit</button>
+                            </div>
+                          </div>
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h4 className="font-medium text-gray-900 mb-2">🛒 Cart Page</h4>
+                            <p className="text-sm text-gray-600 mb-3">Shopping cart with items and checkout button</p>
+                            <div className="flex space-x-2">
+                              <a href="/dynamic-page/cart" target="_blank" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Preview</a>
+                              <button onClick={() => window.open('/page-builder?page=cart', '_blank')} className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Edit</button>
+                            </div>
+                          </div>
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h4 className="font-medium text-gray-900 mb-2">🛍️ Shop Page</h4>
+                            <p className="text-sm text-gray-600 mb-3">Product listing with filters and search</p>
+                            <div className="flex space-x-2">
+                              <a href="/dynamic-page/shop" target="_blank" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Preview</a>
+                              <button onClick={() => window.open('/page-builder?page=shop', '_blank')} className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Edit</button>
+                            </div>
+                          </div>
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h4 className="font-medium text-gray-900 mb-2">💳 Checkout Page</h4>
+                            <p className="text-sm text-gray-600 mb-3">Order form with billing and payment details</p>
+                            <div className="flex space-x-2">
+                              <a href="/dynamic-page/checkout" target="_blank" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Preview</a>
+                              <button onClick={() => window.open('/page-builder?page=checkout', '_blank')} className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Edit</button>
+                            </div>
+                          </div>
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h4 className="font-medium text-gray-900 mb-2">✅ Order Success</h4>
+                            <p className="text-sm text-gray-600 mb-3">Order confirmation with details and next steps</p>
+                            <div className="flex space-x-2">
+                              <a href="/dynamic-page/order-success" target="_blank" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Preview</a>
+                              <button onClick={() => window.open('/page-builder?page=order-success', '_blank')} className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Edit</button>
+                            </div>
+                          </div>
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h4 className="font-medium text-gray-900 mb-2">ℹ️ About Page</h4>
+                            <p className="text-sm text-gray-600 mb-3">Company information and values</p>
+                            <div className="flex space-x-2">
+                              <a href="/dynamic-page/about" target="_blank" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Preview</a>
+                              <button onClick={() => window.open('/page-builder?page=about', '_blank')} className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Edit</button>
+                            </div>
+                          </div>
+                          <div className="bg-white p-4 rounded-lg border">
+                            <h4 className="font-medium text-gray-900 mb-2">📞 Contact Page</h4>
+                            <p className="text-sm text-gray-600 mb-3">Contact form and business information</p>
+                            <div className="flex space-x-2">
+                              <a href="/dynamic-page/contact" target="_blank" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Preview</a>
+                              <button onClick={() => window.open('/page-builder?page=contact', '_blank')} className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700">Edit</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Header Tab */}
                 {activeTab === 'header' && (
                 <div>
@@ -807,6 +1653,163 @@ export default function ${page.name}Page() {
                         </div>
                       </>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Homepage Tab */}
+              {activeTab === 'homepage' && (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Homepage Management</h2>
+                  
+                  {/* Login Status Indicator */}
+                  {!localStorage.getItem('access_token') && (
+                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-yellow-800">
+                            Authentication Required
+                          </h3>
+                          <div className="mt-2 text-sm text-yellow-700">
+                            <p>You need to be logged in to manage homepages. Please log in from the admin panel first.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-6">
+                    {/* Current Homepage Status */}
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <h3 className="text-md font-semibold text-gray-900 mb-2">Current Homepage</h3>
+                      {currentHomepage ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{currentHomepage.title}</p>
+                            <p className="text-xs text-gray-500">Slug: /{currentHomepage.slug}</p>
+                            <p className="text-xs text-gray-500">
+                              Created: {new Date(currentHomepage.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <a
+                              href={`/dynamic-page/${currentHomepage.slug}`}
+                              target="_blank"
+                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Preview
+                            </a>
+                            <button
+                              onClick={handleUnsetHomepage}
+                              disabled={loadingHomepage}
+                              className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {loadingHomepage ? 'Removing...' : 'Remove'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-600">
+                          Using default homepage. Select a page below to set as custom homepage.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Page Builder Quick Link */}
+                    <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-md font-semibold text-indigo-900 mb-1">Create New Homepage</h3>
+                          <p className="text-sm text-indigo-700">
+                            Use the page builder to create a custom homepage from scratch.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => window.open('/page-builder', '_blank')}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          Open Page Builder
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Available Pages */}
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-900 mb-3">
+                        Available Pages ({homepagePages.length})
+                      </h3>
+                      {homepagePages.length > 0 ? (
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {homepagePages.map((page) => (
+                            <div
+                              key={page.id}
+                              className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                                currentHomepage?.id === page.id
+                                  ? 'border-green-500 bg-green-50'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium text-gray-900">{page.title}</h4>
+                                <p className="text-xs text-gray-500">Slug: /{page.slug}</p>
+                                {page.description && (
+                                  <p className="text-xs text-gray-600 mt-1">{page.description}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {currentHomepage?.id === page.id && (
+                                  <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                                    Current Homepage
+                                  </span>
+                                )}
+                                <a
+                                  href={`/dynamic-page/${page.slug}`}
+                                  target="_blank"
+                                  className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                                >
+                                  Preview
+                                </a>
+                                {currentHomepage?.id !== page.id && (
+                                  <button
+                                    onClick={() => handleSetHomepage(page.slug)}
+                                    disabled={loadingHomepage}
+                                    className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    {loadingHomepage ? 'Setting...' : 'Set as Homepage'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Squares2X2Icon className="mx-auto h-12 w-12 text-gray-400" />
+                          <p className="text-sm text-gray-600 mt-2">No pages found</p>
+                          <p className="text-xs text-gray-500">Create pages using the Page Builder to set them as homepage</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h3 className="text-sm font-semibold text-blue-900 mb-2">How to Set Custom Homepage</h3>
+                      <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                        <li>Create a new page using the <strong>Page Builder</strong></li>
+                        <li>Design your custom homepage with components</li>
+                        <li>Save the page with a memorable slug (e.g., "custom-home")</li>
+                        <li>Return here and click <strong>"Set as Homepage"</strong> next to your page</li>
+                        <li>Your custom page will now appear at the root URL (/)</li>
+                      </ol>
+                      <p className="text-xs text-blue-600 mt-2">
+                        <strong>Note:</strong> You can always revert to the default homepage by clicking "Remove" on the current homepage.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

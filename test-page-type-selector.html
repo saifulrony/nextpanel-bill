@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Type Selector Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .demo { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .page-type { background: #f0f9ff; border-color: #0ea5e9; }
+        .header { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .selector { margin: 10px 0; }
+        select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; }
+        .info { background: #fef3c7; padding: 10px; border-radius: 6px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Page Type Selector Demo</h1>
+    
+    <div class="header">
+        <h2>Page Builder Header</h2>
+        <div class="selector">
+            <label for="pageType">Page Type:</label>
+            <select id="pageType" onchange="handlePageTypeChange()">
+                <option value="custom">Custom Page</option>
+                <option value="home">🏠 Homepage</option>
+                <option value="cart">🛒 Cart Page</option>
+                <option value="shop">🛍️ Shop Page</option>
+                <option value="checkout">💳 Checkout Page</option>
+                <option value="order-confirmation">✅ Order Success</option>
+                <option value="about-us">ℹ️ About Us</option>
+                <option value="contact">📞 Contact Page</option>
+                <option value="privacy">🔒 Privacy Policy</option>
+                <option value="terms">📋 Terms of Service</option>
+            </select>
+        </div>
+        <div id="pageInfo" class="info" style="display: none;">
+            <strong>Selected:</strong> <span id="selectedPage"></span>
+        </div>
+    </div>
+
+    <div id="pagePreview" class="demo">
+        <h3>Page Preview</h3>
+        <p>Select a page type above to see the default template components.</p>
+    </div>
+
+    <script>
+        const pageTemplates = {
+            home: [
+                'Header with logo and navigation',
+                'Hero section with domain search',
+                'Featured products grid',
+                'Why choose us section',
+                'Newsletter signup',
+                'Footer with links'
+            ],
+            cart: [
+                'Header with logo and navigation',
+                'Shopping cart heading',
+                'Cart component with items',
+                'Products grid for suggestions',
+                'Footer with links'
+            ],
+            shop: [
+                'Header with logo and navigation',
+                'Products page heading',
+                'Products grid component',
+                'Footer with links'
+            ],
+            checkout: [
+                'Checkout heading',
+                'Order summary section',
+                'Payment information section',
+                'Complete order button'
+            ],
+            'order-confirmation': [
+                'Header with logo and navigation',
+                'Order confirmed heading',
+                'Thank you message',
+                'Order details',
+                'Continue shopping button',
+                'Footer with links'
+            ],
+            'about-us': [
+                'Header with logo and navigation',
+                'About us heading',
+                'Company description',
+                'Mission, vision, values sections',
+                'Footer with links'
+            ],
+            contact: [
+                'Header with logo and navigation',
+                'Contact us heading',
+                'Contact information',
+                'Business hours',
+                'Footer with links'
+            ],
+            privacy: [
+                'Header with logo and navigation',
+                'Privacy policy heading',
+                'Last updated date',
+                'Information collection section',
+                'How we use information section',
+                'Footer with links'
+            ],
+            terms: [
+                'Header with logo and navigation',
+                'Terms of service heading',
+                'Last updated date',
+                'Acceptance of terms section',
+                'Service description section',
+                'Footer with links'
+            ]
+        };
+
+        function handlePageTypeChange() {
+            const select = document.getElementById('pageType');
+            const pageInfo = document.getElementById('pageInfo');
+            const selectedPage = document.getElementById('selectedPage');
+            const preview = document.getElementById('pagePreview');
+            
+            const selectedType = select.value;
+            
+            if (selectedType === 'custom') {
+                pageInfo.style.display = 'none';
+                preview.innerHTML = '<h3>Custom Page</h3><p>Start with a blank canvas and add components as needed.</p>';
+            } else {
+                const pageName = select.options[select.selectedIndex].text;
+                selectedPage.textContent = pageName;
+                pageInfo.style.display = 'block';
+                
+                const components = pageTemplates[selectedType] || [];
+                preview.innerHTML = `
+                    <h3>${pageName} Template</h3>
+                    <p>This template includes the following components:</p>
+                    <ul>
+                        ${components.map(component => `<li>${component}</li>`).join('')}
+                    </ul>
+                    <p><strong>Note:</strong> All components are fully customizable in the page builder.</p>
+                `;
+            }
+        }
+
+        // Initialize
+        handlePageTypeChange();
+    </script>
+</body>
+</html>

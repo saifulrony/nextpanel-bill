@@ -22,6 +22,7 @@ import {
   TrashIcon,
   PlusIcon,
   RocketLaunchIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 interface PageBuilderWithISRProps {
@@ -40,6 +41,7 @@ function SortableComponent({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onColumnClick,
 }: {
   component: Component;
   isSelected: boolean;
@@ -47,6 +49,7 @@ function SortableComponent({
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onColumnClick: (containerId: string, columnIndex: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
@@ -88,6 +91,8 @@ function SortableComponent({
             onClick={() => {}} // Empty handler, click is handled by parent div
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
+            onAddToContainer={(containerId, type) => {}}
+            onColumnClick={onColumnClick}
           />
         </div>
       </div>
@@ -114,10 +119,621 @@ export function PageBuilderWithISR({
   const [title, setTitle] = useState(pageTitle);
   const [description, setDescription] = useState(pageDescription);
   const [currentPageId, setCurrentPageId] = useState(pageId || '');
+  const [setAsHomepage, setSetAsHomepage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [availablePages, setAvailablePages] = useState<Array<{id: string, title: string}>>([]);
   const [loadingPages, setLoadingPages] = useState(false);
+  const [showPageSelector, setShowPageSelector] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showComponentSelector, setShowComponentSelector] = useState(false);
+  const [targetContainer, setTargetContainer] = useState<{id: string, columnIndex: number} | null>(null);
+  const [pageType, setPageType] = useState<string>('custom');
+
+  // Default templates for each page type
+  const getDefaultComponents = (pageId: string): Component[] => {
+    const templates: Record<string, Component[]> = {
+      home: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Find Your Perfect Domain</h1>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '48px', fontWeight: 'bold', marginBottom: '16px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>Search for the perfect domain name for your business</p>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '18px', color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'domain-search-1',
+          type: 'domain-search',
+          props: {},
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'heading-2',
+          type: 'heading',
+          content: '<h2>Featured Hosting Plans</h2>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '36px', fontWeight: 'bold', marginBottom: '24px' }
+        },
+        {
+          id: 'text-2',
+          type: 'text',
+          content: '<p>Choose the perfect plan for your needs</p>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '16px', color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'products-grid-1',
+          type: 'products-grid',
+          props: {},
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'heading-3',
+          type: 'heading',
+          content: '<h2>Why Choose Us?</h2>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '36px', fontWeight: 'bold', marginBottom: '32px' }
+        },
+        {
+          id: 'container-1',
+          type: 'container',
+          props: { columns: 3 },
+          children: [
+            {
+              id: 'text-3',
+              type: 'text',
+              content: '<h3>99.9% Uptime</h3><p>Reliable hosting with guaranteed uptime</p>',
+              props: {},
+              style: { textAlign: 'center' }
+            },
+            {
+              id: 'text-4',
+              type: 'text',
+              content: '<h3>24/7 Support</h3><p>Expert support whenever you need it</p>',
+              props: {},
+              style: { textAlign: 'center' }
+            },
+            {
+              id: 'text-5',
+              type: 'text',
+              content: '<h3>Easy Setup</h3><p>Get started in minutes, not hours</p>',
+              props: {},
+              style: { textAlign: 'center' }
+            }
+          ],
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'newsletter-1',
+          type: 'newsletter',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      cart: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Shopping Cart</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>Review your items and proceed to checkout.</p>',
+          props: {},
+          style: { color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'cart-1',
+          type: 'cart',
+          props: {
+            showHeader: true,
+            showCheckoutButton: true,
+            showEmptyState: true,
+            showItemCount: true,
+            showTotal: true,
+            headerText: 'Shopping Cart',
+            emptyStateText: 'Your cart is empty',
+            checkoutButtonText: 'Proceed to Checkout',
+            buttonColor: '#4f46e5'
+          },
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'products-grid-1',
+          type: 'products-grid',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      checkout: [
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Checkout</h1>',
+          props: {},
+          style: { fontSize: '32px', marginBottom: '24px' }
+        },
+        {
+          id: 'container-1',
+          type: 'container',
+          props: { columns: 2 },
+          children: [
+            {
+              id: 'text-1',
+              type: 'text',
+              content: '<h3>Order Summary</h3><p>Review your order details here.</p>',
+              props: {},
+              style: {}
+            },
+            {
+              id: 'text-2',
+              type: 'text',
+              content: '<h3>Payment Information</h3><p>Enter your payment details.</p>',
+              props: {},
+              style: {}
+            }
+          ],
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'button-1',
+          type: 'button',
+          content: 'Complete Order',
+          props: {},
+          style: { padding: '16px 32px', fontSize: '18px' }
+        }
+      ],
+      'order-confirmation': [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Order Confirmed!</h1>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '48px', color: '#10b981', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p style="text-align: center; font-size: 18px;">Thank you for your order. Your order has been successfully placed.</p>',
+          props: {},
+          style: { textAlign: 'center', marginBottom: '32px' }
+        },
+        {
+          id: 'text-2',
+          type: 'text',
+          content: '<p style="text-align: center;">Order ID: <strong>#12345</strong></p><p style="text-align: center;">You will receive a confirmation email shortly.</p>',
+          props: {},
+          style: { textAlign: 'center', marginBottom: '32px' }
+        },
+        {
+          id: 'button-1',
+          type: 'button',
+          content: 'Continue Shopping',
+          props: {},
+          style: { display: 'block', margin: '0 auto', padding: '16px 32px', fontSize: '18px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      shop: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Our Products</h1>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '48px', fontWeight: 'bold', marginBottom: '16px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p>Discover our range of hosting and domain services</p>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '18px', color: '#666', marginBottom: '32px' }
+        },
+        {
+          id: 'products-grid-1',
+          type: 'products-grid',
+          props: {},
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      'about-us': [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>About Us</h1>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '48px', fontWeight: 'bold', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p style="text-align: center; font-size: 18px; color: #666; max-width: 800px; margin: 0 auto;">We are a leading provider of hosting and domain services, committed to helping businesses establish their online presence with reliable, secure, and scalable solutions.</p>',
+          props: {},
+          style: { textAlign: 'center', marginBottom: '48px' }
+        },
+        {
+          id: 'container-1',
+          type: 'container',
+          props: { columns: 3 },
+          children: [
+            {
+              id: 'text-2',
+              type: 'text',
+              content: '<h3 style="text-align: center; margin-bottom: 16px;">Our Mission</h3><p style="text-align: center;">To provide reliable hosting solutions that help businesses grow online.</p>',
+              props: {},
+              style: { textAlign: 'center' }
+            },
+            {
+              id: 'text-3',
+              type: 'text',
+              content: '<h3 style="text-align: center; margin-bottom: 16px;">Our Vision</h3><p style="text-align: center;">To be the most trusted hosting provider in the industry.</p>',
+              props: {},
+              style: { textAlign: 'center' }
+            },
+            {
+              id: 'text-4',
+              type: 'text',
+              content: '<h3 style="text-align: center; margin-bottom: 16px;">Our Values</h3><p style="text-align: center;">Reliability, security, and customer satisfaction are our core values.</p>',
+              props: {},
+              style: { textAlign: 'center' }
+            }
+          ],
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      contact: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Contact Us</h1>',
+          props: {},
+          style: { textAlign: 'center', fontSize: '48px', fontWeight: 'bold', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p style="text-align: center; font-size: 18px; color: #666;">Get in touch with our team for any questions or support needs.</p>',
+          props: {},
+          style: { textAlign: 'center', marginBottom: '48px' }
+        },
+        {
+          id: 'container-1',
+          type: 'container',
+          props: { columns: 2 },
+          children: [
+            {
+              id: 'text-2',
+              type: 'text',
+              content: '<h3>Contact Information</h3><p><strong>Email:</strong> support@nextpanel.com</p><p><strong>Phone:</strong> +1 (555) 123-4567</p><p><strong>Address:</strong> 123 Business St, City, State 12345</p>',
+              props: {},
+              style: {}
+            },
+            {
+              id: 'text-3',
+              type: 'text',
+              content: '<h3>Business Hours</h3><p><strong>Monday - Friday:</strong> 9:00 AM - 6:00 PM</p><p><strong>Saturday:</strong> 10:00 AM - 4:00 PM</p><p><strong>Sunday:</strong> Closed</p>',
+              props: {},
+              style: {}
+            }
+          ],
+          style: { marginBottom: '48px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      privacy: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Privacy Policy</h1>',
+          props: {},
+          style: { fontSize: '48px', fontWeight: 'bold', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;"><strong>Last updated:</strong> January 1, 2024</p>',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'text-2',
+          type: 'text',
+          content: '<h2 style="font-size: 24px; margin-bottom: 16px;">Information We Collect</h2><p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">We collect information you provide directly to us, such as when you create an account, make a purchase, or contact us for support.</p>',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'text-3',
+          type: 'text',
+          content: '<h2 style="font-size: 24px; margin-bottom: 16px;">How We Use Your Information</h2><p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">We use the information we collect to provide, maintain, and improve our services, process transactions, and communicate with you.</p>',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ],
+      terms: [
+        {
+          id: 'header-1',
+          type: 'header',
+          props: {
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          },
+          style: { marginBottom: '0px' }
+        },
+        {
+          id: 'heading-1',
+          type: 'heading',
+          content: '<h1>Terms of Service</h1>',
+          props: {},
+          style: { fontSize: '48px', fontWeight: 'bold', marginBottom: '24px' }
+        },
+        {
+          id: 'text-1',
+          type: 'text',
+          content: '<p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;"><strong>Last updated:</strong> January 1, 2024</p>',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'text-2',
+          type: 'text',
+          content: '<h2 style="font-size: 24px; margin-bottom: 16px;">Acceptance of Terms</h2><p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">By accessing and using our services, you accept and agree to be bound by the terms and provision of this agreement.</p>',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'text-3',
+          type: 'text',
+          content: '<h2 style="font-size: 24px; margin-bottom: 16px;">Service Description</h2><p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">We provide hosting and domain services. The specific services you receive depend on the plan you choose.</p>',
+          props: {},
+          style: { marginBottom: '32px' }
+        },
+        {
+          id: 'footer-1',
+          type: 'footer',
+          props: {
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          },
+          style: { marginTop: '48px' }
+        }
+      ]
+    };
+    
+    return templates[pageId] || [];
+  };
+
+  // Predefined pages
+  const predefinedPages = [
+    { id: 'home', title: 'Home Page', description: 'Main landing page with hero, products, and features' },
+    { id: 'cart', title: 'Cart Page', description: 'Shopping cart with items and checkout button' },
+    { id: 'shop', title: 'Shop Page', description: 'Product catalog and browsing page' },
+    { id: 'checkout', title: 'Checkout Page', description: 'Order checkout and payment page' },
+    { id: 'order-confirmation', title: 'Order Confirmation', description: 'Order success confirmation page' },
+    { id: 'about-us', title: 'About Us Page', description: 'Company information and mission' },
+    { id: 'contact', title: 'Contact Page', description: 'Contact information and business hours' },
+    { id: 'privacy', title: 'Privacy Policy', description: 'Privacy policy and data protection' },
+    { id: 'terms', title: 'Terms of Service', description: 'Terms and conditions page' },
+  ];
+
+  const filteredPages = predefinedPages.filter(page =>
+    page.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    page.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const addToHistory = useCallback((newComponents: Component[]) => {
     setHistory((prev) => {
@@ -167,7 +783,11 @@ export function PageBuilderWithISR({
       case 'section':
         return { ...baseComponent, children: [] };
       case 'container':
-        return { ...baseComponent, children: [] };
+        return { 
+          ...baseComponent, 
+          children: [],
+          props: { columns: 1 } // Default to 1 column
+        };
       case 'spacer':
         return { ...baseComponent, props: { height: '50px' } };
       case 'divider':
@@ -180,17 +800,98 @@ export function PageBuilderWithISR({
         return { ...baseComponent, props: { src: 'https://www.youtube.com/embed/dQw4w9WgXcQ' } };
       case 'form':
         return baseComponent;
+      case 'header':
+        return { 
+          ...baseComponent, 
+          props: { 
+            logoText: 'NextPanel',
+            showNavigation: true,
+            showCart: true,
+            showUserMenu: true,
+            backgroundColor: '#ffffff',
+            textColor: '#374151',
+            logoColor: '#4f46e5'
+          } 
+        };
+      case 'footer':
+        return { 
+          ...baseComponent, 
+          props: { 
+            companyName: 'NextPanel Billing',
+            copyrightText: 'All rights reserved.',
+            showLinks: true,
+            showSocial: false,
+            backgroundColor: '#111827',
+            textColor: '#ffffff',
+            linkColor: '#9ca3af'
+          } 
+        };
+      case 'cart':
+        return { 
+          ...baseComponent, 
+          props: { 
+            showHeader: true,
+            showCheckoutButton: true,
+            showEmptyState: true,
+            showItemCount: true,
+            showTotal: true,
+            headerText: 'Shopping Cart',
+            emptyStateText: 'Your cart is empty',
+            checkoutButtonText: 'Proceed to Checkout',
+            buttonColor: '#4f46e5'
+          } 
+        };
       default:
         return baseComponent;
     }
   };
 
-  const handleAddComponent = (type: ComponentType) => {
+  const handleColumnClick = (containerId: string, columnIndex: number) => {
+    setTargetContainer({ id: containerId, columnIndex });
+    setShowComponentSelector(true);
+  };
+
+  const handleAddComponent = (type: ComponentType, containerId?: string) => {
     const newComponent = createComponent(type);
-    const newComponents = [...components, newComponent];
-    setComponents(newComponents);
-    addToHistory(newComponents);
-    setSelectedComponent(newComponent.id);
+    
+    if (containerId) {
+      // Add to specific container
+      const addToContainer = (comps: Component[]): Component[] => {
+        return comps.map(comp => {
+          if (comp.id === containerId) {
+            return {
+              ...comp,
+              children: [...(comp.children || []), newComponent]
+            };
+          }
+          if (comp.children) {
+            return {
+              ...comp,
+              children: addToContainer(comp.children)
+            };
+          }
+          return comp;
+        });
+      };
+      const newComponents = addToContainer(components);
+      setComponents(newComponents);
+      addToHistory(newComponents);
+      setSelectedComponent(newComponent.id);
+      setShowComponentSelector(false);
+      setTargetContainer(null);
+    } else {
+      // Add to root
+      const newComponents = [...components, newComponent];
+      setComponents(newComponents);
+      addToHistory(newComponents);
+      setSelectedComponent(newComponent.id);
+    }
+  };
+
+  const handleSelectComponentForColumn = (type: ComponentType) => {
+    if (targetContainer) {
+      handleAddComponent(type, targetContainer.id);
+    }
   };
 
   const handleUpdateComponent = (updatedComponent: Component) => {
@@ -234,33 +935,93 @@ export function PageBuilderWithISR({
       return;
     }
     
+    if (!title.trim()) {
+      alert('Please enter a page title');
+      return;
+    }
+    
+    // Check if user is authenticated
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Please log in to save pages. You can log in from the admin panel.');
+      return;
+    }
+    
     setIsSaving(true);
     try {
-      const response = await fetch('/api/pages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      // Check if page exists first
+      let isNewPage = true;
+      try {
+        const checkResponse = await fetch(`${apiUrl}/api/v1/pages/${currentPageId.trim()}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        isNewPage = !checkResponse.ok;
+      } catch (error) {
+        // Assume it's a new page if check fails
+        isNewPage = true;
+      }
+      
+      const method = isNewPage ? 'POST' : 'PUT';
+      const endpoint = isNewPage ? `${apiUrl}/api/v1/pages/` : `${apiUrl}/api/v1/pages/${currentPageId.trim()}`;
+      
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          id: currentPageId.trim(),
-          title,
-          description,
+          slug: currentPageId.trim(),
+          title: title.trim(),
+          description: description.trim(),
           components,
+          is_homepage: setAsHomepage,
           metadata: {
+            createdAt: isNewPage ? new Date().toISOString() : undefined,
             updatedAt: new Date().toISOString(),
           }
         }),
       });
 
       if (response.ok) {
-        alert(`Page saved successfully!\n\nView at: /pages/${currentPageId.trim()}`);
+        const savedPage = await response.json();
+        
+        // If setting as homepage, make additional request to set homepage
+        if (setAsHomepage) {
+          try {
+            const homepageResponse = await fetch(`${apiUrl}/api/v1/pages/homepage/${currentPageId.trim()}`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (homepageResponse.ok) {
+              alert(`Page ${isNewPage ? 'created' : 'saved'} and set as homepage successfully!\n\nView at: / (homepage) or /dynamic-page/${currentPageId.trim()}`);
+            } else {
+              alert(`Page ${isNewPage ? 'created' : 'saved'} successfully, but failed to set as homepage.\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+            }
+          } catch (error) {
+            alert(`Page ${isNewPage ? 'created' : 'saved'} successfully, but failed to set as homepage.\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+          }
+        } else {
+          alert(`Page ${isNewPage ? 'created' : 'saved'} successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+        }
+        
         if (onSave) {
           onSave(components);
         }
       } else {
-        throw new Error('Failed to save page');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Failed to ${isNewPage ? 'create' : 'save'} page`);
       }
     } catch (error) {
       console.error('Error saving page:', error);
-      alert('Failed to save page');
+      alert(`Failed to save page: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -274,15 +1035,24 @@ export function PageBuilderWithISR({
     
     setIsPublishing(true);
     try {
-      // First save the page
-      const saveResponse = await fetch('/api/pages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      // Get auth token
+      const token = localStorage.getItem('access_token');
+      
+      // Save the page
+      const saveResponse = await fetch(`${apiUrl}/api/v1/pages/${currentPageId.trim()}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          id: currentPageId.trim(),
           title,
           description,
           components,
+          is_active: 'active',
           metadata: {
             updatedAt: new Date().toISOString(),
           }
@@ -293,20 +1063,7 @@ export function PageBuilderWithISR({
         throw new Error('Failed to save page');
       }
 
-      // Then revalidate
-      const revalidateResponse = await fetch('/api/revalidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pageId: currentPageId.trim(),
-        }),
-      });
-
-      if (revalidateResponse.ok) {
-        alert(`Page published and regenerated successfully!\n\nView at: /pages/${currentPageId.trim()}`);
-      } else {
-        throw new Error('Failed to revalidate page');
-      }
+      alert(`Page published successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
     } catch (error) {
       console.error('Error publishing page:', error);
       alert('Failed to publish page');
@@ -352,10 +1109,13 @@ export function PageBuilderWithISR({
   const loadAvailablePages = async () => {
     setLoadingPages(true);
     try {
-      const response = await fetch('/api/pages');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const response = await fetch(`${apiUrl}/api/v1/pages`);
       if (response.ok) {
         const pages = await response.json();
-        setAvailablePages(pages.map((p: any) => ({ id: p.id, title: p.title })));
+        setAvailablePages(pages.map((p: any) => ({ id: p.slug, title: p.title })));
       }
     } catch (error) {
       console.error('Error loading pages:', error);
@@ -366,22 +1126,54 @@ export function PageBuilderWithISR({
 
   const loadPage = async (pageId: string) => {
     try {
-      const response = await fetch(`/api/pages?id=${pageId}`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const response = await fetch(`${apiUrl}/api/v1/pages/${pageId}`);
       if (response.ok) {
         const pageData = await response.json();
-        setCurrentPageId(pageData.id);
+        setCurrentPageId(pageData.slug);
         setTitle(pageData.title);
         setDescription(pageData.description || '');
         setComponents(pageData.components || []);
         setHistory([pageData.components || []]);
         setHistoryIndex(0);
-        alert(`Loaded page: ${pageData.title}`);
+        setShowPageSelector(false);
+        setSearchQuery('');
       } else {
-        alert('Failed to load page');
+        // If page doesn't exist, create a new one with default template
+        const predefinedPage = predefinedPages.find(p => p.id === pageId);
+        if (predefinedPage) {
+          const defaultComponents = getDefaultComponents(pageId);
+          setCurrentPageId(predefinedPage.id);
+          setTitle(predefinedPage.title);
+          setDescription(predefinedPage.description || '');
+          setComponents(defaultComponents);
+          setHistory([defaultComponents]);
+          setHistoryIndex(0);
+          setShowPageSelector(false);
+          setSearchQuery('');
+        } else {
+          alert('Failed to load page');
+        }
       }
     } catch (error) {
       console.error('Error loading page:', error);
-      alert('Failed to load page');
+      // If API fails, use predefined page data with default template
+      const predefinedPage = predefinedPages.find(p => p.id === pageId);
+      if (predefinedPage) {
+        const defaultComponents = getDefaultComponents(pageId);
+        setCurrentPageId(predefinedPage.id);
+        setTitle(predefinedPage.title);
+        setDescription(predefinedPage.description || '');
+        setComponents(defaultComponents);
+        setHistory([defaultComponents]);
+        setHistoryIndex(0);
+        setShowPageSelector(false);
+        setSearchQuery('');
+      } else {
+        alert('Failed to load page');
+      }
     }
   };
 
@@ -402,6 +1194,19 @@ export function PageBuilderWithISR({
             <h1 className="text-xl font-bold text-gray-900">Page Builder</h1>
             <div className="h-6 w-px bg-gray-300" />
             <span className="text-sm text-gray-500">Build and customize your pages</span>
+            {pageType !== 'custom' && (
+              <>
+                <div className="h-6 w-px bg-gray-300" />
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-indigo-600">
+                    {predefinedPages.find(p => p.id === pageType)?.title || 'Custom Page'}
+                  </span>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    {pageType}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
           
           <div className="flex items-center space-x-2">
@@ -457,28 +1262,97 @@ export function PageBuilderWithISR({
         <div className="flex items-center space-x-2">
           <div className="relative">
             <button
-              onClick={loadAvailablePages}
-              disabled={loadingPages}
-              className="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-              title="Load existing page"
+              onClick={() => setShowPageSelector(!showPageSelector)}
+              className="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
+              title="Select page to edit"
             >
-              {loadingPages ? 'Loading...' : '📂 Load Page'}
+              <span>📄 Select Page</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
-            {availablePages.length > 0 && (
-              <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-                {availablePages.map((page) => (
-                  <button
-                    key={page.id}
-                    onClick={() => loadPage(page.id)}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="font-medium text-gray-900">{page.title}</div>
-                    <div className="text-xs text-gray-500">{page.id}</div>
-                  </button>
-                ))}
+            {showPageSelector && (
+              <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-300 rounded-lg shadow-xl z-50">
+                {/* Info Banner */}
+                <div className="p-3 bg-blue-50 border-b border-blue-200">
+                  <div className="flex items-start">
+                    <svg className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-xs text-blue-800">
+                      <p className="font-semibold mb-1">About Page Builder</p>
+                      <p>This creates templates. Your actual homepage at <code className="bg-blue-100 px-1 rounded">/</code> is a separate React component with dynamic data.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Search Input */}
+                <div className="p-3 border-b border-gray-200">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search pages..."
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                    autoFocus
+                  />
+                </div>
+                
+                {/* Pages List */}
+                <div className="max-h-96 overflow-y-auto">
+                  {filteredPages.length > 0 ? (
+                    filteredPages.map((page) => (
+                      <button
+                        key={page.id}
+                        onClick={() => loadPage(page.id)}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-gray-900">{page.title}</div>
+                        <div className="text-xs text-gray-500 mt-1">{page.description}</div>
+                        <div className="text-xs text-gray-400 mt-1">ID: {page.id}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-gray-500">
+                      No pages found
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
+          
+          {/* Page Type Selector */}
+          <select
+            value={pageType}
+            onChange={(e) => {
+              setPageType(e.target.value);
+              if (e.target.value !== 'custom') {
+                // Load default template for the selected page type
+                const defaultComponents = getDefaultComponents(e.target.value);
+                setComponents(defaultComponents);
+                setHistory([defaultComponents]);
+                setHistoryIndex(0);
+                setCurrentPageId(e.target.value);
+                setTitle(predefinedPages.find(p => p.id === e.target.value)?.title || 'Untitled Page');
+                setDescription(predefinedPages.find(p => p.id === e.target.value)?.description || '');
+              }
+            }}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+            title="Select page type"
+          >
+            <option value="custom">Custom Page</option>
+            <option value="home">🏠 Homepage</option>
+            <option value="cart">🛒 Cart Page</option>
+            <option value="shop">🛍️ Shop Page</option>
+            <option value="checkout">💳 Checkout Page</option>
+            <option value="order-confirmation">✅ Order Success</option>
+            <option value="about-us">ℹ️ About Us</option>
+            <option value="contact">📞 Contact Page</option>
+            <option value="privacy">🔒 Privacy Policy</option>
+            <option value="terms">📋 Terms of Service</option>
+          </select>
+          
           <input
             type="text"
             value={currentPageId}
@@ -493,6 +1367,15 @@ export function PageBuilderWithISR({
             placeholder="Page Title"
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
           />
+          <label className="flex items-center space-x-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={setAsHomepage}
+              onChange={(e) => setSetAsHomepage(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>Set as Homepage</span>
+          </label>
           <button
             onClick={handleExport}
             className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -590,6 +1473,7 @@ export function PageBuilderWithISR({
                         onClick={() => setSelectedComponent(component.id)}
                         onMouseEnter={() => setHoveredComponent(component.id)}
                         onMouseLeave={() => setHoveredComponent(null)}
+                        onColumnClick={handleColumnClick}
                       />
                     ))
                   )}
@@ -640,6 +1524,48 @@ export function PageBuilderWithISR({
           </>
         )}
       </div>
+
+      {/* Component Selector Modal */}
+      {showComponentSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowComponentSelector(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Select Component to Add</h3>
+              <button
+                onClick={() => setShowComponentSelector(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                { type: 'heading' as ComponentType, label: 'Heading', icon: '📝' },
+                { type: 'text' as ComponentType, label: 'Text', icon: '📄' },
+                { type: 'button' as ComponentType, label: 'Button', icon: '🔘' },
+                { type: 'image' as ComponentType, label: 'Image', icon: '🖼️' },
+                { type: 'card' as ComponentType, label: 'Card', icon: '🎴' },
+                { type: 'form' as ComponentType, label: 'Form', icon: '📋' },
+                { type: 'video' as ComponentType, label: 'Video', icon: '🎥' },
+                { type: 'spacer' as ComponentType, label: 'Spacer', icon: '↕️' },
+                { type: 'divider' as ComponentType, label: 'Divider', icon: '➖' },
+                { type: 'header' as ComponentType, label: 'Header', icon: '📋' },
+                { type: 'footer' as ComponentType, label: 'Footer', icon: '⬇️' },
+                { type: 'cart' as ComponentType, label: 'Cart', icon: '🛒' },
+              ].map((item) => (
+                <button
+                  key={item.type}
+                  onClick={() => handleSelectComponentForColumn(item.type)}
+                  className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+                >
+                  <span className="text-3xl mb-2">{item.icon}</span>
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Data Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .product { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .order { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .status { padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
+        .completed { background-color: #10b981; }
+        .pending { background-color: #f59e0b; }
+        .processing { background-color: #3b82f6; }
+        .overdue { background-color: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>NextPanel Billing - Demo Data Test</h1>
+    
+    <h2>Products (6 items)</h2>
+    <div id="products"></div>
+    
+    <h2>Orders (5 items)</h2>
+    <div id="orders"></div>
+    
+    <h2>Stats</h2>
+    <div id="stats"></div>
+
+    <script>
+        // Demo data (copied from demoData.ts)
+        const demoProducts = [
+            {
+                id: 'prod-1',
+                name: 'Starter Hosting',
+                description: 'Perfect for small websites and blogs. Includes 1 hosting account, 1 domain, and basic support.',
+                price_monthly: 9.99,
+                price_yearly: 99.99,
+                max_accounts: 1,
+                max_domains: 1,
+                max_databases: 1,
+                max_emails: 5,
+                features: {
+                    category: 'hosting',
+                    storage: '10GB',
+                    bandwidth: '100GB',
+                    ssl: true,
+                    backup: 'Daily',
+                    support: 'Email'
+                },
+                is_active: true,
+                is_featured: true
+            },
+            {
+                id: 'prod-2',
+                name: 'Professional Hosting',
+                description: 'Ideal for growing businesses. Includes 5 hosting accounts, 5 domains, and priority support.',
+                price_monthly: 29.99,
+                price_yearly: 299.99,
+                max_accounts: 5,
+                max_domains: 5,
+                max_databases: 10,
+                max_emails: 25,
+                features: {
+                    category: 'hosting',
+                    storage: '50GB',
+                    bandwidth: '500GB',
+                    ssl: true,
+                    backup: 'Daily',
+                    support: 'Priority',
+                    cdn: true
+                },
+                is_active: true,
+                is_featured: true
+            },
+            {
+                id: 'prod-3',
+                name: 'Enterprise Hosting',
+                description: 'For large businesses and agencies. Unlimited resources and 24/7 phone support.',
+                price_monthly: 99.99,
+                price_yearly: 999.99,
+                max_accounts: 999999,
+                max_domains: 999999,
+                max_databases: 999999,
+                max_emails: 999999,
+                features: {
+                    category: 'hosting',
+                    storage: 'Unlimited',
+                    bandwidth: 'Unlimited',
+                    ssl: true,
+                    backup: 'Real-time',
+                    support: '24/7 Phone',
+                    cdn: true,
+                    dedicated: true
+                },
+                is_active: true,
+                is_featured: true
+            },
+            {
+                id: 'prod-4',
+                name: 'Domain Registration',
+                description: 'Register .com domains at wholesale prices. Includes free WHOIS privacy protection.',
+                price_monthly: 0,
+                price_yearly: 8.99,
+                max_accounts: 0,
+                max_domains: 1,
+                max_databases: 0,
+                max_emails: 0,
+                features: {
+                    category: 'domain',
+                    tld: '.com',
+                    privacy: true,
+                    auto_renew: true,
+                    dns: 'Free'
+                },
+                is_active: true,
+                is_featured: false
+            },
+            {
+                id: 'prod-5',
+                name: 'SSL Certificate',
+                description: 'Secure your website with our premium SSL certificate. Valid for 1 year.',
+                price_monthly: 0,
+                price_yearly: 29.99,
+                max_accounts: 0,
+                max_domains: 1,
+                max_databases: 0,
+                max_emails: 0,
+                features: {
+                    category: 'ssl',
+                    validation: 'Domain',
+                    warranty: '$10,000',
+                    support: '24/7'
+                },
+                is_active: true,
+                is_featured: false
+            },
+            {
+                id: 'prod-6',
+                name: 'Email Hosting',
+                description: 'Professional email hosting with 10GB storage per mailbox. Includes spam protection.',
+                price_monthly: 4.99,
+                price_yearly: 49.99,
+                max_accounts: 0,
+                max_domains: 0,
+                max_databases: 0,
+                max_emails: 10,
+                features: {
+                    category: 'email',
+                    storage: '10GB',
+                    spam_protection: true,
+                    webmail: true,
+                    mobile_sync: true
+                },
+                is_active: true,
+                is_featured: false
+            }
+        ];
+
+        const demoOrders = [
+            {
+                id: 'order-1',
+                invoice_number: 'INV-2024-001',
+                customer: { full_name: 'John Doe', company_name: 'Acme Corp' },
+                status: 'completed',
+                total: 32.39,
+                currency: 'USD',
+                invoice_date: '2024-01-15T10:00:00Z'
+            },
+            {
+                id: 'order-2',
+                invoice_number: 'INV-2024-002',
+                customer: { full_name: 'Jane Smith', company_name: 'TechStart Inc' },
+                status: 'pending',
+                total: 97.19,
+                currency: 'USD',
+                invoice_date: '2024-01-20T14:30:00Z'
+            },
+            {
+                id: 'order-3',
+                invoice_number: 'INV-2024-003',
+                customer: { full_name: 'Bob Wilson', company_name: null },
+                status: 'processing',
+                total: 9.71,
+                currency: 'USD',
+                invoice_date: '2024-01-22T09:15:00Z'
+            },
+            {
+                id: 'order-4',
+                invoice_number: 'INV-2024-004',
+                customer: { full_name: 'Sarah Jones', company_name: 'Digital Agency LLC' },
+                status: 'completed',
+                total: 48.59,
+                currency: 'USD',
+                invoice_date: '2024-01-25T16:45:00Z'
+            },
+            {
+                id: 'order-5',
+                invoice_number: 'INV-2024-005',
+                customer: { full_name: 'Mike Brown', company_name: 'StartupIO' },
+                status: 'overdue',
+                total: 32.39,
+                currency: 'USD',
+                invoice_date: '2024-01-10T12:00:00Z'
+            }
+        ];
+
+        const demoStats = {
+            total_customers: 5,
+            active_customers: 4,
+            total_orders: 5,
+            completed_orders: 2,
+            pending_orders: 1,
+            processing_orders: 1,
+            overdue_orders: 1,
+            total_revenue: 1025.57,
+            monthly_revenue: 485.95,
+            weekly_revenue: 156.77,
+            total_products: 6,
+            active_products: 6,
+            total_licenses: 9,
+            active_licenses: 9
+        };
+
+        // Render products
+        const productsDiv = document.getElementById('products');
+        demoProducts.forEach(product => {
+            const productDiv = document.createElement('div');
+            productDiv.className = 'product';
+            productDiv.innerHTML = `
+                <h3>${product.name} ${product.is_featured ? '⭐' : ''}</h3>
+                <p>${product.description}</p>
+                <p><strong>Price:</strong> $${product.price_monthly}/mo or $${product.price_yearly}/yr</p>
+                <p><strong>Category:</strong> ${product.features.category}</p>
+                <p><strong>Features:</strong> ${product.features.storage || 'N/A'} storage, ${product.features.bandwidth || 'N/A'} bandwidth</p>
+            `;
+            productsDiv.appendChild(productDiv);
+        });
+
+        // Render orders
+        const ordersDiv = document.getElementById('orders');
+        demoOrders.forEach(order => {
+            const orderDiv = document.createElement('div');
+            orderDiv.className = 'order';
+            orderDiv.innerHTML = `
+                <h3>${order.invoice_number}</h3>
+                <p><strong>Customer:</strong> ${order.customer.full_name} ${order.customer.company_name ? `(${order.customer.company_name})` : ''}</p>
+                <p><strong>Amount:</strong> ${order.currency} $${order.total}</p>
+                <p><strong>Date:</strong> ${new Date(order.invoice_date).toLocaleDateString()}</p>
+                <span class="status ${order.status}">${order.status.toUpperCase()}</span>
+            `;
+            ordersDiv.appendChild(orderDiv);
+        });
+
+        // Render stats
+        const statsDiv = document.getElementById('stats');
+        statsDiv.innerHTML = `
+            <p><strong>Total Customers:</strong> ${demoStats.total_customers} (${demoStats.active_customers} active)</p>
+            <p><strong>Total Orders:</strong> ${demoStats.total_orders}</p>
+            <p><strong>Total Revenue:</strong> $${demoStats.total_revenue}</p>
+            <p><strong>Total Products:</strong> ${demoStats.total_products}</p>
+            <p><strong>Active Licenses:</strong> ${demoStats.active_licenses}</p>
+        `;
+    </script>
+</body>
+</html>

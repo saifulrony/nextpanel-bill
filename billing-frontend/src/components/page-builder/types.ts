@@ -16,7 +16,10 @@ export type ComponentType =
   | 'products-grid'
   | 'product-search'
   | 'contact-form'
-  | 'newsletter';
+  | 'newsletter'
+  | 'header'
+  | 'footer'
+  | 'cart';
 
 export interface Component {
   id: string;

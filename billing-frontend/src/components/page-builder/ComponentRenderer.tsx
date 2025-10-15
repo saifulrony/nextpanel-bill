@@ -9,6 +9,9 @@ import {
   ContactFormComponent,
   NewsletterComponent,
 } from './DynamicComponents';
+import HeaderComponent from './HeaderComponent';
+import FooterComponent from './FooterComponent';
+import CartComponent from './CartComponent';
 
 interface ComponentRendererProps {
   component: Component;
@@ -17,6 +20,10 @@ interface ComponentRendererProps {
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onAddToContainer?: (containerId: string, type: any) => void;
+  onColumnClick?: (containerId: string, columnIndex: number) => void;
+  containerId?: string;
+  columnIndex?: number;
 }
 
 export default function ComponentRenderer({
@@ -26,6 +33,10 @@ export default function ComponentRenderer({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onAddToContainer,
+  onColumnClick,
+  containerId,
+  columnIndex,
 }: ComponentRendererProps) {
   const baseClasses = `
     relative transition-all
@@ -97,22 +108,56 @@ export default function ComponentRenderer({
         );
 
       case 'container':
+        const columns = component.props?.columns || 1;
+        const gridCols = {
+          1: 'grid-cols-1',
+          2: 'grid-cols-2',
+          3: 'grid-cols-3',
+          4: 'grid-cols-4',
+        }[columns] || 'grid-cols-1';
+        
         return (
           <div
             style={component.style}
-            className={`p-4 ${component.className || ''}`}
+            className={`p-4 ${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-2' : ''}`}
           >
-            {component.children?.map((child) => (
-              <ComponentRenderer
-                key={child.id}
-                component={child}
-                isSelected={false}
-                isHovered={false}
-                onClick={() => {}}
-                onMouseEnter={() => {}}
-                onMouseLeave={() => {}}
-              />
-            ))}
+            <div className={`grid ${gridCols} gap-4`}>
+              {component.children && component.children.length > 0 ? (
+                component.children.map((child, index) => (
+                  <div key={child.id} className="min-h-[100px] p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                    <ComponentRenderer
+                      component={child}
+                      isSelected={false}
+                      isHovered={false}
+                      onClick={() => {}}
+                      onMouseEnter={() => {}}
+                      onMouseLeave={() => {}}
+                      onAddToContainer={onAddToContainer}
+                      onColumnClick={onColumnClick}
+                      containerId={component.id}
+                      columnIndex={index}
+                    />
+                  </div>
+                ))
+              ) : (
+                // Empty container - show clickable placeholder columns
+                Array.from({ length: columns }).map((_, index) => (
+                  <div 
+                    key={index} 
+                    onClick={() => onColumnClick?.(component.id, index)}
+                    className="min-h-[100px] p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-indigo-50 hover:border-indigo-400 cursor-pointer transition-all flex items-center justify-center group"
+                  >
+                    <div className="text-center text-gray-400 group-hover:text-indigo-600">
+                      <svg className="h-8 w-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <p className="text-xs font-medium">Click to Add Component</p>
+                      <p className="text-xs mt-1 opacity-75">or drag from left panel</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         );
 
@@ -250,6 +295,33 @@ export default function ComponentRenderer({
 
       case 'newsletter':
         return <NewsletterComponent style={component.style} />;
+
+      case 'header':
+        return (
+          <HeaderComponent 
+            style={component.style} 
+            className={component.className}
+            props={component.props}
+          />
+        );
+
+      case 'footer':
+        return (
+          <FooterComponent 
+            style={component.style} 
+            className={component.className}
+            props={component.props}
+          />
+        );
+
+      case 'cart':
+        return (
+          <CartComponent 
+            style={component.style} 
+            className={component.className}
+            props={component.props}
+          />
+        );
 
       default:
         return (
