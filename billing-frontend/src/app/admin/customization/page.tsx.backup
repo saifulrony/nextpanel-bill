@@ -21,6 +21,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageBuilderWithISR } from '@/components/page-builder/PageBuilderWithISR';
 import { Component } from '@/components/page-builder/types';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface CustomizationSettings {
   // Front Page Header
@@ -1485,7 +1486,7 @@ export default function ${page.name}Page() {
                 )}
 
                 {/* Default Pages Tab */}
-                {activeTab === 'default-pages' && (
+                {false && activeTab === 'default-pages' && (
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Default Pages Management</h2>
                     
@@ -1558,25 +1559,26 @@ export default function ${page.name}Page() {
                             <h4 className="text-sm font-medium text-gray-900 mb-2">Select Custom Page</h4>
                             {homepagePages.length > 0 ? (
                               <div className="relative">
-                                <select
+                                <SearchableSelect
+                                  options={[
+                                    { value: '', label: `Use Default ${pageType.name}` },
+                                    ...homepagePages.map((page) => ({
+                                      value: page.slug,
+                                      label: page.title,
+                                      description: `Slug: /${page.slug}`
+                                    }))
+                                  ]}
                                   value={defaultPageConfig[pageType.key] || ''}
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      handleSetDefaultPage(pageType.key, e.target.value);
+                                  onChange={(value) => {
+                                    if (value) {
+                                      handleSetDefaultPage(pageType.key, value);
                                     } else {
                                       handleUnsetDefaultPage(pageType.key);
                                     }
                                   }}
                                   disabled={loadingDefaultPages}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <option value="">Use Default {pageType.name}</option>
-                                  {homepagePages.map((page) => (
-                                    <option key={page.id} value={page.slug}>
-                                      {page.title} (/{page.slug})
-                                    </option>
-                                  ))}
-                                </select>
+                                  placeholder={`Select custom ${pageType.name.toLowerCase()}...`}
+                                />
                                 
                                 {/* Selected Page Info */}
                                 {defaultPageConfig[pageType.key] && (
@@ -1609,7 +1611,6 @@ export default function ${page.name}Page() {
                                     </div>
                                   </div>
                                 )}
-                              </div>
                             ) : (
                               <div className="text-center py-4">
                                 <Squares2X2Icon className="mx-auto h-8 w-8 text-gray-400" />
@@ -1658,7 +1659,7 @@ export default function ${page.name}Page() {
                 )}
 
                 {/* Header Tab */}
-                {activeTab === 'header' && (
+                {false && activeTab === 'header' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Front Page Header</h2>
                   <div className="space-y-6">
@@ -2013,7 +2014,7 @@ export default function ${page.name}Page() {
               )}
 
               {/* Sidebar Tab */}
-              {activeTab === 'sidebar' && (
+              {false && activeTab === 'sidebar' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Dashboard Sidebar</h2>
                   <div className="space-y-6">
@@ -2187,7 +2188,7 @@ export default function ${page.name}Page() {
               )}
 
               {/* Footer Tab */}
-              {activeTab === 'footer' && (
+              {false && activeTab === 'footer' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Front Page Footer</h2>
                   <div className="space-y-6">
@@ -2401,7 +2402,7 @@ export default function ${page.name}Page() {
               )}
 
               {/* Fonts Tab */}
-              {activeTab === 'fonts' && (
+              {false && activeTab === 'fonts' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Font Settings</h2>
                   <div className="space-y-6">
@@ -2437,7 +2438,7 @@ export default function ${page.name}Page() {
               )}
 
               {/* Colors Tab */}
-              {activeTab === 'colors' && (
+              {false && activeTab === 'colors' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Color Scheme</h2>
                   <div className="space-y-6">
@@ -2505,7 +2506,7 @@ export default function ${page.name}Page() {
               )}
 
               {/* Layout Tab */}
-              {activeTab === 'layout' && (
+              {false && activeTab === 'layout' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">System Layout & Structure</h2>
                   
@@ -2770,7 +2771,7 @@ export default function ${page.name}Page() {
               )}
 
               {/* Theme Tab */}
-              {activeTab === 'theme' && (
+              {false && activeTab === 'theme' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Theme Management</h2>
                   <div className="space-y-6">
@@ -2829,7 +2830,7 @@ export default function ${page.name}Page() {
               )}
 
               {/* Custom Code Tab */}
-              {activeTab === 'custom' && (
+              {false && activeTab === 'custom' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Page Editor & Custom Code</h2>
                   

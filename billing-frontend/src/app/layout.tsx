@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { CartProvider } from '@/contexts/CartContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
+import { DefaultPageProvider } from '@/contexts/DefaultPageContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,7 +24,9 @@ export default function RootLayout({
         <NotificationProvider>
           <AuthProvider>
             <CartProvider>
-              {children}
+              <DefaultPageProvider>
+                {children}
+              </DefaultPageProvider>
             </CartProvider>
           </AuthProvider>
         </NotificationProvider>

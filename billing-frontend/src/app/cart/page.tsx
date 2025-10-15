@@ -1,18 +1,74 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDefaultPages } from '@/contexts/DefaultPageContext';
 import { TrashIcon, ShoppingBagIcon, ArrowLeftIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
+import { DynamicPageRenderer } from '@/components/page-builder/DynamicPageRenderer';
 
 export default function CartPage() {
   const router = useRouter();
   const { items, removeItem, updateQuantity, getTotal, clearCart, getItemCount } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [customCartPage, setCustomCartPage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const formatPrice = (price: number) => {
+  useEffect(() => {
+    // Check localStorage for custom cart page configuration
+    const checkCustomCartPage = () => {
+      try {
+        if (typeof window !== 'undefined') {
+          const savedConfig = localStorage.getItem('default_page_config');
+          console.log('Cart page - Raw localStorage data:', savedConfig);
+          if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            console.log('Cart page - Parsed config:', config);
+            if (config.cart) {
+              console.log('Custom cart page found:', config.cart);
+              setCustomCartPage(config.cart);
+            } else {
+              console.log('No cart page configured in config:', config);
+            }
+          } else {
+            console.log('No saved config found in localStorage');
+          }
+        }
+      } catch (error) {
+        console.error('Error reading localStorage:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Use a small delay to ensure localStorage is available
+    const timer = setTimeout(checkCustomCartPage, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show loading while checking for custom page configuration
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading cart page...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If custom cart page is configured, render it
+  if (customCartPage) {
+    console.log('Rendering custom cart page:', customCartPage);
+    return <DynamicPageRenderer slug={customCartPage} fallbackComponent={<DefaultCartPage />} />;
+  }
+
+  // Default cart page component
+  function DefaultCartPage() {
+    const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -353,5 +409,9 @@ export default function CartPage() {
       </footer>
     </div>
   );
+  }
+
+  // Return the default cart page
+  return <DefaultCartPage />;
 }
 

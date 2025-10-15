@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Cart Direct</title>
+</head>
+<body>
+    <h1>Test Cart Direct Loading</h1>
+    <p>This page tests loading the about page directly in the cart.</p>
+    
+    <h2>Step 1: Set localStorage configuration</h2>
+    <button onclick="setCartPage()">Set About Page as Cart Page</button>
+    <button onclick="clearCartPage()">Clear Cart Page Configuration</button>
+    
+    <h2>Step 2: Test cart page</h2>
+    <button onclick="testCartPage()">Test Cart Page</button>
+    
+    <h2>Step 3: Check localStorage</h2>
+    <button onclick="checkLocalStorage()">Check localStorage</button>
+    
+    <h2>Step 4: Test API directly</h2>
+    <button onclick="testAboutPageAPI()">Test About Page API</button>
+    
+    <div id="output"></div>
+    
+    <script>
+        function setCartPage() {
+            const config = {
+                cart: "about",
+                shop: null,
+                checkout: null,
+                order_success: null,
+                about: null,
+                contact: null,
+                privacy: null,
+                terms: null
+            };
+            localStorage.setItem('default_page_config', JSON.stringify(config));
+            document.getElementById('output').innerHTML = '<p style="color: green;">✅ Cart page set to "about"</p>';
+        }
+        
+        function clearCartPage() {
+            localStorage.removeItem('default_page_config');
+            document.getElementById('output').innerHTML = '<p style="color: orange;">🗑️ Cart page configuration cleared</p>';
+        }
+        
+        function testCartPage() {
+            window.open('http://localhost:4000/cart', '_blank');
+        }
+        
+        function checkLocalStorage() {
+            const config = localStorage.getItem('default_page_config');
+            if (config) {
+                const parsed = JSON.parse(config);
+                document.getElementById('output').innerHTML = '<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px;">' + JSON.stringify(parsed, null, 2) + '</pre>';
+            } else {
+                document.getElementById('output').innerHTML = '<p style="color: red;">❌ No configuration found in localStorage</p>';
+            }
+        }
+        
+        async function testAboutPageAPI() {
+            try {
+                const response = await fetch('http://localhost:9000/api/v1/pages/about');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('output').innerHTML = '<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px;">About page API response: ' + JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    document.getElementById('output').innerHTML = '<p style="color: red;">❌ API Error: ' + response.status + ' ' + response.statusText + '</p>';
+                }
+            } catch (error) {
+                document.getElementById('output').innerHTML = '<p style="color: red;">❌ API Error: ' + error.message + '</p>';
+            }
+        }
+        
+        // Check localStorage on page load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

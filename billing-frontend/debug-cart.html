@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Cart Page</title>
+</head>
+<body>
+    <h1>Debug Cart Page Configuration</h1>
+    <div id="debug-info"></div>
+    
+    <script>
+        // Check localStorage
+        const config = localStorage.getItem('default_page_config');
+        console.log('Default page config from localStorage:', config);
+        
+        const debugDiv = document.getElementById('debug-info');
+        debugDiv.innerHTML = `
+            <h2>localStorage Configuration:</h2>
+            <pre>${JSON.stringify(JSON.parse(config || '{}'), null, 2)}</pre>
+            
+            <h2>Cart Page Configuration:</h2>
+            <p>Cart page set to: ${config ? JSON.parse(config).cart || 'null' : 'null'}</p>
+            
+            <h2>Test Links:</h2>
+            <a href="http://localhost:4000/cart" target="_blank">Test Cart Page (Port 4000)</a><br>
+            <a href="http://localhost:4000/admin/customization?tab=default-pages" target="_blank">Admin Default Pages</a>
+        `;
+    </script>
+</body>
+</html>

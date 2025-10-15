@@ -77,7 +77,6 @@ const navigation = [
   },
   { name: 'Marketplace', href: '/admin/marketplace', icon: PuzzlePieceIcon },
   { name: 'Customization', href: '/admin/customization', icon: PaintBrushIcon },
-  { name: 'Default Pages', href: '/admin/default-pages', icon: DocumentTextIcon },
   { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
 ];
 
