@@ -5,6 +5,7 @@ import React from 'react';
 interface FooterComponentProps {
   style?: React.CSSProperties;
   className?: string;
+  isEditor?: boolean;
   props?: {
     backgroundColor?: string;
     textColor?: string;
@@ -28,6 +29,7 @@ interface FooterComponentProps {
 export default function FooterComponent({ 
   style = {}, 
   className = '',
+  isEditor = false,
   props = {}
 }: FooterComponentProps) {
   const {
@@ -67,29 +69,50 @@ export default function FooterComponent({
           {showLinks && (
             <div className="mt-4 space-x-6">
               {links.map((link) => (
-                <a 
-                  key={link.label}
-                  href={link.href} 
-                  className="hover:text-white transition"
-                  style={{ color: linkColor }}
-                >
-                  {link.label}
-                </a>
+                isEditor ? (
+                  <span 
+                    key={link.label}
+                    className="cursor-default"
+                    style={{ color: linkColor }}
+                  >
+                    {link.label}
+                  </span>
+                ) : (
+                  <a 
+                    key={link.label}
+                    href={link.href} 
+                    className="hover:text-white transition"
+                    style={{ color: linkColor }}
+                  >
+                    {link.label}
+                  </a>
+                )
               ))}
             </div>
           )}
           {showSocial && (
             <div className="mt-4 flex justify-center space-x-4">
               {socialLinks.map((social) => (
-                <a
-                  key={social.platform}
-                  href={social.href}
-                  className="hover:opacity-80 transition"
-                  style={{ color: linkColor }}
-                  title={social.platform}
-                >
-                  <span className="text-xl">{social.icon}</span>
-                </a>
+                isEditor ? (
+                  <span
+                    key={social.platform}
+                    className="cursor-default"
+                    style={{ color: linkColor }}
+                    title={social.platform}
+                  >
+                    <span className="text-xl">{social.icon}</span>
+                  </span>
+                ) : (
+                  <a
+                    key={social.platform}
+                    href={social.href}
+                    className="hover:opacity-80 transition"
+                    style={{ color: linkColor }}
+                    title={social.platform}
+                  >
+                    <span className="text-xl">{social.icon}</span>
+                  </a>
+                )
               ))}
             </div>
           )}

@@ -10,6 +10,7 @@ import Header from '@/components/Header';
 interface HeaderComponentProps {
   style?: React.CSSProperties;
   className?: string;
+  isEditor?: boolean;
   props?: {
     logoUrl?: string;
     logoText?: string;
@@ -29,6 +30,7 @@ interface HeaderComponentProps {
 export default function HeaderComponent({ 
   style = {}, 
   className = '',
+  isEditor = false,
   props = {}
 }: HeaderComponentProps) {
   const router = useRouter();
@@ -111,14 +113,14 @@ export default function HeaderComponent({
               <img
                 src={currentLogoUrl}
                 alt="Logo"
-                className="h-10 w-auto cursor-pointer logo-img"
-                onClick={() => router.push('/')}
+                className={`h-10 w-auto logo-img ${isEditor ? 'cursor-default' : 'cursor-pointer'}`}
+                onClick={isEditor ? undefined : () => router.push('/')}
                 style={{ filter: logoColor !== '#4f46e5' ? `hue-rotate(${logoColor})` : 'none' }}
               />
             ) : (
               <h1 
-                className="text-2xl font-bold cursor-pointer" 
-                onClick={() => router.push('/')}
+                className={`text-2xl font-bold ${isEditor ? 'cursor-default' : 'cursor-pointer'}`}
+                onClick={isEditor ? undefined : () => router.push('/')}
                 style={{ color: logoColor }}
               >
                 {logoText}
@@ -127,14 +129,24 @@ export default function HeaderComponent({
             {showNavigation && (
               <nav className="hidden md:flex space-x-6">
                 {navigationItems.map((item) => (
-                  <a 
-                    key={item.label}
-                    href={item.href} 
-                    className="font-medium hover:opacity-80 transition"
-                    style={{ color: textColor }}
-                  >
-                    {item.label}
-                  </a>
+                  isEditor ? (
+                    <span 
+                      key={item.label}
+                      className="font-medium cursor-default"
+                      style={{ color: textColor }}
+                    >
+                      {item.label}
+                    </span>
+                  ) : (
+                    <a 
+                      key={item.label}
+                      href={item.href} 
+                      className="font-medium hover:opacity-80 transition"
+                      style={{ color: textColor }}
+                    >
+                      {item.label}
+                    </a>
+                  )
                 ))}
               </nav>
             )}
@@ -142,8 +154,8 @@ export default function HeaderComponent({
           <nav className="flex items-center space-x-4">
             {showCart && (
               <button
-                onClick={() => router.push('/cart')}
-                className="relative p-2 transition hover:opacity-80"
+                onClick={isEditor ? undefined : () => router.push('/cart')}
+                className={`relative p-2 transition ${isEditor ? 'cursor-default' : 'hover:opacity-80 cursor-pointer'}`}
                 style={{ color: textColor }}
               >
                 <ShoppingCartIcon className="h-6 w-6" />
@@ -171,49 +183,81 @@ export default function HeaderComponent({
                 </button>
                 {showUserMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
-                    <a
-                      href="/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      Dashboard
-                    </a>
-                    <a
-                      href="/shop"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      Shop
-                    </a>
-                    <button
-                      onClick={() => {
-                        logout();
-                        setShowUserMenu(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Logout
-                    </button>
+                    {isEditor ? (
+                      <>
+                        <span className="block px-4 py-2 text-sm text-gray-700 cursor-default">
+                          Dashboard
+                        </span>
+                        <span className="block px-4 py-2 text-sm text-gray-700 cursor-default">
+                          Shop
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <a
+                          href="/dashboard"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          Dashboard
+                        </a>
+                        <a
+                          href="/shop"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          Shop
+                        </a>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowUserMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Logout
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             )}
             {!isAuthenticated && (
               <>
-                <a 
-                  href="/login" 
-                  className="font-medium hover:opacity-80 transition"
-                  style={{ color: textColor }}
-                >
-                  Login
-                </a>
-                <a 
-                  href="/auth/register" 
-                  className="px-4 py-2 rounded-lg hover:opacity-90 transition font-medium text-white"
-                  style={{ backgroundColor: logoColor }}
-                >
-                  Get Started
-                </a>
+                {isEditor ? (
+                  <>
+                    <span 
+                      className="font-medium cursor-default"
+                      style={{ color: textColor }}
+                    >
+                      Login
+                    </span>
+                    <span 
+                      className="px-4 py-2 rounded-lg cursor-default font-medium text-white"
+                      style={{ backgroundColor: logoColor }}
+                    >
+                      Get Started
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <a 
+                      href="/login" 
+                      className="font-medium hover:opacity-80 transition"
+                      style={{ color: textColor }}
+                    >
+                      Login
+                    </a>
+                    <a 
+                      href="/auth/register" 
+                      className="px-4 py-2 rounded-lg hover:opacity-90 transition font-medium text-white"
+                      style={{ backgroundColor: logoColor }}
+                    >
+                      Get Started
+                    </a>
+                  </>
+                )}
               </>
             )}
           </nav>

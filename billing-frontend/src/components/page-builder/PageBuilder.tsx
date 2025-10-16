@@ -38,8 +38,10 @@ function SortableComponent({
   onMouseLeave,
   onAddToContainer,
   onColumnClick,
+  onColumnAddClick,
   onAddColumn,
   onRemoveColumn,
+  selectedComponent,
 }: {
   component: Component;
   isSelected: boolean;
@@ -49,8 +51,10 @@ function SortableComponent({
   onMouseLeave: () => void;
   onAddToContainer?: (type: ComponentType, containerId?: string, columnIndex?: number) => void;
   onColumnClick?: (containerId: string, columnIndex: number) => void;
+  onColumnAddClick?: (containerId: string, columnIndex: number) => void;
   onAddColumn?: (containerId: string) => void;
   onRemoveColumn?: (containerId: string) => void;
+  selectedComponent?: string | null;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
@@ -72,8 +76,10 @@ function SortableComponent({
         onMouseLeave={onMouseLeave}
         onAddToContainer={onAddToContainer}
         onColumnClick={onColumnClick}
+        onColumnAddClick={onColumnAddClick}
         onAddColumn={onAddColumn}
         onRemoveColumn={onRemoveColumn}
+        selectedComponent={selectedComponent}
       />
     </div>
   );
@@ -200,7 +206,7 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
       if (comp.id === containerId && comp.type === 'container') {
         const currentColumns = comp.props?.columns || 2;
         console.log('Current columns:', currentColumns);
-        const newColumns = Math.min(currentColumns + 1, 4);
+        const newColumns = currentColumns + 1;
         console.log('New columns:', newColumns);
         return {
           ...comp,
@@ -242,6 +248,15 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
   };
 
   const handleColumnClick = (containerId: string, columnIndex: number) => {
+    // Find the child component in the specified column
+    const containerComponent = components.find(comp => comp.id === containerId);
+    if (containerComponent && containerComponent.children && containerComponent.children[columnIndex]) {
+      const childComponent = containerComponent.children[columnIndex];
+      setSelectedComponent(childComponent.id);
+    }
+  };
+
+  const handleColumnAddClick = (containerId: string, columnIndex: number) => {
     setSelectedContainerId(containerId);
     setSelectedColumnIndex(columnIndex);
     setShowComponentPicker(true);
@@ -439,7 +454,7 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
         {!previewMode && <ComponentLibrary onAddComponent={handleAddComponent} />}
 
         {/* Canvas */}
-        <div className="flex-1 overflow-auto bg-gray-100 p-8">
+        <div className="flex-1 overflow-auto bg-gray-100">
           <div
             className="bg-white shadow-lg mx-auto transition-all duration-300"
             style={{
@@ -457,12 +472,15 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
                 items={components.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="p-8 space-y-4">
+                <div className="space-y-0">
                   {components.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-96 text-gray-400">
-                      <PlusIcon className="h-16 w-16 mb-4" />
+                    <div 
+                      className="flex flex-col items-center justify-center h-96 text-gray-400 cursor-pointer hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200 group"
+                      onClick={() => setShowComponentPicker(true)}
+                    >
+                      <PlusIcon className="h-16 w-16 mb-4 group-hover:scale-110 transition-transform duration-200" />
                       <p className="text-lg font-medium">Start building your page</p>
-                      <p className="text-sm">Add components from the left panel</p>
+                      <p className="text-sm">Click here to add components</p>
                     </div>
                   ) : (
                     components.map((component) => (
@@ -476,8 +494,10 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
                         onMouseLeave={() => setHoveredComponent(null)}
                         onAddToContainer={handleAddComponent}
                         onColumnClick={handleColumnClick}
+                        onColumnAddClick={handleColumnAddClick}
                         onAddColumn={handleAddColumn}
                         onRemoveColumn={handleRemoveColumn}
+                        selectedComponent={selectedComponent}
                       />
                     ))
                   )}
@@ -532,10 +552,12 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
       {/* Component Picker Modal */}
       {showComponentPicker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Add Component to Column</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {selectedContainerId ? 'Add Component to Column' : 'Choose a Component'}
+                </h3>
                 <button
                   onClick={() => {
                     setShowComponentPicker(false);
@@ -550,22 +572,67 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
                 </button>
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {[
-                  { type: 'heading' as ComponentType, label: 'Heading', icon: '📝' },
-                  { type: 'text' as ComponentType, label: 'Text', icon: '📄' },
-                  { type: 'button' as ComponentType, label: 'Button', icon: '🔘' },
-                  { type: 'image' as ComponentType, label: 'Image', icon: '🖼️' },
-                  { type: 'card' as ComponentType, label: 'Card', icon: '🎴' },
-                  { type: 'spacer' as ComponentType, label: 'Spacer', icon: '📏' },
+                  // Basic Components
+                  { type: 'heading' as ComponentType, label: 'Heading', icon: '📝', category: 'Basic' },
+                  { type: 'text' as ComponentType, label: 'Text', icon: '📄', category: 'Basic' },
+                  { type: 'button' as ComponentType, label: 'Button', icon: '🔘', category: 'Basic' },
+                  { type: 'image' as ComponentType, label: 'Image', icon: '🖼️', category: 'Basic' },
+                  
+                  // Layout Components
+                  { type: 'container' as ComponentType, label: 'Container', icon: '📦', category: 'Layout' },
+                  { type: 'section' as ComponentType, label: 'Section', icon: '📋', category: 'Layout' },
+                  { type: 'card' as ComponentType, label: 'Card', icon: '🎴', category: 'Layout' },
+                  { type: 'grid' as ComponentType, label: 'Grid', icon: '⊞', category: 'Layout' },
+                  
+                  // Spacing Components
+                  { type: 'spacer' as ComponentType, label: 'Spacer', icon: '📏', category: 'Spacing' },
+                  { type: 'divider' as ComponentType, label: 'Divider', icon: '➖', category: 'Spacing' },
+                  
+                  // Media Components
+                  { type: 'video' as ComponentType, label: 'Video', icon: '🎥', category: 'Media' },
+                  
+                  // Form Components
+                  { type: 'form' as ComponentType, label: 'Form', icon: '📝', category: 'Forms' },
+                  
+                  // Specialized Components
+                  { type: 'domain-search' as ComponentType, label: 'Domain Search', icon: '🔍', category: 'Specialized' },
+                  { type: 'products-grid' as ComponentType, label: 'Products Grid', icon: '🛍️', category: 'Specialized' },
+                  { type: 'featured-products' as ComponentType, label: 'Featured Products', icon: '⭐', category: 'Specialized' },
+                  { type: 'product-search' as ComponentType, label: 'Product Search', icon: '🔎', category: 'Specialized' },
+                  { type: 'contact-form' as ComponentType, label: 'Contact Form', icon: '📧', category: 'Specialized' },
+                  { type: 'newsletter' as ComponentType, label: 'Newsletter', icon: '📰', category: 'Specialized' },
+                  
+                  // Layout Components
+                  { type: 'header' as ComponentType, label: 'Header', icon: '🏠', category: 'Layout' },
+                  { type: 'footer' as ComponentType, label: 'Footer', icon: '🦶', category: 'Layout' },
+                  { type: 'cart' as ComponentType, label: 'Cart', icon: '🛒', category: 'Layout' },
+                  
+                  // Code Components
+                  { type: 'code-block' as ComponentType, label: 'Code Block', icon: '💻', category: 'Code' },
+                  
+                  // UI Components
+                  { type: 'sidebar' as ComponentType, label: 'Sidebar', icon: '📑', category: 'UI' },
+                  { type: 'shortcode' as ComponentType, label: 'Shortcode', icon: '⚡', category: 'UI' },
+                  { type: 'alert' as ComponentType, label: 'Alert', icon: '⚠️', category: 'UI' },
+                  { type: 'social-icons' as ComponentType, label: 'Social Icons', icon: '👥', category: 'UI' },
+                  { type: 'showcase' as ComponentType, label: 'Showcase', icon: '⭐', category: 'UI' },
                 ].map((comp) => (
                   <button
                     key={comp.type}
-                    onClick={() => handleAddComponent(comp.type, selectedContainerId!, selectedColumnIndex!)}
-                    className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                    onClick={() => {
+                      if (selectedContainerId && selectedColumnIndex !== null) {
+                        handleAddComponent(comp.type, selectedContainerId, selectedColumnIndex);
+                      } else {
+                        handleAddComponent(comp.type);
+                      }
+                    }}
+                    className="flex flex-col items-center space-y-2 p-4 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
                   >
-                    <span className="text-2xl">{comp.icon}</span>
-                    <span className="text-sm font-medium text-gray-700">{comp.label}</span>
+                    <span className="text-3xl group-hover:scale-110 transition-transform duration-200">{comp.icon}</span>
+                    <span className="text-sm font-medium text-gray-700 text-center">{comp.label}</span>
+                    <span className="text-xs text-gray-500">{comp.category}</span>
                   </button>
                 ))}
               </div>

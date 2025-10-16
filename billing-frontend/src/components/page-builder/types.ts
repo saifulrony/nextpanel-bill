@@ -14,12 +14,19 @@ export type ComponentType =
   | 'form'
   | 'domain-search'
   | 'products-grid'
+  | 'featured-products'
   | 'product-search'
   | 'contact-form'
   | 'newsletter'
   | 'header'
   | 'footer'
-  | 'cart';
+  | 'cart'
+  | 'code-block'
+  | 'sidebar'
+  | 'shortcode'
+  | 'alert'
+  | 'social-icons'
+  | 'showcase';
 
 export interface Component {
   id: string;

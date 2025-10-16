@@ -20,6 +20,7 @@ import {
   NewspaperIcon,
   Bars3BottomLeftIcon,
   ArrowDownTrayIcon,
+  StarIcon,
 } from '@heroicons/react/24/outline';
 import { ComponentType } from './types';
 
@@ -27,7 +28,7 @@ interface ComponentLibraryProps {
   onAddComponent: (type: ComponentType) => void;
 }
 
-const components = [
+export const components = [
   { type: 'heading' as ComponentType, label: 'Heading', icon: DocumentTextIcon, color: 'text-blue-600' },
   { type: 'text' as ComponentType, label: 'Text', icon: DocumentTextIcon, color: 'text-gray-600' },
   { type: 'button' as ComponentType, label: 'Button', icon: CursorArrowRaysIcon, color: 'text-green-600' },
@@ -45,6 +46,7 @@ const components = [
   { type: 'cart' as ComponentType, label: 'Cart', icon: ShoppingCartIcon, color: 'text-orange-500' },
   { type: 'domain-search' as ComponentType, label: 'Domain Search', icon: MagnifyingGlassIcon, color: 'text-teal-600' },
   { type: 'products-grid' as ComponentType, label: 'Products Grid', icon: ShoppingCartIcon, color: 'text-emerald-600' },
+  { type: 'featured-products' as ComponentType, label: 'Featured Products', icon: StarIcon, color: 'text-yellow-600' },
   { type: 'product-search' as ComponentType, label: 'Product Search', icon: MagnifyingGlassIcon, color: 'text-blue-600' },
   { type: 'contact-form' as ComponentType, label: 'Contact Form', icon: EnvelopeIcon, color: 'text-indigo-600' },
   { type: 'newsletter' as ComponentType, label: 'Newsletter', icon: NewspaperIcon, color: 'text-purple-600' },

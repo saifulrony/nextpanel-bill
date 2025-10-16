@@ -91,6 +91,7 @@ export function DynamicHomepage() {
           onClick={() => {}}
           onMouseEnter={() => {}}
           onMouseLeave={() => {}}
+          isEditor={false}
         />
       ))}
     </div>

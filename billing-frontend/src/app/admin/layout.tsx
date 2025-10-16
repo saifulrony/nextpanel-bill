@@ -33,6 +33,7 @@ import {
   ArrowRightOnRectangleIcon,
   PuzzlePieceIcon,
   PaintBrushIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
 
@@ -54,6 +55,7 @@ const navigation = [
     ]
   },
   { name: 'Server', href: '/admin/server', icon: ServerIcon },
+  { name: 'Backup', href: '/admin/backup', icon: ArchiveBoxIcon },
   { 
     name: 'Analytics', 
     href: '/admin/analytics', 
@@ -269,11 +271,11 @@ export default function DashboardLayout({
     );
   };
 
-  // Check if current path is page builder
-  const isPageBuilder = pathname === '/admin/page-builder';
+  // Check if current path should render without admin layout
+  const isFullWidthPage = pathname === '/admin/page-builder' || pathname === '/admin/header-editor';
 
-  // If it's the page builder, render children without admin layout
-  if (isPageBuilder) {
+  // If it's a full width page, render children without admin layout
+  if (isFullWidthPage) {
     return <>{children}</>;
   }
 

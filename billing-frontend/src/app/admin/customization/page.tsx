@@ -98,9 +98,26 @@ interface PageFile {
   category: string;
 }
 
+interface HeaderTemplate {
+  id: string;
+  name: string;
+  description: string;
+  device: 'desktop' | 'tablet' | 'mobile';
+  backgroundColor: string;
+  textColor: string;
+  logoColor: string;
+  logoText: string;
+  showNavigation: boolean;
+  showCart: boolean;
+  showUserMenu: boolean;
+  features: string[];
+}
+
 export default function CustomizationPage() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'default-pages'>('header');
+  const [selectedDevice, setSelectedDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [settings, setSettings] = useState<CustomizationSettings>({
     // Front Page Header
     logo: null,
@@ -177,6 +194,181 @@ export default function CustomizationPage() {
   });
 
   const [savedThemes, setSavedThemes] = useState<Array<{ name: string; settings: CustomizationSettings }>>([]);
+
+  // Header Templates Data
+  const headerTemplates: HeaderTemplate[] = [
+    // Desktop Templates
+    {
+      id: 'desktop-classic',
+      name: 'Classic Header',
+      description: 'Traditional header with full navigation menu',
+      device: 'desktop',
+      backgroundColor: '#ffffff',
+      textColor: '#374151',
+      logoColor: '#4f46e5',
+      logoText: 'NextPanel',
+      showNavigation: true,
+      showCart: true,
+      showUserMenu: true,
+      features: ['Full Menu', 'Cart Icon', 'User Menu', 'Clean Design']
+    },
+    {
+      id: 'desktop-modern',
+      name: 'Modern Header',
+      description: 'Sleek header with gradient background',
+      device: 'desktop',
+      backgroundColor: '#1e293b',
+      textColor: '#ffffff',
+      logoColor: '#06b6d4',
+      logoText: 'NextPanel',
+      showNavigation: true,
+      showCart: true,
+      showUserMenu: true,
+      features: ['Dark Theme', 'Gradient', 'Modern Look', 'Premium Feel']
+    },
+    {
+      id: 'desktop-minimal',
+      name: 'Minimal Header',
+      description: 'Clean and simple header design',
+      device: 'desktop',
+      backgroundColor: '#f8fafc',
+      textColor: '#1e293b',
+      logoColor: '#059669',
+      logoText: 'NextPanel',
+      showNavigation: false,
+      showCart: true,
+      showUserMenu: true,
+      features: ['Minimal Design', 'Clean Layout', 'Focus on Content']
+    },
+    {
+      id: 'desktop-corporate',
+      name: 'Corporate Header',
+      description: 'Professional header for business websites',
+      device: 'desktop',
+      backgroundColor: '#ffffff',
+      textColor: '#1f2937',
+      logoColor: '#dc2626',
+      logoText: 'NextPanel',
+      showNavigation: true,
+      showCart: false,
+      showUserMenu: true,
+      features: ['Professional', 'Business Focus', 'Trustworthy']
+    },
+    {
+      id: 'desktop-creative',
+      name: 'Creative Header',
+      description: 'Bold header with vibrant colors',
+      device: 'desktop',
+      backgroundColor: '#fef3c7',
+      textColor: '#92400e',
+      logoColor: '#f59e0b',
+      logoText: 'NextPanel',
+      showNavigation: true,
+      showCart: true,
+      showUserMenu: false,
+      features: ['Creative', 'Vibrant', 'Eye-catching', 'Unique']
+    },
+    
+    // Tablet Templates
+    {
+      id: 'tablet-responsive',
+      name: 'Responsive Tablet',
+      description: 'Optimized header for tablet devices',
+      device: 'tablet',
+      backgroundColor: '#ffffff',
+      textColor: '#374151',
+      logoColor: '#4f46e5',
+      logoText: 'NextPanel',
+      showNavigation: true,
+      showCart: true,
+      showUserMenu: true,
+      features: ['Tablet Optimized', 'Touch Friendly', 'Responsive']
+    },
+    {
+      id: 'tablet-simple',
+      name: 'Simple Tablet',
+      description: 'Simplified header for tablet navigation',
+      device: 'tablet',
+      backgroundColor: '#f1f5f9',
+      textColor: '#334155',
+      logoColor: '#0ea5e9',
+      logoText: 'NextPanel',
+      showNavigation: false,
+      showCart: true,
+      showUserMenu: true,
+      features: ['Simplified', 'Touch Focused', 'Clean']
+    },
+    
+    // Mobile Templates
+    {
+      id: 'mobile-hamburger',
+      name: 'Mobile Hamburger',
+      description: 'Mobile header with hamburger menu',
+      device: 'mobile',
+      backgroundColor: '#ffffff',
+      textColor: '#1f2937',
+      logoColor: '#4f46e5',
+      logoText: 'NextPanel',
+      showNavigation: false,
+      showCart: true,
+      showUserMenu: true,
+      features: ['Hamburger Menu', 'Mobile First', 'Touch Optimized']
+    },
+    {
+      id: 'mobile-minimal',
+      name: 'Mobile Minimal',
+      description: 'Minimal mobile header design',
+      device: 'mobile',
+      backgroundColor: '#f9fafb',
+      textColor: '#374151',
+      logoColor: '#059669',
+      logoText: 'NextPanel',
+      showNavigation: false,
+      showCart: false,
+      showUserMenu: true,
+      features: ['Ultra Minimal', 'Fast Loading', 'Clean']
+    },
+    {
+      id: 'mobile-app',
+      name: 'App Style Mobile',
+      description: 'App-like mobile header design',
+      device: 'mobile',
+      backgroundColor: '#1e293b',
+      textColor: '#ffffff',
+      logoColor: '#06b6d4',
+      logoText: 'NextPanel',
+      showNavigation: false,
+      showCart: true,
+      showUserMenu: true,
+      features: ['App Style', 'Dark Theme', 'Modern Mobile']
+    }
+  ];
+
+  // Helper functions
+  const getTemplatesForDevice = (device: 'desktop' | 'tablet' | 'mobile') => {
+    return headerTemplates.filter(template => template.device === device);
+  };
+
+  const getTemplateById = (id: string) => {
+    return headerTemplates.find(template => template.id === id);
+  };
+
+  const applyTemplate = (templateId: string) => {
+    const template = getTemplateById(templateId);
+    if (template) {
+      setSettings(prev => ({
+        ...prev,
+        headerBackgroundColor: template.backgroundColor,
+        headerTextColor: template.textColor,
+        logoColor: template.logoColor,
+        logoText: template.logoText,
+        showNavigation: template.showNavigation,
+        showCart: template.showCart,
+        showUserMenu: template.showUserMenu,
+      }));
+      alert(`Applied ${template.name} template successfully!`);
+    }
+  };
   
   // Page editor states
   const [selectedPage, setSelectedPage] = useState<PageFile | null>(null);
@@ -248,6 +440,7 @@ export default function CustomizationPage() {
     // Load homepage data
     loadHomepageData();
     loadDefaultPageConfig();
+    loadAvailablePages();
   }, []);
 
   const loadHomepageData = async () => {
@@ -388,6 +581,7 @@ export default function CustomizationPage() {
       } else {
         // Default empty config
         const defaultConfig = {
+          homepage: null,
           cart: null,
           shop: null,
           checkout: null,
@@ -404,9 +598,44 @@ export default function CustomizationPage() {
     }
   };
 
+  const loadAvailablePages = async () => {
+    try {
+      setLoadingHomepage(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.log('No token found, skipping page loading');
+        return;
+      }
+
+      const response = await fetch(`${apiUrl}/api/v1/pages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const pages = await response.json();
+        console.log('Loaded pages from API:', pages);
+        setHomepagePages(pages);
+      } else {
+        console.error('Failed to load pages:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error loading pages:', error);
+    } finally {
+      setLoadingHomepage(false);
+    }
+  };
+
   const handleSetDefaultPage = async (pageType: string, pageSlug: string) => {
     try {
       setLoadingDefaultPages(true);
+      console.log(`Setting ${pageType} page to: ${pageSlug}`);
+      
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
@@ -421,6 +650,7 @@ export default function CustomizationPage() {
         ...defaultPageConfig,
         [pageType]: pageSlug
       };
+      console.log('New config:', newConfig);
       setDefaultPageConfig(newConfig);
       
       // Save to localStorage so the pages can use it
@@ -885,7 +1115,7 @@ export default function ${page.name}Page() {
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-lg font-semibold text-gray-900">Default Pages Management</h2>
                       <button
-                        onClick={() => window.open('/page-builder', '_blank')}
+                        onClick={() => window.open('/admin/page-builder', '_blank')}
                         className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -942,7 +1172,7 @@ export default function ${page.name}Page() {
                                 onClick={() => {
                                   // Open page builder with the specific page type
                                   const pageTypeKey = pageType.key;
-                                  window.open(`/page-builder?page=${pageTypeKey}`, '_blank');
+                                  window.open(`/admin/page-builder?page=${pageTypeKey}`, '_blank');
                                 }}
                                 className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
                               >
@@ -972,6 +1202,9 @@ export default function ${page.name}Page() {
                           {/* Page Selection */}
                           <div className="mt-4">
                             <h4 className="text-sm font-medium text-gray-900 mb-2">Select Custom Page</h4>
+                            <div className="text-xs text-gray-500 mb-2">
+                              Available pages: {homepagePages.length} | Loading: {loadingHomepage ? 'Yes' : 'No'}
+                            </div>
                             {homepagePages.length > 0 ? (
                               <div className="relative">
                                 <select
@@ -1012,10 +1245,295 @@ export default function ${page.name}Page() {
                 {/* Header Tab */}
                 {activeTab === 'header' && (
                 <div>
-                  <HeaderCustomization 
-                    settings={settings}
-                    onSettingsChange={setSettings}
-                  />
+                  {/* Header Preview Section */}
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-lg font-semibold text-gray-900">Header Preview</h2>
+                      <button
+                        onClick={() => window.open('/admin/header-editor', '_blank')}
+                        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                      >
+                        <PaintBrushIcon className="h-4 w-4" />
+                        <span>Edit in Header Editor</span>
+                      </button>
+                    </div>
+
+                    {/* Live Header Preview */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                      <div className="text-center mb-4">
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">Current Header Preview</h3>
+                        <div className="text-xs text-gray-500">Live preview of your current header settings</div>
+                      </div>
+                      
+                      {/* Header Preview Container */}
+                      <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
+                        <div 
+                          className="flex items-center justify-between px-6 py-4"
+                          style={{
+                            backgroundColor: settings.headerBackgroundColor || '#ffffff',
+                            color: settings.headerTextColor || '#374151'
+                          }}
+                        >
+                          <div className="flex items-center space-x-4">
+                            {settings.logo ? (
+                              <img 
+                                src={settings.logo} 
+                                alt="Logo" 
+                                style={{
+                                  width: settings.logoWidth || 150,
+                                  height: settings.logoHeight || 50,
+                                  opacity: (settings.logoOpacity || 100) / 100
+                                }}
+                              />
+                            ) : (
+                              <div 
+                                className="font-bold text-xl"
+                                style={{ color: settings.logoColor || '#4f46e5' }}
+                              >
+                                {settings.logoText || 'NextPanel'}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center space-x-6">
+                            {settings.showNavigation && (
+                              <nav className="flex space-x-6">
+                                <span className="text-sm">Home</span>
+                                <span className="text-sm">About</span>
+                                <span className="text-sm">Services</span>
+                                <span className="text-sm">Contact</span>
+                              </nav>
+                            )}
+                            {settings.showCart && (
+                              <div className="w-6 h-6 bg-gray-400 rounded"></div>
+                            )}
+                            {settings.showUserMenu && (
+                              <div className="w-6 h-6 bg-gray-400 rounded-full"></div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Advanced Customization */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-md font-semibold text-gray-900 mb-4">Advanced Customization</h3>
+                    <HeaderCustomization 
+                      settings={settings}
+                      onSettingsChange={setSettings}
+                    />
+                  </div>
+
+                  {/* Header Templates Section */}
+                  <div className="border-t border-gray-200 pt-6 mt-8">
+                    <h3 className="text-md font-semibold text-gray-900 mb-4">Header Templates</h3>
+                    <p className="text-sm text-gray-600 mb-6">Choose from pre-designed templates for different device sizes. Each device can have its own template.</p>
+                    
+                    {/* Desktop Templates */}
+                    <div className="mb-8">
+                      <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center">
+                        <span className="mr-2">🖥️</span>
+                        Desktop Templates
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {getTemplatesForDevice('desktop').map((template, index) => (
+                          <div
+                            key={index}
+                            className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
+                          >
+                            {/* Template Preview */}
+                            <div className="aspect-video bg-gray-50 relative">
+                              <div className="absolute inset-0 p-2">
+                                <div 
+                                  className="w-full h-full bg-white rounded shadow-sm overflow-hidden"
+                                  style={{ 
+                                    backgroundColor: template.backgroundColor,
+                                    color: template.textColor 
+                                  }}
+                                >
+                                  {/* Header Content Preview */}
+                                  <div className="flex items-center justify-between p-2 h-full">
+                                    <div className="flex items-center space-x-2">
+                                      <div 
+                                        className="w-4 h-4 rounded"
+                                        style={{ backgroundColor: template.logoColor }}
+                                      />
+                                      <span className="font-semibold text-xs">{template.logoText}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      {template.showNavigation && (
+                                        <div className="flex space-x-1">
+                                          <div className="w-6 h-0.5 bg-gray-300 rounded"></div>
+                                          <div className="w-4 h-0.5 bg-gray-300 rounded"></div>
+                                        </div>
+                                      )}
+                                      {template.showCart && (
+                                        <div className="w-3 h-3 bg-gray-300 rounded"></div>
+                                      )}
+                                      {template.showUserMenu && (
+                                        <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Template Info */}
+                            <div className="p-3 bg-white border-t border-gray-100">
+                              <h5 className="font-medium text-gray-900 text-sm">{template.name}</h5>
+                              <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                              
+                              {/* Apply Button */}
+                              <button
+                                onClick={() => applyTemplate(template.id)}
+                                className="w-full mt-3 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 transition-colors"
+                              >
+                                Apply to Desktop
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Tablet Templates */}
+                    <div className="mb-8">
+                      <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center">
+                        <span className="mr-2">📱</span>
+                        Tablet Templates
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {getTemplatesForDevice('tablet').map((template, index) => (
+                          <div
+                            key={index}
+                            className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
+                          >
+                            {/* Template Preview */}
+                            <div className="aspect-video bg-gray-50 relative">
+                              <div className="absolute inset-0 p-2">
+                                <div 
+                                  className="w-full h-full bg-white rounded shadow-sm overflow-hidden"
+                                  style={{ 
+                                    backgroundColor: template.backgroundColor,
+                                    color: template.textColor 
+                                  }}
+                                >
+                                  {/* Header Content Preview */}
+                                  <div className="flex items-center justify-between p-2 h-full">
+                                    <div className="flex items-center space-x-2">
+                                      <div 
+                                        className="w-4 h-4 rounded"
+                                        style={{ backgroundColor: template.logoColor }}
+                                      />
+                                      <span className="font-semibold text-xs">{template.logoText}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      {template.showNavigation && (
+                                        <div className="flex space-x-1">
+                                          <div className="w-6 h-0.5 bg-gray-300 rounded"></div>
+                                          <div className="w-4 h-0.5 bg-gray-300 rounded"></div>
+                                        </div>
+                                      )}
+                                      {template.showCart && (
+                                        <div className="w-3 h-3 bg-gray-300 rounded"></div>
+                                      )}
+                                      {template.showUserMenu && (
+                                        <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Template Info */}
+                            <div className="p-3 bg-white border-t border-gray-100">
+                              <h5 className="font-medium text-gray-900 text-sm">{template.name}</h5>
+                              <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                              
+                              {/* Apply Button */}
+                              <button
+                                onClick={() => applyTemplate(template.id)}
+                                className="w-full mt-3 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 transition-colors"
+                              >
+                                Apply to Tablet
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Mobile Templates */}
+                    <div className="mb-8">
+                      <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center">
+                        <span className="mr-2">📱</span>
+                        Mobile Templates
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {getTemplatesForDevice('mobile').map((template, index) => (
+                          <div
+                            key={index}
+                            className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
+                          >
+                            {/* Template Preview */}
+                            <div className="aspect-video bg-gray-50 relative">
+                              <div className="absolute inset-0 p-2">
+                                <div 
+                                  className="w-full h-full bg-white rounded shadow-sm overflow-hidden"
+                                  style={{ 
+                                    backgroundColor: template.backgroundColor,
+                                    color: template.textColor 
+                                  }}
+                                >
+                                  {/* Header Content Preview */}
+                                  <div className="flex items-center justify-between p-2 h-full">
+                                    <div className="flex items-center space-x-2">
+                                      <div 
+                                        className="w-4 h-4 rounded"
+                                        style={{ backgroundColor: template.logoColor }}
+                                      />
+                                      <span className="font-semibold text-xs">{template.logoText}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      {template.showNavigation && (
+                                        <div className="flex space-x-1">
+                                          <div className="w-6 h-0.5 bg-gray-300 rounded"></div>
+                                          <div className="w-4 h-0.5 bg-gray-300 rounded"></div>
+                                        </div>
+                                      )}
+                                      {template.showCart && (
+                                        <div className="w-3 h-3 bg-gray-300 rounded"></div>
+                                      )}
+                                      {template.showUserMenu && (
+                                        <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Template Info */}
+                            <div className="p-3 bg-white border-t border-gray-100">
+                              <h5 className="font-medium text-gray-900 text-sm">{template.name}</h5>
+                              <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                              
+                              {/* Apply Button */}
+                              <button
+                                onClick={() => applyTemplate(template.id)}
+                                className="w-full mt-3 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 transition-colors"
+                              >
+                                Apply to Mobile
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

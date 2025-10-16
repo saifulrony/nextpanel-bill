@@ -8,6 +8,7 @@ import { ShoppingCartIcon, TrashIcon, PlusIcon, MinusIcon } from '@heroicons/rea
 interface CartComponentProps {
   style?: React.CSSProperties;
   className?: string;
+  isEditor?: boolean;
   props?: {
     showHeader?: boolean;
     showCheckoutButton?: boolean;
@@ -26,6 +27,7 @@ interface CartComponentProps {
 export default function CartComponent({ 
   style = {}, 
   className = '',
+  isEditor = false,
   props = {}
 }: CartComponentProps) {
   const router = useRouter();
@@ -84,8 +86,8 @@ export default function CartComponent({
         <h3 className="text-lg font-medium mb-2">{emptyStateText}</h3>
         <p className="text-gray-500 mb-6">Add some items to get started</p>
         <button
-          onClick={() => router.push('/shop')}
-          className="px-6 py-3 text-white rounded-lg font-medium hover:opacity-90 transition"
+          onClick={isEditor ? undefined : () => router.push('/shop')}
+          className={`px-6 py-3 text-white rounded-lg font-medium transition ${isEditor ? 'cursor-default' : 'hover:opacity-90 cursor-pointer'}`}
           style={{ backgroundColor: buttonColor }}
         >
           Continue Shopping
@@ -193,8 +195,8 @@ export default function CartComponent({
         <div className="flex space-x-3 mt-6">
           {showCheckoutButton && (
             <button
-              onClick={handleCheckout}
-              className="flex-1 px-6 py-3 text-white rounded-lg font-medium hover:opacity-90 transition"
+              onClick={isEditor ? undefined : handleCheckout}
+              className={`flex-1 px-6 py-3 text-white rounded-lg font-medium transition ${isEditor ? 'cursor-default' : 'hover:opacity-90 cursor-pointer'}`}
               style={{ backgroundColor: buttonColor }}
             >
               {checkoutButtonText}

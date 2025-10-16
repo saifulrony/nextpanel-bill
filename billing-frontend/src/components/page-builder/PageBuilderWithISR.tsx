@@ -10,6 +10,31 @@ import ComponentRenderer from './ComponentRenderer';
 import PropertiesPanel from './PropertiesPanel';
 import { Component, ComponentType } from './types';
 import {
+  DocumentTextIcon,
+  PhotoIcon,
+  CursorArrowRaysIcon,
+  RectangleStackIcon,
+  Bars3Icon,
+  Square3Stack3DIcon,
+  VideoCameraIcon,
+  TableCellsIcon,
+  PaintBrushIcon,
+  CubeIcon,
+  ArrowsPointingOutIcon,
+  FilmIcon,
+  MagnifyingGlassIcon,
+  ShoppingCartIcon,
+  EnvelopeIcon,
+  NewspaperIcon,
+  Bars3BottomLeftIcon,
+  ArrowDownTrayIcon,
+  CodeBracketIcon,
+  StarIcon,
+  CommandLineIcon,
+  ExclamationTriangleIcon,
+  ShareIcon,
+} from '@heroicons/react/24/outline';
+import {
   DevicePhoneMobileIcon,
   DeviceTabletIcon,
   ComputerDesktopIcon,
@@ -23,8 +48,38 @@ import {
   PlusIcon,
   RocketLaunchIcon,
   XMarkIcon,
-  CodeBracketIcon,
 } from '@heroicons/react/24/outline';
+
+// Local components array for the modal
+const availableComponents = [
+  { type: 'heading' as ComponentType, label: 'Heading', icon: DocumentTextIcon, color: 'text-blue-600' },
+  { type: 'text' as ComponentType, label: 'Text', icon: DocumentTextIcon, color: 'text-gray-600' },
+  { type: 'button' as ComponentType, label: 'Button', icon: CursorArrowRaysIcon, color: 'text-green-600' },
+  { type: 'image' as ComponentType, label: 'Image', icon: PhotoIcon, color: 'text-purple-600' },
+  { type: 'section' as ComponentType, label: 'Section', icon: RectangleStackIcon, color: 'text-indigo-600' },
+  { type: 'container' as ComponentType, label: 'Container', icon: Square3Stack3DIcon, color: 'text-orange-600' },
+  { type: 'spacer' as ComponentType, label: 'Spacer', icon: ArrowsPointingOutIcon, color: 'text-gray-500' },
+  { type: 'divider' as ComponentType, label: 'Divider', icon: Bars3Icon, color: 'text-gray-400' },
+  { type: 'card' as ComponentType, label: 'Card', icon: CubeIcon, color: 'text-cyan-600' },
+  { type: 'grid' as ComponentType, label: 'Grid', icon: TableCellsIcon, color: 'text-pink-600' },
+  { type: 'video' as ComponentType, label: 'Video', icon: VideoCameraIcon, color: 'text-red-600' },
+  { type: 'form' as ComponentType, label: 'Form', icon: FilmIcon, color: 'text-yellow-600' },
+  { type: 'header' as ComponentType, label: 'Header', icon: Bars3BottomLeftIcon, color: 'text-slate-600' },
+  { type: 'footer' as ComponentType, label: 'Footer', icon: ArrowDownTrayIcon, color: 'text-slate-500' },
+  { type: 'cart' as ComponentType, label: 'Cart', icon: ShoppingCartIcon, color: 'text-orange-500' },
+  { type: 'domain-search' as ComponentType, label: 'Domain Search', icon: MagnifyingGlassIcon, color: 'text-teal-600' },
+  { type: 'products-grid' as ComponentType, label: 'Products Grid', icon: ShoppingCartIcon, color: 'text-emerald-600' },
+  { type: 'featured-products' as ComponentType, label: 'Featured Products', icon: StarIcon, color: 'text-yellow-600' },
+  { type: 'product-search' as ComponentType, label: 'Product Search', icon: MagnifyingGlassIcon, color: 'text-blue-600' },
+  { type: 'contact-form' as ComponentType, label: 'Contact Form', icon: EnvelopeIcon, color: 'text-indigo-600' },
+  { type: 'newsletter' as ComponentType, label: 'Newsletter', icon: NewspaperIcon, color: 'text-purple-600' },
+  { type: 'code-block' as ComponentType, label: 'Code Block', icon: CodeBracketIcon, color: 'text-gray-700' },
+  { type: 'sidebar' as ComponentType, label: 'Sidebar', icon: Bars3Icon, color: 'text-amber-600' },
+  { type: 'shortcode' as ComponentType, label: 'Shortcode', icon: CommandLineIcon, color: 'text-violet-600' },
+  { type: 'alert' as ComponentType, label: 'Alert', icon: ExclamationTriangleIcon, color: 'text-red-500' },
+  { type: 'social-icons' as ComponentType, label: 'Social Icons', icon: ShareIcon, color: 'text-blue-500' },
+  { type: 'showcase' as ComponentType, label: 'Showcase', icon: StarIcon, color: 'text-yellow-500' },
+];
 
 interface PageBuilderWithISRProps {
   initialComponents?: Component[];
@@ -834,13 +889,98 @@ export function PageBuilderWithISR({
 
     switch (type) {
       case 'heading':
-        return { ...baseComponent, content: '<h1>Heading Text</h1>' };
+        return { 
+          ...baseComponent, 
+          content: '<h1>Heading Text</h1>',
+          props: {
+            level: 'h1',
+            text: 'Heading Text',
+            color: '#111827',
+            fontSize: '2.25rem',
+            fontWeight: '700',
+            fontFamily: 'Inter',
+            textAlign: 'left',
+            lineHeight: '1.2',
+            letterSpacing: '-0.025em',
+            margin: '0',
+            padding: '0',
+            textDecoration: 'none',
+            textTransform: 'none'
+          }
+        };
       case 'text':
-        return { ...baseComponent, content: '<p>Text content goes here...</p>' };
+        return { 
+          ...baseComponent, 
+          content: '<p>Text content goes here...</p>',
+          props: {
+            text: 'Text content goes here...',
+            color: '#374151',
+            fontSize: '1rem',
+            fontWeight: '400',
+            fontFamily: 'Inter',
+            textAlign: 'left',
+            lineHeight: '1.5',
+            letterSpacing: '0',
+            margin: '0',
+            padding: '0',
+            textDecoration: 'none',
+            textTransform: 'none',
+            maxWidth: 'none',
+            whiteSpace: 'normal'
+          }
+        };
       case 'button':
-        return { ...baseComponent, content: 'Click Me' };
+        return { 
+          ...baseComponent, 
+          content: 'Click Me',
+          props: {
+            variant: 'primary',
+            size: 'medium',
+            backgroundColor: '#4f46e5',
+            textColor: '#ffffff',
+            borderColor: '#4f46e5',
+            borderRadius: '0.375rem',
+            padding: '0.75rem 1.5rem',
+            fontSize: '1rem',
+            fontWeight: '500',
+            hoverBackgroundColor: '#3730a3',
+            hoverTextColor: '#ffffff',
+            disabledBackgroundColor: '#9ca3af',
+            disabledTextColor: '#ffffff',
+            icon: '',
+            iconPosition: 'left',
+            fullWidth: false,
+            loading: false,
+            disabled: false
+          }
+        };
       case 'image':
-        return { ...baseComponent, props: { src: 'https://via.placeholder.com/800x400?text=Image' } };
+        return { 
+          ...baseComponent, 
+          props: { 
+            src: 'https://via.placeholder.com/800x400?text=Image',
+            alt: 'Image description',
+            width: 'auto',
+            height: 'auto',
+            maxWidth: '100%',
+            objectFit: 'cover',
+            borderRadius: '0',
+            shadow: 'none',
+            border: 'none',
+            borderColor: '#e5e7eb',
+            borderWidth: '0',
+            margin: '0',
+            padding: '0',
+            backgroundColor: 'transparent',
+            caption: '',
+            showCaption: false,
+            captionPosition: 'below',
+            captionColor: '#6b7280',
+            captionFontSize: '0.875rem',
+            lazy: true,
+            loading: 'lazy'
+          } 
+        };
       case 'section':
         return { ...baseComponent, children: [] };
       case 'container':
@@ -861,17 +1001,137 @@ export function PageBuilderWithISR({
         return { ...baseComponent, props: { src: 'https://www.youtube.com/embed/dQw4w9WgXcQ' } };
       case 'form':
         return baseComponent;
+      case 'domain-search':
+        return { 
+          ...baseComponent, 
+          props: { 
+            placeholder: 'Search for domains...',
+            buttonText: 'Search',
+            showSuggestions: true,
+            maxSuggestions: 5,
+            backgroundColor: '#ffffff',
+            borderColor: '#d1d5db',
+            textColor: '#374151',
+            buttonColor: '#4f46e5',
+            buttonTextColor: '#ffffff',
+            borderRadius: '0.375rem',
+            padding: '0.75rem',
+            fontSize: '1rem'
+          }
+        };
+      case 'products-grid':
+        return { 
+          ...baseComponent, 
+          props: { 
+            columns: 3,
+            productCount: 6,
+            title: 'Our Products',
+            subtitle: 'Choose from our range of hosting solutions designed to meet your needs',
+            showPrices: true,
+            showFeatures: true,
+            showButtons: true,
+            cardStyle: 'default',
+            backgroundColor: '#ffffff',
+            cardBackgroundColor: '#ffffff',
+            borderColor: '#e5e7eb',
+            textColor: '#374151',
+            priceColor: '#4f46e5',
+            buttonColor: '#4f46e5',
+            buttonTextColor: '#ffffff',
+            spacing: '1rem'
+          }
+        };
+      case 'featured-products':
+        return { 
+          ...baseComponent, 
+          props: { 
+            columns: 3,
+            productCount: 3,
+            title: 'Featured Products',
+            subtitle: 'Discover our most popular and recommended hosting solutions',
+            showPrices: true,
+            showButtons: true
+          }
+        };
+      case 'product-search':
+        return { 
+          ...baseComponent, 
+          props: { 
+            placeholder: 'Search products...',
+            showFilters: true,
+            showSorting: true,
+            resultsPerPage: 12,
+            backgroundColor: '#ffffff',
+            borderColor: '#d1d5db',
+            textColor: '#374151',
+            buttonColor: '#4f46e5',
+            buttonTextColor: '#ffffff'
+          }
+        };
+      case 'contact-form':
+        return { 
+          ...baseComponent, 
+          props: { 
+            showNameField: true,
+            showEmailField: true,
+            showPhoneField: false,
+            showSubjectField: true,
+            showMessageField: true,
+            submitButtonText: 'Send Message',
+            backgroundColor: '#ffffff',
+            borderColor: '#e5e7eb',
+            textColor: '#374151',
+            buttonColor: '#4f46e5',
+            buttonTextColor: '#ffffff',
+            requiredFields: ['name', 'email', 'message']
+          }
+        };
+      case 'newsletter':
+        return { 
+          ...baseComponent, 
+          props: { 
+            title: 'Subscribe to our newsletter',
+            description: 'Get the latest updates and news delivered to your inbox.',
+            placeholder: 'Enter your email address',
+            buttonText: 'Subscribe',
+            showTitle: true,
+            showDescription: true,
+            backgroundColor: '#f8fafc',
+            textColor: '#374151',
+            buttonColor: '#4f46e5',
+            buttonTextColor: '#ffffff',
+            borderColor: '#e5e7eb'
+          }
+        };
       case 'header':
         return { 
           ...baseComponent, 
           props: { 
             logoText: 'NextPanel',
+            logoImage: '',
+            logoWidth: '120px',
+            logoHeight: '40px',
             showNavigation: true,
             showCart: true,
             showUserMenu: true,
+            showSearch: false,
+            navigationItems: [
+              { name: 'Home', url: '/' },
+              { name: 'Products', url: '/products' },
+              { name: 'About', url: '/about' },
+              { name: 'Contact', url: '/contact' }
+            ],
             backgroundColor: '#ffffff',
             textColor: '#374151',
-            logoColor: '#4f46e5'
+            logoColor: '#4f46e5',
+            navigationColor: '#374151',
+            cartColor: '#4f46e5',
+            borderColor: '#e5e7eb',
+            borderWidth: '1px',
+            padding: '1rem',
+            sticky: false,
+            shadow: 'none',
+            borderRadius: '0'
           } 
         };
       case 'footer':
@@ -879,12 +1139,42 @@ export function PageBuilderWithISR({
           ...baseComponent, 
           props: { 
             companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
+            companyDescription: 'Professional billing and hosting management platform.',
+            copyrightText: '© 2024 NextPanel Billing. All rights reserved.',
+            showCompanyInfo: true,
             showLinks: true,
             showSocial: false,
+            showNewsletter: false,
+            linkColumns: [
+              {
+                title: 'Products',
+                links: [
+                  { name: 'Hosting Plans', url: '/hosting' },
+                  { name: 'Domain Names', url: '/domains' },
+                  { name: 'SSL Certificates', url: '/ssl' }
+                ]
+              },
+              {
+                title: 'Support',
+                links: [
+                  { name: 'Help Center', url: '/help' },
+                  { name: 'Contact Us', url: '/contact' },
+                  { name: 'Status', url: '/status' }
+                ]
+              }
+            ],
+            socialLinks: [
+              { platform: 'facebook', url: 'https://facebook.com' },
+              { platform: 'twitter', url: 'https://twitter.com' },
+              { platform: 'linkedin', url: 'https://linkedin.com' }
+            ],
             backgroundColor: '#111827',
             textColor: '#ffffff',
-            linkColor: '#9ca3af'
+            linkColor: '#9ca3af',
+            headingColor: '#ffffff',
+            borderColor: '#374151',
+            padding: '2rem',
+            borderTop: '1px solid #374151'
           } 
         };
       case 'cart':
@@ -902,6 +1192,69 @@ export function PageBuilderWithISR({
             buttonColor: '#4f46e5'
           } 
         };
+      case 'code-block':
+        return { 
+          ...baseComponent, 
+          content: '<!-- Your HTML, CSS, or JS code here -->',
+          props: { language: 'HTML' }
+        };
+      case 'sidebar':
+        return { 
+          ...baseComponent, 
+          props: { 
+            position: 'right',
+            width: '300px',
+            backgroundColor: '#f8fafc',
+            title: 'Sidebar',
+            showTitle: true
+          }
+        };
+      case 'shortcode':
+        return { 
+          ...baseComponent, 
+          content: '[shortcode_example]',
+          props: { 
+            shortcode: '[shortcode_example]',
+            description: 'Enter your shortcode here'
+          }
+        };
+      case 'alert':
+        return { 
+          ...baseComponent, 
+          content: 'This is an alert message',
+          props: { 
+            type: 'info',
+            title: 'Alert',
+            showCloseButton: true,
+            backgroundColor: '#dbeafe',
+            textColor: '#1e40af',
+            borderColor: '#3b82f6'
+          }
+        };
+      case 'social-icons':
+        return { 
+          ...baseComponent, 
+          props: { 
+            platforms: ['facebook', 'twitter', 'instagram', 'linkedin'],
+            size: 'medium',
+            style: 'rounded',
+            showLabels: false,
+            alignment: 'center'
+          }
+        };
+      case 'showcase':
+        return { 
+          ...baseComponent, 
+          props: { 
+            title: 'Showcase',
+            subtitle: 'Showcase your best work',
+            items: [],
+            layout: 'grid',
+            columns: 3,
+            showTitle: true,
+            showSubtitle: true
+          }
+        };
       default:
         return baseComponent;
     }
@@ -918,7 +1271,7 @@ export function PageBuilderWithISR({
       if (comp.id === containerId && comp.type === 'container') {
         const currentColumns = comp.props?.columns || 2;
         console.log('Current columns:', currentColumns);
-        const newColumns = Math.min(currentColumns + 1, 4);
+        const newColumns = currentColumns + 1;
         console.log('New columns:', newColumns);
         return {
           ...comp,
@@ -993,17 +1346,43 @@ export function PageBuilderWithISR({
 
   const handleAddAfter = (componentId: string, type: ComponentType) => {
     const newComponent = createComponent(type);
-    const componentIndex = components.findIndex(comp => comp.id === componentId);
     
-    if (componentIndex !== -1) {
-      const newComponents = [
-        ...components.slice(0, componentIndex + 1),
-        newComponent,
-        ...components.slice(componentIndex + 1)
-      ];
+    // Check if the component is within a container column
+    const containerComponent = components.find(comp => 
+      comp.type === 'container' && 
+      comp.children?.some(child => child.id === componentId)
+    );
+    
+    if (containerComponent) {
+      // Add component within container column
+      const newComponents = components.map(comp => {
+        if (comp.id === containerComponent.id) {
+          const updatedChildren = [...(comp.children || [])];
+          const childIndex = updatedChildren.findIndex(child => child.id === componentId);
+          if (childIndex !== -1) {
+            updatedChildren.splice(childIndex + 1, 0, newComponent);
+          }
+          return { ...comp, children: updatedChildren };
+        }
+        return comp;
+      });
       setComponents(newComponents);
       addToHistory(newComponents);
       setSelectedComponent(newComponent.id);
+    } else {
+      // Add component to main canvas
+      const componentIndex = components.findIndex(comp => comp.id === componentId);
+      
+      if (componentIndex !== -1) {
+        const newComponents = [
+          ...components.slice(0, componentIndex + 1),
+          newComponent,
+          ...components.slice(componentIndex + 1)
+        ];
+        setComponents(newComponents);
+        addToHistory(newComponents);
+        setSelectedComponent(newComponent.id);
+      }
     }
     
     setShowAfterComponentPicker(false);
@@ -1354,6 +1733,28 @@ export function PageBuilderWithISR({
           break;
         case 'cart':
           html += `    <div class="cart">\n      <h3>${component.props?.headerText || 'Shopping Cart'}</h3>\n      <div class="cart-items">Cart items will appear here</div>\n    </div>\n`;
+          break;
+        case 'code-block':
+          const language = component.props?.language || 'HTML';
+          html += `    <div class="code-block">\n      <h4>${language} Code Block</h4>\n      <pre><code>${component.content || '<!-- Your code here -->'}</code></pre>\n    </div>\n`;
+          break;
+        case 'sidebar':
+          html += `    <div class="sidebar" style="width: ${component.props?.width || '300px'}; background-color: ${component.props?.backgroundColor || '#f8fafc'}; padding: 1rem;">\n      ${component.props?.showTitle ? `<h3>${component.props?.title || 'Sidebar'}</h3>` : ''}\n      <div>Sidebar content</div>\n    </div>\n`;
+          break;
+        case 'shortcode':
+          html += `    <div class="shortcode">\n      <p>Shortcode: ${component.props?.shortcode || component.content || '[shortcode_example]'}</p>\n    </div>\n`;
+          break;
+        case 'alert':
+          const alertType = component.props?.type || 'info';
+          html += `    <div class="alert alert-${alertType}" style="background-color: ${component.props?.backgroundColor || '#dbeafe'}; color: ${component.props?.textColor || '#1e40af'}; border: 1px solid ${component.props?.borderColor || '#3b82f6'}; padding: 1rem; border-radius: 0.5rem;">\n      ${component.props?.title ? `<h4>${component.props.title}</h4>` : ''}\n      <p>${component.content || 'Alert message'}</p>\n    </div>\n`;
+          break;
+        case 'social-icons':
+          const platforms = component.props?.platforms || ['facebook', 'twitter', 'instagram'];
+          const iconHtml = platforms.map(platform => `      <a href="#" class="social-icon social-${platform}">${platform}</a>`).join('\n');
+          html += `    <div class="social-icons" style="text-align: ${component.props?.alignment || 'center'}; display: flex; gap: 1rem; justify-content: center;">\n${iconHtml}\n    </div>\n`;
+          break;
+        case 'showcase':
+          html += `    <div class="showcase">\n      ${component.props?.showTitle ? `<h2>${component.props?.title || 'Showcase'}</h2>` : ''}\n      ${component.props?.showSubtitle ? `<p>${component.props?.subtitle || 'Showcase your best work'}</p>` : ''}\n      <div class="showcase-grid" style="display: grid; grid-template-columns: repeat(${component.props?.columns || 3}, 1fr); gap: 1rem;">\n        <div class="showcase-item">Showcase item 1</div>\n        <div class="showcase-item">Showcase item 2</div>\n        <div class="showcase-item">Showcase item 3</div>\n      </div>\n    </div>\n`;
           break;
         default:
           html += `    <div>${component.type} component</div>\n`;
@@ -1917,7 +2318,7 @@ export function PageBuilderWithISR({
         {/* Canvas */}
         <div 
           ref={setCanvasRef}
-          className="flex-1 overflow-auto bg-gray-100 p-2"
+          className="flex-1 overflow-auto bg-gray-100"
         >
           <div
             className="bg-white shadow-lg transition-all duration-300"
@@ -1939,7 +2340,7 @@ export function PageBuilderWithISR({
                 items={components.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="p-2 space-y-1">
+                <div className="space-y-0">
                   {components.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-96 text-gray-400">
                       <PlusIcon className="h-16 w-16 mb-4" />
@@ -2172,7 +2573,7 @@ export function PageBuilderWithISR({
       {/* Component Picker Modal for "Add After" */}
       {showAfterComponentPicker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh]">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Add Component After</h3>
@@ -2189,26 +2590,22 @@ export function PageBuilderWithISR({
                 </button>
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { type: 'heading' as ComponentType, label: 'Heading', icon: '📝' },
-                  { type: 'text' as ComponentType, label: 'Text', icon: '📄' },
-                  { type: 'button' as ComponentType, label: 'Button', icon: '🔘' },
-                  { type: 'image' as ComponentType, label: 'Image', icon: '🖼️' },
-                  { type: 'card' as ComponentType, label: 'Card', icon: '🎴' },
-                  { type: 'spacer' as ComponentType, label: 'Spacer', icon: '📏' },
-                  { type: 'container' as ComponentType, label: 'Container', icon: '📦' },
-                  { type: 'divider' as ComponentType, label: 'Divider', icon: '➖' },
-                ].map((comp) => (
-                  <button
-                    key={comp.type}
-                    onClick={() => afterComponentId && handleAddAfter(afterComponentId, comp.type)}
-                    className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
-                  >
-                    <span className="text-2xl">{comp.icon}</span>
-                    <span className="text-sm font-medium text-gray-700">{comp.label}</span>
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                {availableComponents.map((comp) => {
+                  const Icon = comp.icon;
+                  return (
+                    <button
+                      key={comp.type}
+                      onClick={() => afterComponentId && handleAddAfter(afterComponentId, comp.type)}
+                      className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                    >
+                      <div className={`p-2 rounded-lg bg-gray-50 flex-shrink-0`}>
+                        <Icon className={`h-5 w-5 ${comp.color}`} />
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">{comp.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
