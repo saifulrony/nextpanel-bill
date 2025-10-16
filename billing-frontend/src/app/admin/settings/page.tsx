@@ -38,7 +38,7 @@ export default function SettingsPage() {
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
   useEffect(() => {
-    if (user?.is_admin) {
+    if ((user as any)?.is_admin) {
       loadSystemSettings();
     }
   }, [user]);
@@ -217,7 +217,7 @@ export default function SettingsPage() {
       </div>
 
       {/* System Settings (Admin Only) */}
-      {user?.is_admin && (
+      {(user as any)?.is_admin && (
         <>
           <div className="bg-white shadow sm:rounded-lg mb-8">
             <div className="px-4 py-5 sm:p-6">

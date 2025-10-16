@@ -119,7 +119,7 @@ export default function TransactionsPage() {
       
       // Remove empty filters
       Object.keys(params).forEach(key => {
-        if (!params[key]) delete params[key];
+        if (!(params as any)[key]) delete (params as any)[key];
       });
 
       const [paymentsResponse, statsResponse] = await Promise.all([

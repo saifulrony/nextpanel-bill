@@ -19,9 +19,9 @@ interface Order {
   status: string;
   subtotal: number;
   discount_amount: number;
-  discount_percent: number;
+  discount_percent?: number;
   tax: number;
-  tax_rate: number;
+  tax_rate?: number;
   total: number;
   amount_paid: number;
   amount_due: number;
@@ -32,12 +32,12 @@ interface Order {
   paid_at: string | null;
   items: any[];
   notes: string | null;
-  terms: string | null;
-  payment_instructions: string | null;
+  terms?: string | null;
+  payment_instructions?: string | null;
   is_recurring: boolean;
-  recurring_interval: string | null;
+  recurring_interval?: string | null;
   sent_to_customer: boolean;
-  reminder_count: number;
+  reminder_count?: number;
   created_at: string;
 }
 
@@ -647,7 +647,7 @@ NextPanel Team
                     {order.discount_amount > 0 && (
                       <div className="flex justify-between text-red-600">
                         <span>
-                          Discount {order.discount_percent > 0 && `(${order.discount_percent}%)`}:
+                          Discount {order.discount_percent && order.discount_percent > 0 && `(${order.discount_percent}%)`}:
                         </span>
                         <span>-${order.discount_amount.toFixed(2)}</span>
                       </div>

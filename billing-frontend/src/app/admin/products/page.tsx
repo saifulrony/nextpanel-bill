@@ -102,7 +102,7 @@ export default function ProductsPage() {
         console.log('📦 API not available, using demo data...');
         
         // Use demo data when API is not available
-        const demoProducts = getDemoData('products');
+        const demoProducts = getDemoData('products') as any[];
         const demoCategories = [
           { id: 'hosting', name: 'Hosting' },
           { id: 'domain', name: 'Domain' },

@@ -174,7 +174,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
         total,
         payment_method: 'manual',
         billing_info: {},
-        billing_period,
+        billing_period: billingPeriod,
       };
 
       await ordersAPI.create(orderData);
