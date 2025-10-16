@@ -19,10 +19,7 @@ import {
   DocumentTextIcon,
   CubeIcon,
 } from '@heroicons/react/24/outline';
-import { PieChart } from '@mui/x-charts';
-import { BarChart } from '@mui/x-charts';
-import { LineChart } from '@mui/x-charts';
-import { Gauge, gaugeClasses } from '@mui/x-charts';
+// import { PieChart, BarChart, LineChart, Gauge, gaugeClasses } from '@mui/x-charts';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -446,43 +443,19 @@ export default function DashboardPage() {
         {/* Customer Distribution Pie Chart */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Distribution</h3>
-          <PieChart
-            series={[
-              {
-                data: customerDistributionData,
-                highlightScope: { faded: 'global', highlighted: 'item' },
-              },
-            ]}
-            height={200}
-          />
+          <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
         </div>
 
         {/* License Status Pie Chart */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">License Status</h3>
-          <PieChart
-            series={[
-              {
-                data: licenseStatusData,
-                highlightScope: { faded: 'global', highlighted: 'item' },
-              },
-            ]}
-            height={200}
-          />
+          <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
         </div>
 
         {/* Invoice Status Pie Chart */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Status</h3>
-          <PieChart
-            series={[
-              {
-                data: invoiceStatusData,
-                highlightScope: { faded: 'global', highlighted: 'item' },
-              },
-            ]}
-            height={200}
-          />
+          <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
         </div>
       </div>
 
@@ -498,32 +471,13 @@ export default function DashboardPage() {
                 timePeriod === 'year' ? 'Last 12 Months' : 'Custom Period'})
             </span>
           </h3>
-          <LineChart
-            xAxis={[{ 
-              scaleType: 'point', 
-              data: revenueData.map(d => d.period),
-            }]}
-            series={[{ 
-              data: revenueData.map(d => d.revenue),
-              label: 'Revenue',
-              color: '#8b5cf6',
-              curve: 'natural',
-            }]}
-            height={300}
-          />
+          <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
         </div>
 
         {/* Order Status Bar Chart */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Status</h3>
-          <BarChart
-            xAxis={[{ scaleType: 'band', data: orderStatusData.map(d => d.status) }]}
-            series={[{ 
-              data: orderStatusData.map(d => d.orders), 
-              color: '#10b981',
-            }]}
-            height={300}
-          />
+          <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
         </div>
       </div>
 
@@ -533,22 +487,7 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Customer Active Rate</h3>
           <div className="flex justify-center">
-            <Gauge
-              value={customerActiveRate}
-              valueMin={0}
-              valueMax={100}
-              height={150}
-              sx={{
-                [`& .${gaugeClasses.valueText}`]: {
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                },
-                [`& .${gaugeClasses.valueArc}`]: {
-                  fill: '#3b82f6',
-                },
-              }}
-              text={(params) => `${params.value?.toFixed(0) ?? 0}%`}
-            />
+            <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
           </div>
           <p className="text-center text-sm text-gray-500 mt-2">
             {stats?.active_customers || 0} / {stats?.total_customers || 0} active
@@ -559,22 +498,7 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">License Active Rate</h3>
           <div className="flex justify-center">
-            <Gauge
-              value={licenseActiveRate}
-              valueMin={0}
-              valueMax={100}
-              height={150}
-              sx={{
-                [`& .${gaugeClasses.valueText}`]: {
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                },
-                [`& .${gaugeClasses.valueArc}`]: {
-                  fill: '#10b981',
-                },
-              }}
-              text={(params) => `${params.value?.toFixed(0) ?? 0}%`}
-            />
+            <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
           </div>
           <p className="text-center text-sm text-gray-500 mt-2">
             {stats?.active_licenses || 0} / {stats?.total_licenses || 0} active
@@ -585,22 +509,7 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Domain Active Rate</h3>
           <div className="flex justify-center">
-            <Gauge
-              value={domainActiveRate}
-              valueMin={0}
-              valueMax={100}
-              height={150}
-              sx={{
-                [`& .${gaugeClasses.valueText}`]: {
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                },
-                [`& .${gaugeClasses.valueArc}`]: {
-                  fill: '#f59e0b',
-                },
-              }}
-              text={(params) => `${params.value?.toFixed(0) ?? 0}%`}
-            />
+            <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
           </div>
           <p className="text-center text-sm text-gray-500 mt-2">
             {stats?.active_domains || 0} / {stats?.total_domains || 0} active
@@ -631,23 +540,7 @@ export default function DashboardPage() {
           <>
             {/* Bar Chart */}
             <div className="mb-6">
-              <BarChart
-                xAxis={[{ 
-                  scaleType: 'band', 
-                  data: (topCustomers || []).map(c => {
-                    const name = c.customer_name || c.full_name || 'Unknown Customer';
-                    return name.length > 15 ? name.substring(0, 15) + '...' : name;
-                  }),
-                }]}
-                series={[
-                  { 
-                    data: (topCustomers || []).map(c => c.total_orders || 0), 
-                    label: 'Orders',
-                    color: '#6366f1',
-                  }
-                ]}
-                height={300}
-              />
+              <div className="text-center text-gray-500 py-8">Chart temporarily disabled</div>
             </div>
 
             {/* Data Table */}

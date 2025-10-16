@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { PageBuilderWithISR } from '@/components/page-builder/PageBuilderWithISR';
 import { Component } from '@/components/page-builder/types';
-import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function PageBuilderPage() {
-  const router = useRouter();
+export default function AdminPageBuilderPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [pageBuilderComponents, setPageBuilderComponents] = useState<Component[]>([]);
   const [pageId, setPageId] = useState('');
   const [pageTitle, setPageTitle] = useState('Untitled Page');
@@ -17,14 +17,14 @@ export default function PageBuilderPage() {
   useEffect(() => {
     // Get page ID from URL params if editing existing page
     const id = searchParams.get('id');
-    const pageTypeParam = searchParams.get('page'); // Changed from 'type' to 'page'
+    const page = searchParams.get('page'); // Changed from 'type' to 'page'
     
     if (id) {
       setPageId(id);
       loadPage(id);
-    } else if (pageTypeParam) {
+    } else if (page) {
       // Load default template based on page type
-      loadDefaultTemplate(pageTypeParam);
+      loadDefaultTemplate(page);
     } else {
       // Load saved page builder components if no specific page/type
       const savedComponents = localStorage.getItem('page_builder_components');
@@ -37,22 +37,19 @@ export default function PageBuilderPage() {
 
   const loadPage = async (id: string) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
-      const response = await fetch(`${apiUrl}/api/v1/pages/${id}`);
+      const response = await fetch(`/api/pages?id=${id}`);
       if (response.ok) {
-        const pageData = await response.json();
-        setPageTitle(pageData.title);
-        setPageDescription(pageData.description || '');
-        setPageBuilderComponents(pageData.components || []);
+        const data = await response.json();
+        setPageTitle(data.title || 'Untitled Page');
+        setPageDescription(data.description || '');
+        setPageBuilderComponents(data.components || []);
       }
     } catch (error) {
       console.error('Error loading page:', error);
     }
   };
 
-  const loadDefaultTemplate = (type: string) => {
+  const loadDefaultTemplate = (pageType: string) => {
     // Set page title based on type
     const typeTitles: Record<string, string> = {
       homepage: 'Homepage',
@@ -66,11 +63,11 @@ export default function PageBuilderPage() {
       terms: 'Terms of Service'
     };
     
-    setPageTitle(typeTitles[type] || 'Untitled Page');
-    setPageDescription(`Default ${typeTitles[type] || type} template`);
+    setPageTitle(typeTitles[pageType] || 'Untitled Page');
+    setPageDescription(`Default ${typeTitles[pageType] || pageType} template`);
     
     // Load default components based on page type
-    const defaultComponents = getDefaultPageTemplate(type);
+    const defaultComponents = getDefaultPageTemplate(pageType);
     setPageBuilderComponents(defaultComponents);
   };
 
@@ -492,8 +489,8 @@ export default function PageBuilderPage() {
   };
 
   const handleClose = () => {
-    // Go back to previous page or home page
-    router.push('/');
+    // Go back to previous page or customization page
+    router.push('/admin/customization');
   };
 
   if (isLoading) {
@@ -521,4 +518,3 @@ export default function PageBuilderPage() {
     />
   );
 }
-

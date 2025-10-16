@@ -6,6 +6,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ShoppingCartIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { DynamicHomepage } from '@/components/page-builder/DynamicHomepage';
+import Header from '@/components/Header';
 import axios from 'axios';
 
 interface FeaturedProduct {
@@ -28,6 +29,12 @@ interface FeaturedProduct {
 export default function Home() {
   const router = useRouter();
   const { getItemCount, addItem, updateQuantity, items } = useCart();
+  const [headerDesign, setHeaderDesign] = useState<{
+    selectedDesign: string;
+    elements: any[];
+    deviceType: string;
+    timestamp: string;
+  } | null>(null);
   const { user, isAuthenticated, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTld, setSelectedTld] = useState('.com');
@@ -70,6 +77,19 @@ export default function Home() {
         }
       } catch (error) {
         console.error('Failed to load logo settings:', error);
+      }
+    }
+
+    // Load saved header design
+    const savedSettings = localStorage.getItem('customization_settings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        if (settings.headerDesign) {
+          setHeaderDesign(settings.headerDesign);
+        }
+      } catch (error) {
+        console.error('Failed to load header design:', error);
       }
     }
   }, []);
@@ -360,98 +380,18 @@ export default function Home() {
 
   // If there's a custom homepage, render it
   if (hasCustomHomepage) {
-    return <DynamicHomepage />;
+    return (
+      <div>
+        <DynamicHomepage />
+      </div>
+    );
   }
 
   // Otherwise, render the default homepage
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-8">
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt="Logo"
-                  className="h-10 w-auto cursor-pointer logo-img"
-                  onClick={() => router.push('/')}
-                />
-              ) : (
-                <h1 className="text-2xl font-bold text-gray-900 cursor-pointer" onClick={() => router.push('/')}>
-                  NextPanel
-                </h1>
-              )}
-              <nav className="hidden md:flex space-x-6">
-                <a href="/" className="text-gray-600 hover:text-gray-900 font-medium">Home</a>
-                <a href="/shop" className="text-indigo-600 hover:text-indigo-700 font-medium">Shop</a>
-                <a href="/#pricing" className="text-gray-600 hover:text-gray-900 font-medium">Pricing</a>
-              </nav>
-            </div>
-            <nav className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/cart')}
-                className="relative p-2 text-gray-600 hover:text-gray-900 transition"
-              >
-                <ShoppingCartIcon className="h-6 w-6" />
-                {getItemCount() > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
-                    {getItemCount()}
-                  </span>
-                )}
-              </button>
-              {isAuthenticated && user ? (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition"
-                  >
-                    <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
-                      {user.full_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="font-medium">{user.full_name || user.email}</span>
-                  </button>
-                  {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
-                      <a
-                        href="/dashboard"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        Dashboard
-                      </a>
-                      <a
-                        href="/shop"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        Shop
-                      </a>
-                      <button
-                        onClick={() => {
-                          logout();
-                          setShowUserMenu(false);
-                        }}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <a href="/login" className="text-gray-600 hover:text-gray-900 font-medium">Login</a>
-                  <a href="/auth/register" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
-                    Get Started
-                  </a>
-                </>
-              )}
-            </nav>
-          </div>
-        </div>
-      </header>
+      {/* Custom Header */}
+      <Header headerDesign={headerDesign} />
 
       {/* Hero Section with Domain Search */}
       <div id="domain-search" className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { ShoppingCartIcon } from '@heroicons/react/24/outline';
+import Header from '@/components/Header';
 
 interface HeaderComponentProps {
   style?: React.CSSProperties;
@@ -35,6 +36,7 @@ export default function HeaderComponent({
   const { getItemCount } = useCart();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [headerDesign, setHeaderDesign] = useState<any>(null);
 
   const {
     logoUrl: propLogoUrl,
@@ -67,10 +69,33 @@ export default function HeaderComponent({
         }
       }
     }
+
+    // Load saved header design
+    const savedSettings = localStorage.getItem('customization_settings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        if (settings.headerDesign) {
+          setHeaderDesign(settings.headerDesign);
+        }
+      } catch (error) {
+        console.error('Failed to load header design:', error);
+      }
+    }
   }, [propLogoUrl]);
 
   const currentLogoUrl = propLogoUrl || logoUrl;
 
+  // If we have a saved header design, use the custom Header component
+  if (headerDesign) {
+    return (
+      <div className={className} style={style}>
+        <Header headerDesign={headerDesign} />
+      </div>
+    );
+  }
+
+  // Fallback to original header implementation
   return (
     <header 
       className={`shadow-sm sticky top-0 z-50 ${className}`}

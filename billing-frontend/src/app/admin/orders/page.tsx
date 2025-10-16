@@ -124,7 +124,7 @@ export default function OrdersPage() {
           partially_paid_invoices: 0
         };
         
-        setOrders(demoOrders);
+        setOrders(demoOrders as Order[]);
         setStats(demoStats);
         setIsUsingDemoData(true);
         console.log('✅ Demo orders loaded');

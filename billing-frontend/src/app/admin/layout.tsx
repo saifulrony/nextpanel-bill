@@ -269,6 +269,14 @@ export default function DashboardLayout({
     );
   };
 
+  // Check if current path is page builder
+  const isPageBuilder = pathname === '/admin/page-builder';
+
+  // If it's the page builder, render children without admin layout
+  if (isPageBuilder) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}

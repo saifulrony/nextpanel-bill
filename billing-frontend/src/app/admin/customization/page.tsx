@@ -19,8 +19,7 @@ import {
   ArrowPathIcon,
   Squares2X2Icon,
 } from '@heroicons/react/24/outline';
-import { PageBuilderWithISR } from '@/components/page-builder/PageBuilderWithISR';
-import { Component } from '@/components/page-builder/types';
+import HeaderCustomization from '@/components/HeaderCustomization';
 
 interface CustomizationSettings {
   // Front Page Header
@@ -31,6 +30,22 @@ interface CustomizationSettings {
   logoPadding: number;
   logoOpacity: number;
   logoMaxWidth: string;
+  logoText: string;
+  logoColor: string;
+  headerBackgroundColor: string;
+  headerTextColor: string;
+  headerPadding: number;
+  headerBorderRadius: number;
+  headerShadow: string;
+  headerMargin: number;
+  headerMarginTop: number;
+  headerMarginBottom: number;
+  headerMarginLeft: number;
+  headerMarginRight: number;
+  headerIsStatic: boolean;
+  showNavigation: boolean;
+  showCart: boolean;
+  showUserMenu: boolean;
   
   // Dashboard Sidebar
   sidebarLogo: string | null;
@@ -85,12 +100,7 @@ interface PageFile {
 
 export default function CustomizationPage() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'builder' | 'default-pages'>('header');
-  const [showPageBuilder, setShowPageBuilder] = useState(false);
-  const [pageBuilderComponents, setPageBuilderComponents] = useState<Component[]>([]);
-  const [previewMode, setPreviewMode] = useState(false);
-  const [currentPageId, setCurrentPageId] = useState<string | null>(null);
-  const [currentPageType, setCurrentPageType] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'default-pages'>('header');
   const [settings, setSettings] = useState<CustomizationSettings>({
     // Front Page Header
     logo: null,
@@ -100,6 +110,22 @@ export default function CustomizationPage() {
     logoPadding: 10,
     logoOpacity: 100,
     logoMaxWidth: '200px',
+    logoText: 'NextPanel',
+    logoColor: '#4f46e5',
+    headerBackgroundColor: '#ffffff',
+    headerTextColor: '#374151',
+    headerPadding: 16,
+    headerBorderRadius: 0,
+    headerShadow: 'none',
+    headerMargin: 0,
+    headerMarginTop: 0,
+    headerMarginBottom: 0,
+    headerMarginLeft: 0,
+    headerMarginRight: 0,
+    headerIsStatic: false,
+    showNavigation: true,
+    showCart: true,
+    showUserMenu: true,
     
     // Dashboard Sidebar
     sidebarLogo: null,
@@ -184,468 +210,11 @@ export default function CustomizationPage() {
     const pageType = searchParams.get('type');
     const action = searchParams.get('action');
     
-    if (pageId) {
-      setCurrentPageId(pageId);
-      setActiveTab('builder');
-      setShowPageBuilder(true);
-      // Load page components based on pageId
-      loadPageComponents(pageId);
-    } else if (pageType && action === 'create') {
-      setCurrentPageType(pageType);
-      setActiveTab('builder');
-      setShowPageBuilder(true);
-      // Create new page with default template
-      createDefaultPageTemplate(pageType);
-    }
   }, [searchParams]);
 
-  // Load page components based on page ID
-  const loadPageComponents = (pageId: string) => {
-    // For now, load demo components based on page type
-    const pageType = getPageTypeFromId(pageId);
-    const defaultComponents = getDefaultPageTemplate(pageType);
-    setPageBuilderComponents(defaultComponents);
-  };
 
-  // Create default page template based on page type
-  const createDefaultPageTemplate = (pageType: string) => {
-    const defaultComponents = getDefaultPageTemplate(pageType);
-    setPageBuilderComponents(defaultComponents);
-  };
 
-  // Get page type from page ID (demo implementation)
-  const getPageTypeFromId = (pageId: string): string => {
-    const pageTypeMap: Record<string, string> = {
-      'page-1': 'homepage',
-      'page-2': 'cart',
-      'page-3': 'shop',
-      'page-4': 'checkout',
-      'page-5': 'order_success',
-      'page-6': 'about',
-      'page-7': 'contact',
-      'page-8': 'privacy',
-      'page-9': 'terms',
-    };
-    return pageTypeMap[pageId] || 'homepage';
-  };
 
-  // Get default page template based on page type
-  const getDefaultPageTemplate = (pageType: string): Component[] => {
-    const templates: Record<string, Component[]> = {
-      homepage: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'hero-1',
-          type: 'heading',
-          content: '<h1>Welcome to NextPanel Billing</h1>',
-          props: {},
-          style: { fontSize: '48px', textAlign: 'center', marginBottom: '24px' }
-        },
-        {
-          id: 'hero-text-1',
-          type: 'text',
-          content: '<p>Professional billing and hosting management made simple.</p>',
-          props: {},
-          style: { fontSize: '20px', textAlign: 'center', color: '#666', marginBottom: '48px' }
-        },
-        {
-          id: 'products-grid-1',
-          type: 'products-grid',
-          props: {},
-          style: { marginBottom: '48px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      cart: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>Shopping Cart</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px' }
-        },
-        {
-          id: 'cart-1',
-          type: 'cart',
-          props: {
-            showHeader: true,
-            showCheckoutButton: true,
-            showEmptyState: true,
-            showItemCount: true,
-            showTotal: true,
-            headerText: 'Shopping Cart',
-            emptyStateText: 'Your cart is empty',
-            checkoutButtonText: 'Proceed to Checkout',
-            buttonColor: '#4f46e5'
-          },
-          style: { marginBottom: '32px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      shop: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>Our Products</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px' }
-        },
-        {
-          id: 'products-grid-1',
-          type: 'products-grid',
-          props: {},
-          style: { marginBottom: '48px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      checkout: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>Checkout</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px' }
-        },
-        {
-          id: 'text-1',
-          type: 'text',
-          content: '<p>Complete your purchase securely.</p>',
-          props: {},
-          style: { color: '#666', marginBottom: '32px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      order_success: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>Order Successful!</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px', color: '#10b981' }
-        },
-        {
-          id: 'text-1',
-          type: 'text',
-          content: '<p>Thank you for your purchase. Your order has been confirmed and you will receive an email shortly.</p>',
-          props: {},
-          style: { color: '#666', marginBottom: '32px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      about: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>About Us</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px' }
-        },
-        {
-          id: 'text-1',
-          type: 'text',
-          content: '<p>We are a leading provider of hosting and billing solutions, helping businesses grow online.</p>',
-          props: {},
-          style: { color: '#666', marginBottom: '32px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      contact: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>Contact Us</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px' }
-        },
-        {
-          id: 'text-1',
-          type: 'text',
-          content: '<p>Get in touch with our team for support or inquiries.</p>',
-          props: {},
-          style: { color: '#666', marginBottom: '32px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      privacy: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>Privacy Policy</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px' }
-        },
-        {
-          id: 'text-1',
-          type: 'text',
-          content: '<p>This privacy policy explains how we collect, use, and protect your information.</p>',
-          props: {},
-          style: { color: '#666', marginBottom: '32px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ],
-      terms: [
-        {
-          id: 'header-1',
-          type: 'header',
-          props: {
-            logoText: 'NextPanel',
-            showNavigation: true,
-            showCart: true,
-            showUserMenu: true,
-            backgroundColor: '#ffffff',
-            textColor: '#374151',
-            logoColor: '#4f46e5'
-          },
-          style: { marginBottom: '0px' }
-        },
-        {
-          id: 'heading-1',
-          type: 'heading',
-          content: '<h1>Terms of Service</h1>',
-          props: {},
-          style: { fontSize: '32px', marginBottom: '24px' }
-        },
-        {
-          id: 'text-1',
-          type: 'text',
-          content: '<p>These terms and conditions govern your use of our services.</p>',
-          props: {},
-          style: { color: '#666', marginBottom: '32px' }
-        },
-        {
-          id: 'footer-1',
-          type: 'footer',
-          props: {
-            companyName: 'NextPanel Billing',
-            copyrightText: 'All rights reserved.',
-            showLinks: true,
-            showSocial: false,
-            backgroundColor: '#111827',
-            textColor: '#ffffff',
-            linkColor: '#9ca3af'
-          },
-          style: { marginTop: '48px' }
-        }
-      ]
-    };
-    
-    return templates[pageType] || templates.homepage;
-  };
 
   useEffect(() => {
     // Check if user is logged in
@@ -675,11 +244,6 @@ export default function CustomizationPage() {
       setSavedThemes(JSON.parse(themes));
     }
 
-    // Load saved page builder components
-    const savedComponents = localStorage.getItem('page_builder_components');
-    if (savedComponents) {
-      setPageBuilderComponents(JSON.parse(savedComponents));
-    }
     
     // Load homepage data
     loadHomepageData();
@@ -1098,6 +662,22 @@ export default function CustomizationPage() {
         logoPadding: 10,
         logoOpacity: 100,
         logoMaxWidth: '200px',
+        logoText: 'NextPanel',
+        logoColor: '#4f46e5',
+        headerBackgroundColor: '#ffffff',
+        headerTextColor: '#374151',
+        headerPadding: 16,
+        headerBorderRadius: 0,
+        headerShadow: 'none',
+        headerMargin: 0,
+        headerMarginTop: 0,
+        headerMarginBottom: 0,
+        headerMarginLeft: 0,
+        headerMarginRight: 0,
+        headerIsStatic: false,
+        showNavigation: true,
+        showCart: true,
+        showUserMenu: true,
         sidebarLogo: null,
         sidebarBgColor: '#FFFFFF',
         sidebarTextColor: '#1F2937',
@@ -1232,10 +812,6 @@ export default function ${page.name}Page() {
     }
   };
 
-  // Open Page Builder in new tab
-  const handleOpenPageBuilder = () => {
-    window.open('/page-builder', '_blank');
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1252,26 +828,6 @@ export default function ${page.name}Page() {
               </div>
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => setPreviewMode(!previewMode)}
-                  className={`flex items-center px-4 py-2 rounded-lg border transition-colors ${
-                    previewMode
-                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {previewMode ? (
-                    <>
-                      <EyeSlashIcon className="h-5 w-5 mr-2" />
-                      Exit Preview
-                    </>
-                  ) : (
-                    <>
-                      <EyeIcon className="h-5 w-5 mr-2" />
-                      Preview
-                    </>
-                  )}
-                </button>
-                <button
                   onClick={handleReset}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
@@ -1285,7 +841,6 @@ export default function ${page.name}Page() {
           <div className="px-6">
             <nav className="flex space-x-8 -mb-px">
                       {[
-                        { id: 'builder', name: 'Page Builder', icon: Squares2X2Icon, action: 'newTab' },
                         { id: 'default-pages', name: 'Default Pages', icon: DocumentTextIcon },
                         { id: 'header', name: 'Header', icon: PhotoIcon },
                 { id: 'sidebar', name: 'Sidebar', icon: FolderIcon },
@@ -1301,11 +856,7 @@ export default function ${page.name}Page() {
                   <button
                     key={tab.id}
                     onClick={() => {
-                      if (tab.action === 'newTab') {
-                        handleOpenPageBuilder();
-                      } else {
-                        setActiveTab(tab.id as any);
-                      }
+                      setActiveTab(tab.id as any);
                     }}
                     className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                       activeTab === tab.id
@@ -1331,7 +882,18 @@ export default function ${page.name}Page() {
                 {/* Default Pages Tab */}
                 {activeTab === 'default-pages' && (
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Default Pages Management</h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-gray-900">Default Pages Management</h2>
+                      <button
+                        onClick={() => window.open('/page-builder', '_blank')}
+                        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Create New Page</span>
+                      </button>
+                    </div>
                     
                     {/* Login Status Indicator */}
                     {!localStorage.getItem('access_token') && (
@@ -1378,8 +940,9 @@ export default function ${page.name}Page() {
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => {
-                                  setCurrentPageType(pageType.key);
-                                  setShowPageBuilder(true);
+                                  // Open page builder with the specific page type
+                                  const pageTypeKey = pageType.key;
+                                  window.open(`/page-builder?page=${pageTypeKey}`, '_blank');
                                 }}
                                 className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
                               >
@@ -1442,38 +1005,6 @@ export default function ${page.name}Page() {
                         </div>
                       ))}
 
-                      {/* Quick Actions */}
-                      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-md font-semibold text-indigo-900 mb-1">Create New Pages</h3>
-                            <p className="text-sm text-indigo-700">
-                              Use the page builder to create custom pages for different sections.
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => window.open('/page-builder', '_blank')}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                          >
-                            Open Page Builder
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Instructions */}
-                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h3 className="text-sm font-semibold text-blue-900 mb-2">How to Set Custom Default Pages</h3>
-                        <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                          <li>Create custom pages using the <strong>Page Builder</strong></li>
-                          <li>Design pages for different sections (cart, shop, checkout, etc.)</li>
-                          <li>Save pages with descriptive slugs (e.g., "my-cart", "custom-shop")</li>
-                          <li>Return here and select your custom pages for each section</li>
-                          <li>Your custom pages will be used instead of the default templates</li>
-                        </ol>
-                        <p className="text-xs text-blue-600 mt-2">
-                          <strong>Note:</strong> You can always revert to default pages by clicking "Remove" on any selected page.
-                        </p>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1481,201 +1012,12 @@ export default function ${page.name}Page() {
                 {/* Header Tab */}
                 {activeTab === 'header' && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Front Page Header</h2>
-                  <div className="space-y-6">
-                    {/* Upload Section */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Upload Logo
-                      </label>
-                      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
-                        <div className="space-y-1 text-center">
-                          {settings.logo ? (
-                            <div>
-                              <img
-                                src={settings.logo}
-                                alt="Logo preview"
-                                className="mx-auto h-32 w-auto object-contain"
-                              />
-                              <p className="text-xs text-gray-500 mt-2">Current Logo</p>
-                            </div>
-                          ) : (
-                            <>
-                              <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
-                              <div className="flex text-sm text-gray-600">
-                                <label
-                                  htmlFor="logo-upload"
-                                  className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none"
-                                >
-                                  <span>Upload a file</span>
-                                  <input
-                                    id="logo-upload"
-                                    name="logo-upload"
-                                    type="file"
-                                    className="sr-only"
-                                    accept="image/*"
-                                    onChange={handleLogoUpload}
-                                  />
-                                </label>
-                                <p className="pl-1">or drag and drop</p>
-                              </div>
-                              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Logo Settings */}
-                    {settings.logo && (
-                      <>
-                        <div className="border-t border-gray-200 pt-6">
-                          <h3 className="text-md font-semibold text-gray-900 mb-4">Logo Settings</h3>
-                          
-                          {/* Size Controls */}
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Width (px)
-                              </label>
-                              <input
-                                type="number"
-                                value={settings.logoWidth}
-                                onChange={(e) => setSettings({ ...settings, logoWidth: parseInt(e.target.value) || 150 })}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                min="50"
-                                max="500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Height (px)
-                              </label>
-                              <input
-                                type="number"
-                                value={settings.logoHeight}
-                                onChange={(e) => setSettings({ ...settings, logoHeight: parseInt(e.target.value) || 50 })}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                min="20"
-                                max="300"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Max Width */}
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Max Width
-                            </label>
-                            <input
-                              type="text"
-                              value={settings.logoMaxWidth}
-                              onChange={(e) => setSettings({ ...settings, logoMaxWidth: e.target.value })}
-                              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                              placeholder="200px"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Use px, %, vw, etc.</p>
-                          </div>
-
-                          {/* Position */}
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Position
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
-                              {(['left', 'center', 'right'] as const).map((pos) => (
-                                <button
-                                  key={pos}
-                                  onClick={() => setSettings({ ...settings, logoPosition: pos })}
-                                  className={`px-4 py-2 rounded-md border-2 transition-colors ${
-                                    settings.logoPosition === pos
-                                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                                      : 'border-gray-200 hover:border-gray-300'
-                                  }`}
-                                >
-                                  {pos.charAt(0).toUpperCase() + pos.slice(1)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Padding */}
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Padding: {settings.logoPadding}px
-                            </label>
-                            <input
-                              type="range"
-                              value={settings.logoPadding}
-                              onChange={(e) => setSettings({ ...settings, logoPadding: parseInt(e.target.value) })}
-                              className="w-full"
-                              min="0"
-                              max="50"
-                            />
-                          </div>
-
-                          {/* Opacity */}
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Opacity: {settings.logoOpacity}%
-                            </label>
-                            <input
-                              type="range"
-                              value={settings.logoOpacity}
-                              onChange={(e) => setSettings({ ...settings, logoOpacity: parseInt(e.target.value) })}
-                              className="w-full"
-                              min="0"
-                              max="100"
-                            />
-                          </div>
-
-                          {/* Live Preview */}
-                          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Preview</h4>
-                            <div
-                              className="border border-gray-200 rounded p-4 bg-white"
-                              style={{
-                                display: 'flex',
-                                justifyContent: settings.logoPosition,
-                                padding: `${settings.logoPadding || 10}px`,
-                                opacity: (settings.logoOpacity || 100) / 100,
-                              }}
-                            >
-                              <img
-                                src={settings.logo}
-                                alt="Logo preview"
-                                style={{
-                                  maxWidth: settings.logoMaxWidth || '200px',
-                                  width: `${settings.logoWidth || 150}px`,
-                                  height: `${settings.logoHeight || 50}px`,
-                                  objectFit: 'contain',
-                                }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex space-x-3">
-                            <button
-                              onClick={handleSaveLogo}
-                              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                            >
-                              Save Logo Settings
-                            </button>
-                            <button
-                              onClick={() => setSettings({ ...settings, logo: null })}
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                            >
-                              Remove Logo
-                            </button>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <HeaderCustomization 
+                    settings={settings}
+                    onSettingsChange={setSettings}
+                  />
                 </div>
               )}
-
 
               {/* Sidebar Tab */}
               {activeTab === 'sidebar' && (

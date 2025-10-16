@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { useCart } from '@/contexts/CartContext';
+
+// Global cache for products to prevent multiple API calls
+let productsCache: any[] | null = null;
+let productsCacheTimestamp: number = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Domain Search Component (Matches Homepage Design)
 export function DomainSearchComponent({ style }: { style?: React.CSSProperties }) {
@@ -147,13 +152,26 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
 }
 
 // Products Grid Component (Fetches from Real Backend)
-export function ProductsGridComponent({ style }: { style?: React.CSSProperties }) {
+export const ProductsGridComponent = React.memo(function ProductsGridComponent({ style }: { style?: React.CSSProperties }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const { addItem, items } = useCart();
 
   const loadProducts = async () => {
+    // Check cache first
+    const now = Date.now();
+    if (productsCache && (now - productsCacheTimestamp) < CACHE_DURATION) {
+      console.log('Using cached products');
+      setProducts(productsCache);
+      setHasLoaded(true);
+      return;
+    }
+
+    // Prevent multiple API calls
+    if (loading || hasLoaded) return;
+    
     setLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
@@ -235,8 +253,16 @@ export function ProductsGridComponent({ style }: { style?: React.CSSProperties }
           }
         ];
         setProducts(demoProducts);
+        setHasLoaded(true);
+        // Update cache
+        productsCache = demoProducts;
+        productsCacheTimestamp = Date.now();
       } else {
         setProducts(data);
+        setHasLoaded(true);
+        // Update cache
+        productsCache = data;
+        productsCacheTimestamp = Date.now();
       }
     } catch (error) {
       console.error('Error loading products:', error);
@@ -307,6 +333,10 @@ export function ProductsGridComponent({ style }: { style?: React.CSSProperties }
         }
       ];
       setProducts(demoProducts);
+      setHasLoaded(true);
+      // Update cache
+      productsCache = demoProducts;
+      productsCacheTimestamp = Date.now();
     } finally {
       setLoading(false);
     }
@@ -413,7 +443,7 @@ export function ProductsGridComponent({ style }: { style?: React.CSSProperties }
       </div>
     </div>
   );
-}
+});
 
 // Product Search Component (Uses Real Backend)
 export function ProductSearchComponent({ style }: { style?: React.CSSProperties }) {
