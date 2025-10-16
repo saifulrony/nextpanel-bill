@@ -42,7 +42,11 @@ function SortableComponent({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onAddToContainer,
   onColumnClick,
+  onAddColumn,
+  onRemoveColumn,
+  onAddAfter,
 }: {
   component: Component;
   isSelected: boolean;
@@ -50,7 +54,11 @@ function SortableComponent({
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onAddToContainer: (containerId: string, type: ComponentType) => void;
   onColumnClick: (containerId: string, columnIndex: number) => void;
+  onAddColumn: (containerId: string) => void;
+  onRemoveColumn: (containerId: string) => void;
+  onAddAfter: (componentId: string, type: ComponentType) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
@@ -92,8 +100,11 @@ function SortableComponent({
             onClick={() => {}} // Empty handler, click is handled by parent div
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
-            onAddToContainer={(containerId, type) => {}}
+            onAddToContainer={onAddToContainer}
             onColumnClick={onColumnClick}
+            onAddColumn={onAddColumn}
+            onRemoveColumn={onRemoveColumn}
+            onAddAfter={onAddAfter}
           />
         </div>
       </div>
@@ -132,6 +143,53 @@ export function PageBuilderWithISR({
   const [pageType, setPageType] = useState<string>('custom');
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [pageCode, setPageCode] = useState({ html: '', css: '', js: '' });
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('pageBuilderLeftSidebarWidth') || '280');
+    }
+    return 280;
+  });
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('pageBuilderRightSidebarWidth') || '320');
+    }
+    return 320;
+  });
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+  const [canvasZoom, setCanvasZoom] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseFloat(localStorage.getItem('pageBuilderCanvasZoom') || '0.6');
+    }
+    return 0.6;
+  });
+  const [autoZoom, setAutoZoom] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pageBuilderAutoZoom') !== 'false';
+    }
+    return true;
+  });
+  const [canvasRef, setCanvasRef] = useState<HTMLDivElement | null>(null);
+  const [showAfterComponentPicker, setShowAfterComponentPicker] = useState(false);
+  const [afterComponentId, setAfterComponentId] = useState<string | null>(null);
+  const [customWidth, setCustomWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('pageBuilderCustomWidth') || '1200');
+    }
+    return 1200;
+  });
+  const [customHeight, setCustomHeight] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('pageBuilderCustomHeight') || '800');
+    }
+    return 800;
+  });
+  const [useCustomDimensions, setUseCustomDimensions] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pageBuilderUseCustomDimensions') === 'true';
+    }
+    return false;
+  });
 
   // Default templates for each page type
   const getDefaultComponents = (pageId: string): Component[] => {
@@ -789,7 +847,7 @@ export function PageBuilderWithISR({
         return { 
           ...baseComponent, 
           children: [],
-          props: { columns: 1 } // Default to 1 column
+          props: { columns: 2 } // Default to 2 columns
         };
       case 'spacer':
         return { ...baseComponent, props: { height: '50px' } };
@@ -854,6 +912,48 @@ export function PageBuilderWithISR({
     setShowComponentSelector(true);
   };
 
+  const handleAddColumn = (containerId: string) => {
+    console.log('Adding column to container:', containerId);
+    const newComponents = components.map(comp => {
+      if (comp.id === containerId && comp.type === 'container') {
+        const currentColumns = comp.props?.columns || 2;
+        console.log('Current columns:', currentColumns);
+        const newColumns = Math.min(currentColumns + 1, 4);
+        console.log('New columns:', newColumns);
+        return {
+          ...comp,
+          props: {
+            ...comp.props,
+            columns: newColumns
+          }
+        };
+      }
+      return comp;
+    });
+    console.log('Updated components:', newComponents);
+    setComponents(newComponents);
+    addToHistory(newComponents);
+  };
+
+  const handleRemoveColumn = (containerId: string) => {
+    const newComponents = components.map(comp => {
+      if (comp.id === containerId && comp.type === 'container') {
+        const currentColumns = comp.props?.columns || 2;
+        const newColumns = Math.max(currentColumns - 1, 1);
+        return {
+          ...comp,
+          props: {
+            ...comp.props,
+            columns: newColumns
+          }
+        };
+      }
+      return comp;
+    });
+    setComponents(newComponents);
+    addToHistory(newComponents);
+  };
+
   const handleAddComponent = (type: ComponentType, containerId?: string) => {
     const newComponent = createComponent(type);
     
@@ -889,6 +989,25 @@ export function PageBuilderWithISR({
       addToHistory(newComponents);
       setSelectedComponent(newComponent.id);
     }
+  };
+
+  const handleAddAfter = (componentId: string, type: ComponentType) => {
+    const newComponent = createComponent(type);
+    const componentIndex = components.findIndex(comp => comp.id === componentId);
+    
+    if (componentIndex !== -1) {
+      const newComponents = [
+        ...components.slice(0, componentIndex + 1),
+        newComponent,
+        ...components.slice(componentIndex + 1)
+      ];
+      setComponents(newComponents);
+      addToHistory(newComponents);
+      setSelectedComponent(newComponent.id);
+    }
+    
+    setShowAfterComponentPicker(false);
+    setAfterComponentId(null);
   };
 
   const handleSelectComponentForColumn = (type: ComponentType) => {
@@ -1183,7 +1302,7 @@ export function PageBuilderWithISR({
   const selectedComponentData = components.find((c) => c.id === selectedComponent);
 
   const deviceWidths = {
-    desktop: '100%',
+    desktop: '1200px',
     tablet: '768px',
     mobile: '375px',
   };
@@ -1254,6 +1373,162 @@ export function PageBuilderWithISR({
     // In a real implementation, you would parse the HTML and update components accordingly
     alert('Code changes applied! (This is a simplified implementation)');
   };
+
+  // Sidebar resize handlers
+  const handleLeftSidebarMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingLeft(true);
+  };
+
+  const handleRightSidebarMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingRight(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isDraggingLeft) {
+      const newWidth = e.clientX;
+      if (newWidth >= 200 && newWidth <= 500) {
+        setLeftSidebarWidth(newWidth);
+        localStorage.setItem('pageBuilderLeftSidebarWidth', newWidth.toString());
+      }
+    }
+    if (isDraggingRight) {
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 200 && newWidth <= 500) {
+        setRightSidebarWidth(newWidth);
+        localStorage.setItem('pageBuilderRightSidebarWidth', newWidth.toString());
+      }
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingLeft(false);
+    setIsDraggingRight(false);
+  };
+
+  // Add event listeners for mouse move and up
+  React.useEffect(() => {
+    if (isDraggingLeft || isDraggingRight) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      // Add visual feedback
+      document.body.classList.add('select-none');
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.classList.remove('select-none');
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.classList.remove('select-none');
+    };
+  }, [isDraggingLeft, isDraggingRight]);
+
+  // Calculate optimal zoom level to fit content
+  const calculateOptimalZoom = () => {
+    if (!canvasRef) return 0.6;
+    
+    const canvasRect = canvasRef.getBoundingClientRect();
+    const availableWidth = canvasRect.width - 16; // Account for padding
+    const availableHeight = canvasRect.height - 16; // Account for padding
+    
+    // Calculate content dimensions based on device view or custom dimensions
+    let contentWidth = 1200; // Default desktop width
+    if (useCustomDimensions) {
+      contentWidth = customWidth;
+    } else {
+      if (deviceView === 'tablet') contentWidth = 768;
+      if (deviceView === 'mobile') contentWidth = 375;
+    }
+    
+    // Estimate content height based on components
+    const baseHeight = 400; // Minimum height
+    const componentHeight = components.length * 80; // Average component height
+    const contentHeight = Math.max(baseHeight, componentHeight);
+    
+    // Calculate zoom to fit width and height
+    const widthZoom = availableWidth / contentWidth;
+    const heightZoom = availableHeight / contentHeight;
+    
+    // Use the smaller zoom to ensure everything fits, with some margin
+    const margin = 0.9; // 10% margin
+    const optimalZoom = Math.min(widthZoom * margin, heightZoom * margin, 1.2); // Max 120%
+    
+    return Math.max(0.2, optimalZoom); // Min 20%
+  };
+
+  // Auto-zoom effect
+  React.useEffect(() => {
+    if (autoZoom && canvasRef) {
+      const optimalZoom = calculateOptimalZoom();
+      setCanvasZoom(optimalZoom);
+    }
+  }, [leftSidebarWidth, rightSidebarWidth, components.length, autoZoom, canvasRef, deviceView, useCustomDimensions, customWidth, customHeight]);
+
+  // ResizeObserver for canvas size changes
+  React.useEffect(() => {
+    if (!canvasRef || !autoZoom) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (autoZoom) {
+        const optimalZoom = calculateOptimalZoom();
+        setCanvasZoom(optimalZoom);
+      }
+    });
+
+    resizeObserver.observe(canvasRef);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [canvasRef, autoZoom]);
+
+  // Save zoom level to localStorage
+  React.useEffect(() => {
+    if (!autoZoom) {
+      localStorage.setItem('pageBuilderCanvasZoom', canvasZoom.toString());
+    }
+  }, [canvasZoom, autoZoom]);
+
+  // Save auto-zoom setting to localStorage
+  React.useEffect(() => {
+    localStorage.setItem('pageBuilderAutoZoom', autoZoom.toString());
+  }, [autoZoom]);
+
+  // Save custom dimensions to localStorage
+  React.useEffect(() => {
+    localStorage.setItem('pageBuilderCustomWidth', customWidth.toString());
+  }, [customWidth]);
+
+  React.useEffect(() => {
+    localStorage.setItem('pageBuilderCustomHeight', customHeight.toString());
+  }, [customHeight]);
+
+  React.useEffect(() => {
+    localStorage.setItem('pageBuilderUseCustomDimensions', useCustomDimensions.toString());
+  }, [useCustomDimensions]);
+
+  // Listen for component picker events
+  React.useEffect(() => {
+    const handleShowComponentPicker = (event: CustomEvent) => {
+      const { afterComponentId } = event.detail;
+      setAfterComponentId(afterComponentId);
+      setShowAfterComponentPicker(true);
+    };
+
+    window.addEventListener('showComponentPicker', handleShowComponentPicker as EventListener);
+    
+    return () => {
+      window.removeEventListener('showComponentPicker', handleShowComponentPicker as EventListener);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -1326,6 +1601,101 @@ export function PageBuilderWithISR({
             >
               <DevicePhoneMobileIcon className="h-5 w-5 text-gray-600" />
             </button>
+          </div>
+          <div className="h-6 w-px bg-gray-300" />
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setAutoZoom(!autoZoom)}
+              className={`px-3 py-1 text-xs rounded transition-colors ${
+                autoZoom 
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={autoZoom ? "Disable Auto Zoom" : "Enable Auto Zoom"}
+            >
+              {autoZoom ? 'Auto' : 'Manual'}
+            </button>
+            <button
+              onClick={() => setCanvasZoom(Math.max(0.3, canvasZoom - 0.1))}
+              disabled={autoZoom}
+              className={`p-2 rounded transition-colors ${
+                autoZoom 
+                  ? 'text-gray-400 cursor-not-allowed' 
+                  : 'hover:bg-gray-200 text-gray-600'
+              }`}
+              title="Zoom Out"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+            </button>
+            <span className="text-sm text-gray-600 min-w-[3rem] text-center">
+              {Math.round(canvasZoom * 100)}%
+            </span>
+            <button
+              onClick={() => setCanvasZoom(Math.min(1.2, canvasZoom + 0.1))}
+              disabled={autoZoom}
+              className={`p-2 rounded transition-colors ${
+                autoZoom 
+                  ? 'text-gray-400 cursor-not-allowed' 
+                  : 'hover:bg-gray-200 text-gray-600'
+              }`}
+              title="Zoom In"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setAutoZoom(false);
+                setCanvasZoom(0.6);
+              }}
+              className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+              title="Reset to Manual Zoom"
+            >
+              Reset
+            </button>
+          </div>
+          <div className="h-6 w-px bg-gray-300" />
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setUseCustomDimensions(!useCustomDimensions)}
+              className={`px-3 py-1 text-xs rounded transition-colors ${
+                useCustomDimensions 
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="Toggle Custom Dimensions"
+            >
+              Custom
+            </button>
+            {useCustomDimensions && (
+              <>
+                <div className="flex items-center space-x-1">
+                  <label className="text-xs text-gray-600">W:</label>
+                  <input
+                    type="number"
+                    value={customWidth}
+                    onChange={(e) => setCustomWidth(parseInt(e.target.value) || 1200)}
+                    className="w-16 px-2 py-1 text-xs border border-gray-300 rounded"
+                    min="200"
+                    max="2000"
+                  />
+                </div>
+                <div className="flex items-center space-x-1">
+                  <label className="text-xs text-gray-600">H:</label>
+                  <input
+                    type="number"
+                    value={customHeight}
+                    onChange={(e) => setCustomHeight(parseInt(e.target.value) || 800)}
+                    className="w-16 px-2 py-1 text-xs border border-gray-300 rounded"
+                    min="200"
+                    max="2000"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -1512,16 +1882,52 @@ export function PageBuilderWithISR({
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Component Library */}
-        {!previewMode && <ComponentLibrary onAddComponent={handleAddComponent} />}
+        {!previewMode && (
+          <div 
+            className="bg-white border-r border-gray-200 flex-shrink-0"
+            style={{ width: `${leftSidebarWidth}px` }}
+          >
+            <ComponentLibrary onAddComponent={handleAddComponent} />
+          </div>
+        )}
+
+        {/* Left Resize Handle */}
+        {!previewMode && (
+          <div
+            className={`w-1 ${isDraggingLeft ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
+            onMouseDown={handleLeftSidebarMouseDown}
+            title={`Drag to resize left sidebar (${leftSidebarWidth}px)`}
+          >
+            <div className="absolute inset-y-0 -left-1 w-3 bg-transparent hover:bg-indigo-100 transition-colors" />
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex flex-col space-y-1">
+                <div className="w-0.5 h-1 bg-indigo-400"></div>
+                <div className="w-0.5 h-1 bg-indigo-400"></div>
+                <div className="w-0.5 h-1 bg-indigo-400"></div>
+              </div>
+            </div>
+            {isDraggingLeft && (
+              <div className="absolute top-4 left-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-50">
+                {leftSidebarWidth}px
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Canvas */}
-        <div className="flex-1 overflow-auto bg-gray-100 p-8">
+        <div 
+          ref={setCanvasRef}
+          className="flex-1 overflow-auto bg-gray-100 p-2"
+        >
           <div
-            className="bg-white shadow-lg mx-auto transition-all duration-300"
+            className="bg-white shadow-lg transition-all duration-300"
             style={{
-              width: deviceWidths[deviceView],
+              width: useCustomDimensions ? `${customWidth}px` : deviceWidths[deviceView],
+              height: useCustomDimensions ? `${customHeight}px` : 'auto',
               maxWidth: '100%',
-              minHeight: '600px',
+              minHeight: useCustomDimensions ? `${customHeight}px` : '400px',
+              transform: `scale(${canvasZoom})`,
+              transformOrigin: 'top center',
             }}
           >
             <DndContext
@@ -1533,7 +1939,7 @@ export function PageBuilderWithISR({
                 items={components.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="p-8 space-y-4">
+                <div className="p-2 space-y-1">
                   {components.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-96 text-gray-400">
                       <PlusIcon className="h-16 w-16 mb-4" />
@@ -1550,7 +1956,11 @@ export function PageBuilderWithISR({
                         onClick={() => setSelectedComponent(component.id)}
                         onMouseEnter={() => setHoveredComponent(component.id)}
                         onMouseLeave={() => setHoveredComponent(null)}
+                        onAddToContainer={handleAddComponent}
                         onColumnClick={handleColumnClick}
+                        onAddColumn={handleAddColumn}
+                        onRemoveColumn={handleRemoveColumn}
+                        onAddAfter={handleAddAfter}
                       />
                     ))
                   )}
@@ -1566,6 +1976,10 @@ export function PageBuilderWithISR({
                     onClick={() => {}}
                     onMouseEnter={() => {}}
                     onMouseLeave={() => {}}
+                    onAddToContainer={() => {}}
+                    onColumnClick={() => {}}
+                    onAddColumn={() => {}}
+                    onRemoveColumn={() => {}}
                   />
                 ) : null}
               </DragOverlay>
@@ -1573,11 +1987,37 @@ export function PageBuilderWithISR({
           </div>
         </div>
 
+        {/* Right Resize Handle */}
+        {!previewMode && (
+          <div
+            className={`w-1 ${isDraggingRight ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
+            onMouseDown={handleRightSidebarMouseDown}
+            title={`Drag to resize right sidebar (${rightSidebarWidth}px)`}
+          >
+            <div className="absolute inset-y-0 -right-1 w-3 bg-transparent hover:bg-indigo-100 transition-colors" />
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex flex-col space-y-1">
+                <div className="w-0.5 h-1 bg-indigo-400"></div>
+                <div className="w-0.5 h-1 bg-indigo-400"></div>
+                <div className="w-0.5 h-1 bg-indigo-400"></div>
+              </div>
+            </div>
+            {isDraggingRight && (
+              <div className="absolute top-4 right-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-50">
+                {rightSidebarWidth}px
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Properties Panel */}
         {!previewMode && (
-          <>
+          <div 
+            className="bg-white border-l border-gray-200 flex-shrink-0"
+            style={{ width: `${rightSidebarWidth}px` }}
+          >
             {selectedComponentData ? (
-              <div className="relative">
+              <div className="relative h-full">
                 <PropertiesPanel
                   component={selectedComponentData}
                   onUpdate={handleUpdateComponent}
@@ -1598,7 +2038,7 @@ export function PageBuilderWithISR({
                 onClose={() => {}}
               />
             )}
-          </>
+          </div>
         )}
       </div>
 
@@ -1723,6 +2163,52 @@ export function PageBuilderWithISR({
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Component Picker Modal for "Add After" */}
+      {showAfterComponentPicker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Add Component After</h3>
+                <button
+                  onClick={() => {
+                    setShowAfterComponentPicker(false);
+                    setAfterComponentId(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { type: 'heading' as ComponentType, label: 'Heading', icon: '📝' },
+                  { type: 'text' as ComponentType, label: 'Text', icon: '📄' },
+                  { type: 'button' as ComponentType, label: 'Button', icon: '🔘' },
+                  { type: 'image' as ComponentType, label: 'Image', icon: '🖼️' },
+                  { type: 'card' as ComponentType, label: 'Card', icon: '🎴' },
+                  { type: 'spacer' as ComponentType, label: 'Spacer', icon: '📏' },
+                  { type: 'container' as ComponentType, label: 'Container', icon: '📦' },
+                  { type: 'divider' as ComponentType, label: 'Divider', icon: '➖' },
+                ].map((comp) => (
+                  <button
+                    key={comp.type}
+                    onClick={() => afterComponentId && handleAddAfter(afterComponentId, comp.type)}
+                    className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                  >
+                    <span className="text-2xl">{comp.icon}</span>
+                    <span className="text-sm font-medium text-gray-700">{comp.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>

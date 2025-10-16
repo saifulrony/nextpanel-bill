@@ -38,6 +38,15 @@ interface HeaderProps {
     timestamp: string;
   } | null;
   settings?: {
+    logo?: string | null;
+    logoWidth?: number;
+    logoHeight?: number;
+    logoPosition?: 'left' | 'center' | 'right';
+    logoPadding?: number;
+    logoOpacity?: number;
+    logoMaxWidth?: string;
+    logoText?: string;
+    logoColor?: string;
     headerBackgroundColor?: string;
     headerTextColor?: string;
     headerPadding?: number;
@@ -60,11 +69,7 @@ const iconMap = {
   'menu': Bars3BottomLeftIcon,
 };
 
-const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUserMenu: (show: boolean) => void) => {
-  const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuth();
-  const { getItemCount } = useCart();
-  const [searchQuery, setSearchQuery] = useState('');
+const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUserMenu: (show: boolean) => void, settings?: any, router?: any, user?: any, isAuthenticated?: boolean, logout?: () => void, getItemCount?: () => number, searchQuery?: string, setSearchQuery?: (query: string) => void) => {
   
   // Try to get icon from element, or fallback to iconMap
   let IconComponent = element.icon;
@@ -82,22 +87,39 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
   const isValidIcon = IconComponent && typeof IconComponent === 'function';
   
   switch (element.type) {
-    case 'logo':
-      return (
-        <div className="flex items-center">
-          <h1 
-            className="text-2xl font-bold text-gray-900 cursor-pointer"
-            style={{ 
-              color: element.settings.color || '#111827',
-              fontSize: `${element.settings.fontSize || 24}px`,
-              fontWeight: element.settings.fontWeight || 'bold'
-            }}
-            onClick={() => router.push('/')}
-          >
-            NextPanel
-          </h1>
-        </div>
-      );
+        case 'logo':
+          return (
+            <div className="flex items-center">
+              {settings?.logo ? (
+                <img
+                  src={settings.logo}
+                  alt="Logo"
+                  className="cursor-pointer"
+                  style={{
+                    width: `${settings.logoWidth || 200}px`,
+                    height: `${settings.logoHeight || 60}px`,
+                    maxWidth: settings.logoMaxWidth || '200px',
+                    opacity: (settings.logoOpacity || 100) / 100,
+                    padding: `${settings.logoPadding || 16}px`,
+                  }}
+                  onClick={() => router.push('/')}
+                />
+              ) : (
+                <h1 
+                  className="text-2xl font-bold text-gray-900 cursor-pointer"
+                  style={{ 
+                    color: settings?.logoColor || element.settings.color || '#111827',
+                    fontSize: `${element.settings.fontSize || 24}px`,
+                    fontWeight: element.settings.fontWeight || 'bold',
+                    fontFamily: settings?.logoFontFamily || 'Inter, sans-serif'
+                  }}
+                  onClick={() => router.push('/')}
+                >
+                  {settings?.logoText || 'NextPanel'}
+                </h1>
+              )}
+            </div>
+          );
     
     case 'navigation':
       return (
@@ -132,13 +154,13 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
           <input
             type="text"
             placeholder="Search products..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && searchQuery.trim()) {
-                router.push(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
-              }
-            }}
+            value={searchQuery || ''}
+                  onChange={(e) => setSearchQuery?.(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && searchQuery?.trim()) {
+                      router?.push(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+                    }
+                  }}
             className="px-3 py-2 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm w-64"
             style={{
               backgroundColor: element.settings.backgroundColor || '#ffffff',
@@ -155,12 +177,12 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
     case 'cart':
       return (
         <button
-          onClick={() => router.push('/cart')}
+          onClick={() => router?.push('/cart')}
           className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
           style={{ color: element.settings.color || '#6b7280' }}
         >
           <ShoppingCartIcon className="h-6 w-6" />
-          {getItemCount() > 0 && (
+          {getItemCount && getItemCount() > 0 && (
             <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
               {getItemCount()}
             </span>
@@ -188,29 +210,29 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
               </button>
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
-                  <a
-                    href="/dashboard"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    Dashboard
-                  </a>
-                  <a
-                    href="/shop"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    Shop
-                  </a>
-                  <button
-                    onClick={() => {
-                      logout();
-                      setShowUserMenu(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Logout
-                  </button>
+                        <a
+                          href="/dashboard"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          Dashboard
+                        </a>
+                        <a
+                          href="/shop"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          Shop
+                        </a>
+                        <button
+                          onClick={() => {
+                            logout?.();
+                            setShowUserMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Logout
+                        </button>
                 </div>
               )}
             </>
@@ -274,6 +296,10 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
 
 export default function Header({ headerDesign, settings }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const { user, isAuthenticated, logout } = useAuth();
+  const { getItemCount } = useCart();
   
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -344,7 +370,7 @@ export default function Header({ headerDesign, settings }: HeaderProps) {
           <div className="flex items-center space-x-8">
             {leftElements.map(el => (
               <div key={el.id}>
-                {renderElement(el, showUserMenu, setShowUserMenu)}
+                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery)}
               </div>
             ))}
           </div>
@@ -353,7 +379,7 @@ export default function Header({ headerDesign, settings }: HeaderProps) {
           <div className="flex items-center">
             {centerElements.map(el => (
               <div key={el.id}>
-                {renderElement(el, showUserMenu, setShowUserMenu)}
+                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery)}
               </div>
             ))}
           </div>
@@ -362,7 +388,7 @@ export default function Header({ headerDesign, settings }: HeaderProps) {
           <div className="flex items-center space-x-4">
             {rightElements.map(el => (
               <div key={el.id} className={el.type === 'user-menu' ? 'user-menu-container' : ''}>
-                {renderElement(el, showUserMenu, setShowUserMenu)}
+                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery)}
               </div>
             ))}
           </div>

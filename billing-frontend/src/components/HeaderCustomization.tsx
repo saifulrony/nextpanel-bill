@@ -309,11 +309,11 @@ function DraggableSidebarElement({ element, onAddElement }: {
       style={style}
       {...attributes}
       {...listeners}
-      className="p-2 border border-gray-200 rounded cursor-move hover:border-indigo-300 hover:bg-indigo-50 transition-all text-sm"
+      className="p-1.5 border border-gray-200 rounded cursor-move hover:border-indigo-300 hover:bg-indigo-50 transition-all text-xs"
     >
-      <div className="flex items-center space-x-2">
-        {element.icon && typeof element.icon === 'function' && <element.icon className="h-4 w-4 text-gray-500" />}
-        <div className="font-medium text-gray-900">{element.label}</div>
+      <div className="flex items-center space-x-1.5">
+        {element.icon && typeof element.icon === 'function' && <element.icon className="h-3 w-3 text-gray-500" />}
+        <div className="font-medium text-gray-900 text-xs">{element.label}</div>
       </div>
     </div>
   );
@@ -677,15 +677,15 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
 
 
   return (
-    <div className="flex gap-6 h-full">
-      {/* Left Sidebar - Compact Options */}
-      <div className="w-48 flex-shrink-0 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Header Customization</h2>
+    <div className="flex gap-4 h-full">
+      {/* Left Sidebar - Ultra Compact Options */}
+      <div className="w-40 flex-shrink-0 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Header Editor</h2>
         
-        {/* Available Elements */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Add Elements</h3>
-          <div className="space-y-2">
+        {/* Available Elements - Compact */}
+        <div className="bg-white rounded border border-gray-200 p-3">
+          <h3 className="text-xs font-medium text-gray-900 mb-2">Elements</h3>
+          <div className="space-y-1">
             {isClient ? (
               <DndContext
                 sensors={sensors}
@@ -704,7 +704,7 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
                 </SortableContext>
               </DndContext>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {defaultElements.map((element) => (
                   <DraggableSidebarElement
                     key={element.id}
@@ -717,176 +717,293 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
           </div>
         </div>
 
-        {/* Global Header Settings */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Header Settings</h3>
-          <div className="space-y-3">
+        {/* Global Header Settings - Compact */}
+        <div className="bg-white rounded border border-gray-200 p-3">
+          <h3 className="text-xs font-medium text-gray-900 mb-2">Header</h3>
+          <div className="space-y-2">
             {/* Static Menu Toggle */}
             <div className="flex items-center justify-between">
-              <label className="text-xs text-gray-600">Static Menu</label>
+              <label className="text-xs text-gray-600">Static</label>
               <button
                 onClick={() => onSettingsChange({ ...settings, headerIsStatic: !settings.headerIsStatic })}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
                   settings.headerIsStatic ? 'bg-indigo-600' : 'bg-gray-200'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.headerIsStatic ? 'translate-x-4' : 'translate-x-0.5'
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    settings.headerIsStatic ? 'translate-x-3' : 'translate-x-0.5'
                   }`}
                 />
               </button>
             </div>
 
-            {/* Header Margin Controls */}
+            {/* Background Color */}
             <div>
-              <label className="block text-xs text-gray-600 mb-2">Header Margins</label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Top</label>
-                  <input
-                    type="number"
-                    value={settings.headerMarginTop || 0}
-                    onChange={(e) => onSettingsChange({ ...settings, headerMarginTop: parseInt(e.target.value) || 0 })}
-                    className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Bottom</label>
-                  <input
-                    type="number"
-                    value={settings.headerMarginBottom || 0}
-                    onChange={(e) => onSettingsChange({ ...settings, headerMarginBottom: parseInt(e.target.value) || 0 })}
-                    className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Left</label>
-                  <input
-                    type="number"
-                    value={settings.headerMarginLeft || 0}
-                    onChange={(e) => onSettingsChange({ ...settings, headerMarginLeft: parseInt(e.target.value) || 0 })}
-                    className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Right</label>
-                  <input
-                    type="number"
-                    value={settings.headerMarginRight || 0}
-                    onChange={(e) => onSettingsChange({ ...settings, headerMarginRight: parseInt(e.target.value) || 0 })}
-                    className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                    min="0"
-                    max="100"
-                  />
-                </div>
-              </div>
+              <label className="block text-xs text-gray-600 mb-1">Background</label>
+              <input
+                type="color"
+                value={settings.headerBackgroundColor || '#ffffff'}
+                onChange={(e) => onSettingsChange({ ...settings, headerBackgroundColor: e.target.value })}
+                className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+              />
+            </div>
+
+            {/* Text Color */}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Text Color</label>
+              <input
+                type="color"
+                value={settings.headerTextColor || '#374151'}
+                onChange={(e) => onSettingsChange({ ...settings, headerTextColor: e.target.value })}
+                className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+              />
+            </div>
+
+            {/* Padding */}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Padding</label>
+              <input
+                type="range"
+                min="8"
+                max="32"
+                value={settings.headerPadding || 16}
+                onChange={(e) => onSettingsChange({ ...settings, headerPadding: parseInt(e.target.value) })}
+                className="w-full"
+              />
+              <div className="text-xs text-gray-500 text-center">{settings.headerPadding || 16}px</div>
             </div>
           </div>
         </div>
 
-        {/* Element Settings - Compact */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Settings</h3>
-          <div className="space-y-3">
-            {elements.slice(0, 3).map((element) => (
-              <div key={element.id} className="p-2 bg-gray-50 rounded text-xs">
-                <div className="font-medium mb-2">{element.label}</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Color</label>
-                    <input
-                      type="color"
-                      value={element.settings.color || '#374151'}
-                      onChange={(e) => updateElementSettings(element.id, { color: e.target.value })}
-                      className="h-6 w-full rounded border border-gray-300 cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Size</label>
-                    <input
-                      type="number"
-                      value={element.settings.fontSize || 14}
-                      onChange={(e) => updateElementSettings(element.id, { fontSize: parseInt(e.target.value) })}
-                      className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                      min="10"
-                      max="32"
-                    />
-                  </div>
-                </div>
+        {/* Logo Specific Settings */}
+        <div className="bg-white rounded border border-gray-200 p-3">
+          <h3 className="text-xs font-medium text-gray-900 mb-2">Logo</h3>
+          <div className="space-y-2">
+            {/* Logo Type Toggle */}
+            <div className="flex space-x-1">
+              <button
+                onClick={() => onSettingsChange({ ...settings, logo: null })}
+                className={`px-2 py-1 text-xs rounded ${
+                  !settings.logo ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                Text
+              </button>
+              <button
+                onClick={() => onSettingsChange({ ...settings, logo: 'https://via.placeholder.com/200x60' })}
+                className={`px-2 py-1 text-xs rounded ${
+                  settings.logo ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                Image
+              </button>
+            </div>
+
+            {/* Logo Text */}
+            {!settings.logo && (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Text</label>
+                <input
+                  type="text"
+                  value={settings.logoText || 'NextPanel'}
+                  onChange={(e) => onSettingsChange({ ...settings, logoText: e.target.value })}
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                />
               </div>
-            ))}
+            )}
+
+            {/* Logo Image Upload */}
+            {settings.logo && (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Image URL</label>
+                <input
+                  type="url"
+                  value={settings.logo || ''}
+                  onChange={(e) => onSettingsChange({ ...settings, logo: e.target.value })}
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
+            )}
+
+            {/* Logo Color */}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Color</label>
+              <input
+                type="color"
+                value={settings.logoColor || '#4f46e5'}
+                onChange={(e) => onSettingsChange({ ...settings, logoColor: e.target.value })}
+                className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+              />
+            </div>
+
+            {/* Logo Dimensions */}
+            <div className="grid grid-cols-2 gap-1">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Width</label>
+                <input
+                  type="number"
+                  value={settings.logoWidth || 200}
+                  onChange={(e) => onSettingsChange({ ...settings, logoWidth: parseInt(e.target.value) || 200 })}
+                  className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                  min="50"
+                  max="400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Height</label>
+                <input
+                  type="number"
+                  value={settings.logoHeight || 60}
+                  onChange={(e) => onSettingsChange({ ...settings, logoHeight: parseInt(e.target.value) || 60 })}
+                  className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                  min="20"
+                  max="120"
+                />
+              </div>
+            </div>
+
+            {/* Logo Spacing */}
+            <div className="grid grid-cols-2 gap-1">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Padding</label>
+                <input
+                  type="number"
+                  value={settings.logoPadding || 16}
+                  onChange={(e) => onSettingsChange({ ...settings, logoPadding: parseInt(e.target.value) || 16 })}
+                  className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                  min="0"
+                  max="40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Opacity</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={settings.logoOpacity || 100}
+                  onChange={(e) => onSettingsChange({ ...settings, logoOpacity: parseInt(e.target.value) || 100 })}
+                  className="w-full"
+                />
+                <div className="text-xs text-gray-500 text-center">{settings.logoOpacity || 100}%</div>
+              </div>
+            </div>
+
+            {/* Logo Font Family */}
+            {!settings.logo && (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Font Family</label>
+                <select
+                  value={settings.logoFontFamily || 'Inter'}
+                  onChange={(e) => onSettingsChange({ ...settings, logoFontFamily: e.target.value })}
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                >
+                  <option value="Inter">Inter</option>
+                  <option value="Roboto">Roboto</option>
+                  <option value="Open Sans">Open Sans</option>
+                  <option value="Lato">Lato</option>
+                  <option value="Montserrat">Montserrat</option>
+                  <option value="Poppins">Poppins</option>
+                  <option value="Source Sans Pro">Source Sans Pro</option>
+                  <option value="Nunito">Nunito</option>
+                </select>
+              </div>
+            )}
+
+            {/* Logo Position */}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Position</label>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => onSettingsChange({ ...settings, logoPosition: 'left' })}
+                  className={`px-2 py-1 text-xs rounded ${
+                    settings.logoPosition === 'left' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Left
+                </button>
+                <button
+                  onClick={() => onSettingsChange({ ...settings, logoPosition: 'center' })}
+                  className={`px-2 py-1 text-xs rounded ${
+                    settings.logoPosition === 'center' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Center
+                </button>
+                <button
+                  onClick={() => onSettingsChange({ ...settings, logoPosition: 'right' })}
+                  className={`px-2 py-1 text-xs rounded ${
+                    settings.logoPosition === 'right' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Right
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Right Side - Preview and Element Options */}
       <div className="flex-1 sticky top-4 h-fit">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-4">
-              <h3 className="text-sm font-medium text-gray-700">Header Preview</h3>
+        <div className="bg-white rounded border border-gray-200 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-xs font-medium text-gray-700">Preview</h3>
               
-              {/* Device Type Selection */}
-              <div className="flex items-center space-x-2">
+              {/* Device Type Selection - Compact */}
+              <div className="flex items-center space-x-1">
                 <button
                   onClick={() => setDeviceType('desktop')}
-                  className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                  className={`px-2 py-1 rounded text-xs transition-all ${
                     deviceType === 'desktop'
-                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                   }`}
-                  title="Desktop View"
+                  title="Desktop"
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h7l-2 3v1h8v-1l-2-3h7c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H3V4h18v10z"/>
                   </svg>
-                  <span>Desktop</span>
                 </button>
                 <button
                   onClick={() => setDeviceType('tablet')}
-                  className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                  className={`px-2 py-1 rounded text-xs transition-all ${
                     deviceType === 'tablet'
-                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                   }`}
-                  title="Tablet View"
+                  title="Tablet"
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 14H5V6h14v12z"/>
                   </svg>
-                  <span>Tablet</span>
                 </button>
                 <button
                   onClick={() => setDeviceType('mobile')}
-                  className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                  className={`px-2 py-1 rounded text-xs transition-all ${
                     deviceType === 'mobile'
-                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                   }`}
-                  title="Mobile View"
+                  title="Mobile"
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zm-5-5h2v2h-2v-2z"/>
                   </svg>
-                  <span>Mobile</span>
                 </button>
               </div>
             </div>
             
-            {/* Template Selection Dropdown */}
+            {/* Template Selection - Compact */}
             <div className="flex items-center space-x-2">
               <span className="text-xs text-gray-500">Template:</span>
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center space-x-2 bg-white border border-gray-300 rounded px-3 py-1 text-xs text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="flex items-center space-x-1 bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 hover:border-gray-400"
                 >
                   <span>{currentDesign.name}</span>
                   <svg className={`w-3 h-3 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -894,12 +1011,12 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
                   </svg>
                 </button>
                 
-                {/* Dropdown Menu */}
+                {/* Dropdown Menu - Compact */}
                 {isDropdownOpen && (
-                  <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                    <div className="p-3">
-                      <div className="text-xs font-medium text-gray-700 mb-2">Choose Template</div>
-                      <div className="grid grid-cols-1 gap-2">
+                  <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-10">
+                    <div className="p-2">
+                      <div className="text-xs font-medium text-gray-700 mb-2">Templates</div>
+                      <div className="space-y-1">
                         {headerDesigns.map((design) => (
                           <div
                             key={design.id}
@@ -911,13 +1028,7 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
                             }`}
                           >
                             <div className="text-xs font-medium text-gray-700">{design.name}</div>
-                            <div className="mt-1 h-6 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500">
-                              {design.layout === 'centered' && 'Logo | Nav | Cart'}
-                              {design.layout === 'split' && 'Logo | Nav | Cart | User'}
-                              {design.layout === 'minimal' && 'Logo | Nav'}
-                              {design.layout === 'compact' && 'Logo | Nav | Search'}
-                              {design.layout === 'modern' && 'Logo | Nav | Icons'}
-                            </div>
+                            <div className="text-xs text-gray-500">{design.description}</div>
                           </div>
                         ))}
                       </div>
@@ -929,8 +1040,8 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
           </div>
 
           {/* Live Preview with Drag and Drop */}
-          <div className="bg-gray-50 rounded border p-3">
-            <div className="text-xs text-gray-500 mb-2">Live Preview - {currentDesign.name} ({deviceType})</div>
+          <div className="bg-gray-50 rounded border p-2">
+            <div className="text-xs text-gray-500 mb-1">{currentDesign.name} ({deviceType})</div>
             {isClient ? (
               <DndContext
                 sensors={sensors}
@@ -1170,62 +1281,291 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
             )}
           </div>
 
-          {/* Element Options - Outside Preview Box */}
+          {/* Element Options - Compact and Specific */}
           {selectedElement && (
-            <div className="mt-6">
-              <div className="text-xs text-gray-500 mb-3">Element Settings - {selectedElement.label}</div>
-              <div className="bg-gray-50 rounded p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
-                    <input
-                      type="color"
-                      value={selectedElement.settings.color || '#374151'}
-                      onChange={(e) => updateElementSettings(selectedElement.id, { color: e.target.value })}
-                      className="h-8 w-full rounded border border-gray-300 cursor-pointer"
-                    />
+            <div className="mt-4">
+              <div className="text-xs text-gray-500 mb-2">Element: {selectedElement.label}</div>
+              <div className="bg-gray-50 rounded p-3">
+                {/* Element-specific settings based on type */}
+                {selectedElement.type === 'logo' && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Text</label>
+                        <input
+                          type="text"
+                          value={settings.logoText || 'NextPanel'}
+                          onChange={(e) => onSettingsChange({ ...settings, logoText: e.target.value })}
+                          className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
+                        <input
+                          type="color"
+                          value={settings.logoColor || '#4f46e5'}
+                          onChange={(e) => onSettingsChange({ ...settings, logoColor: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Font Size</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.fontSize || 24}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { fontSize: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="12"
+                          max="48"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Weight</label>
+                        <select
+                          value={selectedElement.settings.fontWeight || 'bold'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { fontWeight: e.target.value })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="medium">Medium</option>
+                          <option value="semibold">Semi Bold</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Padding</label>
+                        <input
+                          type="number"
+                          value={settings.logoPadding || 16}
+                          onChange={(e) => onSettingsChange({ ...settings, logoPadding: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="0"
+                          max="40"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Background</label>
-                    <input
-                      type="color"
-                      value={selectedElement.settings.backgroundColor || '#ffffff'}
-                      onChange={(e) => updateElementSettings(selectedElement.id, { backgroundColor: e.target.value })}
-                      className="h-8 w-full rounded border border-gray-300 cursor-pointer"
-                    />
+                )}
+
+                {selectedElement.type === 'navigation' && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
+                        <input
+                          type="color"
+                          value={selectedElement.settings.color || '#4b5563'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { color: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Font Size</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.fontSize || 16}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { fontSize: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="12"
+                          max="24"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Weight</label>
+                        <select
+                          value={selectedElement.settings.fontWeight || 'medium'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { fontWeight: e.target.value })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="medium">Medium</option>
+                          <option value="semibold">Semi Bold</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Spacing</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.padding || 8}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { padding: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="0"
+                          max="32"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Font Size</label>
-                    <input
-                      type="number"
-                      value={selectedElement.settings.fontSize || 14}
-                      onChange={(e) => updateElementSettings(selectedElement.id, { fontSize: parseInt(e.target.value) })}
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                      min="10"
-                      max="32"
-                    />
+                )}
+
+                {selectedElement.type === 'search' && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Background</label>
+                        <input
+                          type="color"
+                          value={selectedElement.settings.backgroundColor || '#ffffff'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { backgroundColor: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Text Color</label>
+                        <input
+                          type="color"
+                          value={selectedElement.settings.color || '#374151'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { color: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Font Size</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.fontSize || 14}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { fontSize: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="10"
+                          max="20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Padding</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.padding || 8}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { padding: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="4"
+                          max="20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Radius</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.borderRadius || 6}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { borderRadius: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="0"
+                          max="20"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Padding</label>
-                    <input
-                      type="number"
-                      value={selectedElement.settings.padding || 8}
-                      onChange={(e) => updateElementSettings(selectedElement.id, { padding: parseInt(e.target.value) })}
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                      min="0"
-                      max="32"
-                    />
+                )}
+
+                {selectedElement.type === 'cart' && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
+                        <input
+                          type="color"
+                          value={selectedElement.settings.color || '#6b7280'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { color: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Size</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.fontSize || 16}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { fontSize: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="12"
+                          max="24"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Padding</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.padding || 8}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { padding: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="4"
+                          max="20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Background</label>
+                        <input
+                          type="color"
+                          value={selectedElement.settings.backgroundColor || '#ffffff'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { backgroundColor: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Default settings for other elements */}
+                {!['logo', 'navigation', 'search', 'cart'].includes(selectedElement.type) && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
+                        <input
+                          type="color"
+                          value={selectedElement.settings.color || '#374151'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { color: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Background</label>
+                        <input
+                          type="color"
+                          value={selectedElement.settings.backgroundColor || '#ffffff'}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { backgroundColor: e.target.value })}
+                          className="h-6 w-full rounded border border-gray-300 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Font Size</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.fontSize || 14}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { fontSize: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="10"
+                          max="32"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Padding</label>
+                        <input
+                          type="number"
+                          value={selectedElement.settings.padding || 8}
+                          onChange={(e) => updateElementSettings(selectedElement.id, { padding: parseInt(e.target.value) })}
+                          className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                          min="0"
+                          max="32"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-3 flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => toggleElementVisibility(selectedElement.id)}
-                      className={`px-3 py-1 text-xs rounded ${
+                      className={`px-2 py-1 text-xs rounded ${
                         selectedElement.visible
                           ? 'bg-green-100 text-green-700'
                           : 'bg-gray-100 text-gray-500'
@@ -1236,20 +1576,20 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
                   </div>
                   <button
                     onClick={() => removeElement(selectedElement.id)}
-                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                    className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
                   >
-                    Remove Element
+                    Remove
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Drag Options - Show when dragging or after drag */}
+          {/* Drag Options - Compact Quick Edit */}
           {draggedElement && (
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs text-gray-500">Quick Edit - {draggedElement.label}</div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-gray-500">Quick Edit: {draggedElement.label}</div>
                 <button
                   onClick={() => setDraggedElement(null)}
                   className="text-xs text-gray-400 hover:text-gray-600"
@@ -1257,90 +1597,88 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
                   ✕
                 </button>
               </div>
-              <div className="bg-red-50 border border-red-200 rounded p-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                <div className="grid grid-cols-4 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
+                    <label className="block text-xs text-gray-600 mb-1">Color</label>
                     <input
                       type="color"
                       value={draggedElement.settings.color || '#374151'}
                       onChange={(e) => updateElementSettings(draggedElement.id, { color: e.target.value })}
-                      className="h-8 w-full rounded border border-gray-300 cursor-pointer"
+                      className="h-6 w-full rounded border border-gray-300 cursor-pointer"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Background</label>
+                    <label className="block text-xs text-gray-600 mb-1">Background</label>
                     <input
                       type="color"
                       value={draggedElement.settings.backgroundColor || '#ffffff'}
                       onChange={(e) => updateElementSettings(draggedElement.id, { backgroundColor: e.target.value })}
-                      className="h-8 w-full rounded border border-gray-300 cursor-pointer"
+                      className="h-6 w-full rounded border border-gray-300 cursor-pointer"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Font Size</label>
+                    <label className="block text-xs text-gray-600 mb-1">Size</label>
                     <input
                       type="number"
                       value={draggedElement.settings.fontSize || 14}
                       onChange={(e) => updateElementSettings(draggedElement.id, { fontSize: parseInt(e.target.value) })}
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                      className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
                       min="10"
                       max="32"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Padding</label>
+                    <label className="block text-xs text-gray-600 mb-1">Padding</label>
                     <input
                       type="number"
                       value={draggedElement.settings.padding || 8}
                       onChange={(e) => updateElementSettings(draggedElement.id, { padding: parseInt(e.target.value) })}
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                      className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
                       min="0"
                       max="32"
                     />
                   </div>
                 </div>
                 
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => toggleElementVisibility(draggedElement.id)}
-                      className={`px-3 py-1 text-xs rounded ${
-                        draggedElement.visible
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {draggedElement.visible ? 'Visible' : 'Hidden'}
-                    </button>
-                  </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <button
+                    onClick={() => toggleElementVisibility(draggedElement.id)}
+                    className={`px-2 py-1 text-xs rounded ${
+                      draggedElement.visible
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {draggedElement.visible ? 'Visible' : 'Hidden'}
+                  </button>
                   <button
                     onClick={() => removeElement(draggedElement.id)}
-                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                    className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
                   >
-                    Remove Element
+                    Remove
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="mt-4 flex justify-between">
+          {/* Action Buttons - Compact */}
+          <div className="mt-3 flex justify-between">
             <button
               onClick={handleReset}
-              className="px-4 py-2 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+              className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
             >
-              Reset Design
+              Reset
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium"
+              className="px-4 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium"
             >
-              Save Header Design
+              Save Design
             </button>
           </div>
         </div>

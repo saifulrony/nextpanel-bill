@@ -52,7 +52,7 @@ const components = [
 
 export default function ComponentLibrary({ onAddComponent }: ComponentLibraryProps) {
   return (
-    <div className="w-64 bg-white border-r border-gray-200 h-full overflow-y-auto">
+    <div className="w-full bg-white border-r border-gray-200 h-full overflow-y-auto">
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600">
         <h2 className="text-white font-bold text-sm">Components</h2>
         <p className="text-indigo-100 text-xs mt-1">Drag to add</p>

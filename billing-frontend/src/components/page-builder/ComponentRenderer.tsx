@@ -20,8 +20,11 @@ interface ComponentRendererProps {
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onAddToContainer?: (containerId: string, type: any) => void;
+  onAddToContainer?: (type: ComponentType, containerId?: string, columnIndex?: number) => void;
   onColumnClick?: (containerId: string, columnIndex: number) => void;
+  onAddColumn?: (containerId: string) => void;
+  onRemoveColumn?: (containerId: string) => void;
+  onAddAfter?: (componentId: string, type: ComponentType) => void;
   containerId?: string;
   columnIndex?: number;
 }
@@ -35,6 +38,9 @@ export default function ComponentRenderer({
   onMouseLeave,
   onAddToContainer,
   onColumnClick,
+  onAddColumn,
+  onRemoveColumn,
+  onAddAfter,
   containerId,
   columnIndex,
 }: ComponentRendererProps) {
@@ -49,8 +55,8 @@ export default function ComponentRenderer({
       case 'heading':
         return (
           <h2
-            style={component.style}
-            className={component.className}
+            style={{ fontSize: '1.25rem', margin: '0.5rem 0', ...component.style }}
+            className={`${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
             dangerouslySetInnerHTML={{ __html: component.content || 'Heading Text' }}
           />
         );
@@ -58,8 +64,8 @@ export default function ComponentRenderer({
       case 'text':
         return (
           <p
-            style={component.style}
-            className={component.className}
+            style={{ fontSize: '0.875rem', margin: '0.25rem 0', ...component.style }}
+            className={`${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
             dangerouslySetInnerHTML={{ __html: component.content || 'Text content goes here...' }}
           />
         );
@@ -67,8 +73,8 @@ export default function ComponentRenderer({
       case 'button':
         return (
           <button
-            style={component.style}
-            className={`px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors ${component.className || ''}`}
+            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', ...component.style }}
+            className={`px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors ${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
             onClick={(e) => e.stopPropagation()}
           >
             {component.content || 'Button'}
@@ -79,10 +85,10 @@ export default function ComponentRenderer({
         return (
           <div className="relative">
             <img
-              src={component.props.src || 'https://via.placeholder.com/800x400?text=Image'}
+              src={component.props.src || 'https://via.placeholder.com/400x200?text=Image'}
               alt={component.props.alt || 'Image'}
-              style={component.style}
-              className={`w-full h-auto ${component.className || ''}`}
+              style={{ maxHeight: '200px', objectFit: 'cover', ...component.style }}
+              className={`w-full h-auto rounded ${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
             />
           </div>
         );
@@ -102,29 +108,72 @@ export default function ComponentRenderer({
                 onClick={() => {}}
                 onMouseEnter={() => {}}
                 onMouseLeave={() => {}}
+                onAddToContainer={onAddToContainer}
+                onColumnClick={onColumnClick}
+                onAddColumn={onAddColumn}
+                onRemoveColumn={onRemoveColumn}
               />
             ))}
           </div>
         );
 
       case 'container':
-        const columns = component.props?.columns || 1;
+        const columns = component.props?.columns || 2;
+        console.log('Rendering container with columns:', columns, 'props:', component.props);
         const gridCols = {
           1: 'grid-cols-1',
           2: 'grid-cols-2',
           3: 'grid-cols-3',
           4: 'grid-cols-4',
-        }[columns] || 'grid-cols-1';
+        }[columns] || 'grid-cols-2';
+        console.log('Grid classes:', gridCols);
         
         return (
           <div
-            style={component.style}
-            className={`p-4 ${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-2' : ''}`}
+            style={{
+              maxWidth: '600px',
+              margin: '0 auto',
+              ...component.style,
+            }}
+            className={`bg-white border border-gray-200 rounded-md shadow-sm p-3 ${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
           >
-            <div className={`grid ${gridCols} gap-4`}>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-medium text-gray-600">Container ({columns} columns)</h3>
+              <div className="flex space-x-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('+ Column button clicked for container:', component.id);
+                    console.log('onAddColumn function:', onAddColumn);
+                    onAddColumn?.(component.id);
+                  }}
+                  className="px-1.5 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
+                >
+                  + Column
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveColumn?.(component.id);
+                  }}
+                  className="px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                >
+                  - Column
+                </button>
+              </div>
+            </div>
+            
+            <div className={`grid ${gridCols} gap-2`}>
               {component.children && component.children.length > 0 ? (
                 component.children.map((child, index) => (
-                  <div key={child.id} className="min-h-[100px] p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                  <div 
+                    key={child.id} 
+                    className="min-h-[80px] p-2 border border-dashed border-gray-300 rounded bg-gray-50 hover:bg-indigo-50 hover:border-indigo-400 transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onColumnClick?.(component.id, index);
+                    }}
+                  >
                     <ComponentRenderer
                       component={child}
                       isSelected={false}
@@ -134,6 +183,8 @@ export default function ComponentRenderer({
                       onMouseLeave={() => {}}
                       onAddToContainer={onAddToContainer}
                       onColumnClick={onColumnClick}
+                      onAddColumn={onAddColumn}
+                      onRemoveColumn={onRemoveColumn}
                       containerId={component.id}
                       columnIndex={index}
                     />
@@ -144,15 +195,18 @@ export default function ComponentRenderer({
                 Array.from({ length: columns }).map((_, index) => (
                   <div 
                     key={index} 
-                    onClick={() => onColumnClick?.(component.id, index)}
-                    className="min-h-[100px] p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-indigo-50 hover:border-indigo-400 cursor-pointer transition-all flex items-center justify-center group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onColumnClick?.(component.id, index);
+                    }}
+                    className="min-h-[80px] p-2 border border-dashed border-gray-300 rounded bg-gray-50 hover:bg-indigo-50 hover:border-indigo-400 cursor-pointer transition-all flex items-center justify-center group"
                   >
                     <div className="text-center text-gray-400 group-hover:text-indigo-600">
-                      <svg className="h-8 w-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-6 w-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
-                      <p className="text-xs font-medium">Click to Add Component</p>
-                      <p className="text-xs mt-1 opacity-75">or drag from left panel</p>
+                      <p className="text-xs font-medium">Click to Add</p>
+                      <p className="text-xs mt-0.5 opacity-75">Col {index + 1}</p>
                     </div>
                   </div>
                 ))
@@ -165,10 +219,10 @@ export default function ComponentRenderer({
         return (
           <div
             style={{
-              height: component.props.height || '50px',
+              height: component.props.height || '30px',
               ...component.style,
             }}
-            className={`bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center ${component.className || ''}`}
+            className={`bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center ${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
           >
             <span className="text-xs text-gray-400">Spacer</span>
           </div>
@@ -186,7 +240,7 @@ export default function ComponentRenderer({
         return (
           <div
             style={component.style}
-            className={`bg-white border border-gray-200 rounded-lg shadow-sm p-6 ${component.className || ''}`}
+            className={`bg-white border border-gray-200 rounded shadow-sm p-3 ${component.className || ''} ${isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
           >
             {component.content && (
               <div dangerouslySetInnerHTML={{ __html: component.content }} />
@@ -200,6 +254,10 @@ export default function ComponentRenderer({
                 onClick={() => {}}
                 onMouseEnter={() => {}}
                 onMouseLeave={() => {}}
+                onAddToContainer={onAddToContainer}
+                onColumnClick={onColumnClick}
+                onAddColumn={onAddColumn}
+                onRemoveColumn={onRemoveColumn}
               />
             ))}
           </div>
@@ -220,6 +278,10 @@ export default function ComponentRenderer({
                 onClick={() => {}}
                 onMouseEnter={() => {}}
                 onMouseLeave={() => {}}
+                onAddToContainer={onAddToContainer}
+                onColumnClick={onColumnClick}
+                onAddColumn={onAddColumn}
+                onRemoveColumn={onRemoveColumn}
               />
             ))}
           </div>
@@ -363,24 +425,48 @@ export default function ComponentRenderer({
   };
 
   return (
-    <div
-      className={baseClasses}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{ cursor: 'pointer' }}
-    >
-      <CustomCodeWrapper>
-        {renderComponent()}
-      </CustomCodeWrapper>
-      {isSelected && (
-        <div className="absolute -top-8 left-0 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
-          {component.type}
+    <>
+      <div
+        className={baseClasses}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        style={{ cursor: 'pointer' }}
+      >
+        <CustomCodeWrapper>
+          {renderComponent()}
+        </CustomCodeWrapper>
+        {isSelected && (
+          <div className="absolute -top-8 left-0 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+            {component.type}
+          </div>
+        )}
+        {isHovered && !isSelected && (
+          <div className="absolute inset-0 border-2 border-dashed border-indigo-300 bg-indigo-50/30 pointer-events-none" />
+        )}
+      </div>
+      
+      {/* Plus Button for adding components after this one */}
+      {onAddAfter && (
+        <div className="flex justify-center my-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Show component picker modal
+              const event = new CustomEvent('showComponentPicker', {
+                detail: { afterComponentId: component.id }
+              });
+              window.dispatchEvent(event);
+            }}
+            className="opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity duration-200 bg-indigo-600 text-white rounded-full p-2 shadow-lg hover:bg-indigo-700 transform hover:scale-110 transition-all"
+            title="Add component after this one"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </button>
         </div>
       )}
-      {isHovered && !isSelected && (
-        <div className="absolute inset-0 border-2 border-dashed border-indigo-300 bg-indigo-50/30 pointer-events-none" />
-      )}
-    </div>
+    </>
   );
 }
 

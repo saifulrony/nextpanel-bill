@@ -36,6 +36,10 @@ function SortableComponent({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onAddToContainer,
+  onColumnClick,
+  onAddColumn,
+  onRemoveColumn,
 }: {
   component: Component;
   isSelected: boolean;
@@ -43,6 +47,10 @@ function SortableComponent({
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onAddToContainer?: (type: ComponentType, containerId?: string, columnIndex?: number) => void;
+  onColumnClick?: (containerId: string, columnIndex: number) => void;
+  onAddColumn?: (containerId: string) => void;
+  onRemoveColumn?: (containerId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
@@ -62,6 +70,10 @@ function SortableComponent({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
+        onAddToContainer={onAddToContainer}
+        onColumnClick={onColumnClick}
+        onAddColumn={onAddColumn}
+        onRemoveColumn={onRemoveColumn}
       />
     </div>
   );
@@ -76,6 +88,9 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
   const [deviceView, setDeviceView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [history, setHistory] = useState<Component[][]>([initialComponents]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [showComponentPicker, setShowComponentPicker] = useState(false);
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
+  const [selectedColumnIndex, setSelectedColumnIndex] = useState<number | null>(null);
 
   const addToHistory = useCallback((newComponents: Component[]) => {
     setHistory((prev) => {
@@ -125,7 +140,7 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
       case 'section':
         return { ...baseComponent, children: [] };
       case 'container':
-        return { ...baseComponent, children: [] };
+        return { ...baseComponent, props: { columns: 2 }, children: [] };
       case 'spacer':
         return { ...baseComponent, props: { height: '50px' } };
       case 'divider':
@@ -143,11 +158,31 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
     }
   };
 
-  const handleAddComponent = (type: ComponentType) => {
+  const handleAddComponent = (type: ComponentType, containerId?: string, columnIndex?: number) => {
     const newComponent = createComponent(type);
-    const newComponents = [...components, newComponent];
-    setComponents(newComponents);
-    addToHistory(newComponents);
+    
+    if (containerId && columnIndex !== undefined) {
+      // Add component to specific container column
+      const newComponents = components.map(comp => {
+        if (comp.id === containerId) {
+          const updatedChildren = [...(comp.children || [])];
+          updatedChildren[columnIndex] = newComponent;
+          return { ...comp, children: updatedChildren };
+        }
+        return comp;
+      });
+      setComponents(newComponents);
+      addToHistory(newComponents);
+      setShowComponentPicker(false);
+      setSelectedContainerId(null);
+      setSelectedColumnIndex(null);
+    } else {
+      // Add component to main canvas
+      const newComponents = [...components, newComponent];
+      setComponents(newComponents);
+      addToHistory(newComponents);
+    }
+    
     setSelectedComponent(newComponent.id);
   };
 
@@ -157,6 +192,59 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
     );
     setComponents(newComponents);
     addToHistory(newComponents);
+  };
+
+  const handleAddColumn = (containerId: string) => {
+    console.log('Adding column to container:', containerId);
+    const newComponents = components.map(comp => {
+      if (comp.id === containerId && comp.type === 'container') {
+        const currentColumns = comp.props?.columns || 2;
+        console.log('Current columns:', currentColumns);
+        const newColumns = Math.min(currentColumns + 1, 4);
+        console.log('New columns:', newColumns);
+        return {
+          ...comp,
+          props: {
+            ...comp.props,
+            columns: newColumns
+          }
+        };
+      }
+      return comp;
+    });
+    console.log('Updated components:', newComponents);
+    setComponents(newComponents);
+    addToHistory(newComponents);
+  };
+
+  const handleRemoveColumn = (containerId: string) => {
+    const newComponents = components.map(comp => {
+      if (comp.id === containerId && comp.type === 'container') {
+        const currentColumns = comp.props?.columns || 2;
+        const newColumns = Math.max(currentColumns - 1, 1); // Min 1 column
+        
+        // Remove components from the last column if it exists
+        const updatedChildren = comp.children?.slice(0, newColumns) || [];
+        
+        return {
+          ...comp,
+          props: {
+            ...comp.props,
+            columns: newColumns
+          },
+          children: updatedChildren
+        };
+      }
+      return comp;
+    });
+    setComponents(newComponents);
+    addToHistory(newComponents);
+  };
+
+  const handleColumnClick = (containerId: string, columnIndex: number) => {
+    setSelectedContainerId(containerId);
+    setSelectedColumnIndex(columnIndex);
+    setShowComponentPicker(true);
   };
 
   const handleDeleteComponent = (id: string) => {
@@ -228,6 +316,11 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
   };
 
   const selectedComponentData = components.find((c) => c.id === selectedComponent);
+  
+  // Debug: Log components when they change
+  React.useEffect(() => {
+    console.log('Components updated:', components);
+  }, [components]);
 
   const deviceWidths = {
     desktop: '100%',
@@ -381,6 +474,10 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
                         onClick={() => setSelectedComponent(component.id)}
                         onMouseEnter={() => setHoveredComponent(component.id)}
                         onMouseLeave={() => setHoveredComponent(null)}
+                        onAddToContainer={handleAddComponent}
+                        onColumnClick={handleColumnClick}
+                        onAddColumn={handleAddColumn}
+                        onRemoveColumn={handleRemoveColumn}
                       />
                     ))
                   )}
@@ -431,6 +528,51 @@ export default function PageBuilder({ initialComponents = [], onSave, onClose }:
           </>
         )}
       </div>
+
+      {/* Component Picker Modal */}
+      {showComponentPicker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Add Component to Column</h3>
+                <button
+                  onClick={() => {
+                    setShowComponentPicker(false);
+                    setSelectedContainerId(null);
+                    setSelectedColumnIndex(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { type: 'heading' as ComponentType, label: 'Heading', icon: '📝' },
+                  { type: 'text' as ComponentType, label: 'Text', icon: '📄' },
+                  { type: 'button' as ComponentType, label: 'Button', icon: '🔘' },
+                  { type: 'image' as ComponentType, label: 'Image', icon: '🖼️' },
+                  { type: 'card' as ComponentType, label: 'Card', icon: '🎴' },
+                  { type: 'spacer' as ComponentType, label: 'Spacer', icon: '📏' },
+                ].map((comp) => (
+                  <button
+                    key={comp.type}
+                    onClick={() => handleAddComponent(comp.type, selectedContainerId!, selectedColumnIndex!)}
+                    className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                  >
+                    <span className="text-2xl">{comp.icon}</span>
+                    <span className="text-sm font-medium text-gray-700">{comp.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
