@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import HeaderCustomization from '@/components/HeaderCustomization';
+import HeaderEditor from '@/components/HeaderEditor';
 
 interface CustomizationSettings {
   // Logo settings
@@ -44,7 +44,7 @@ interface CustomizationSettings {
   } | null;
 }
 
-export default function HeaderEditor() {
+export default function HeaderEditorPage() {
   const router = useRouter();
   const [settings, setSettings] = useState<CustomizationSettings>({
     logo: null,
@@ -108,7 +108,7 @@ export default function HeaderEditor() {
 
       {/* Full Width Header Customization */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <HeaderCustomization 
+        <HeaderEditor 
           settings={settings}
           onSettingsChange={setSettings}
         />

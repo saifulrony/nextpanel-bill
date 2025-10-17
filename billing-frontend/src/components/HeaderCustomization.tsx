@@ -510,9 +510,259 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
   const [deviceType, setDeviceType] = useState<string>('desktop');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [currentTemplate, setCurrentTemplate] = useState<string>('minimal');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentDesign = headerDesigns.find(d => d.id === selectedDesign) || headerDesigns[0];
+
+  // Template functions
+  const getTemplatesForDevice = (device: string) => {
+    if (device === 'mobile') {
+      return [
+        {
+          id: 'mobile-burger',
+          name: 'Burger Menu',
+          description: 'Mobile-first with burger menu',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'thin',
+          showNavigation: false,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: false,
+          showNotifications: true,
+          showMobileMenu: true,
+          layout: 'mobile-burger',
+        },
+        {
+          id: 'mobile-compact',
+          name: 'Compact Mobile',
+          description: 'Minimal mobile design',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'thin',
+          showNavigation: false,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: false,
+          showNotifications: false,
+          showMobileMenu: true,
+          layout: 'mobile-compact',
+        },
+        {
+          id: 'mobile-search',
+          name: 'Mobile Search',
+          description: 'Mobile with search bar',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'medium',
+          showNavigation: false,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: true,
+          showNotifications: false,
+          showMobileMenu: true,
+          layout: 'mobile-search',
+        },
+        {
+          id: 'mobile-full',
+          name: 'Full Mobile',
+          description: 'Complete mobile header',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'medium',
+          showNavigation: false,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: true,
+          showNotifications: true,
+          showMobileMenu: true,
+          layout: 'mobile-full',
+        }
+      ];
+    } else if (device === 'tablet') {
+      return [
+        {
+          id: 'tablet-responsive',
+          name: 'Tablet Responsive',
+          description: 'Optimized for tablet screens',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'medium',
+          showNavigation: true,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: false,
+          showNotifications: false,
+          showMobileMenu: false,
+          layout: 'horizontal',
+        },
+        {
+          id: 'tablet-compact',
+          name: 'Tablet Compact',
+          description: 'Compact tablet design',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'thin',
+          showNavigation: true,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: false,
+          showNotifications: false,
+          showMobileMenu: false,
+          layout: 'horizontal',
+        },
+        {
+          id: 'tablet-centered',
+          name: 'Tablet Centered',
+          description: 'Centered tablet layout',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'medium',
+          showNavigation: true,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: true,
+          showNotifications: false,
+          showMobileMenu: false,
+          layout: 'centered',
+        }
+      ];
+    } else {
+      // Desktop templates
+      return [
+        {
+          id: 'minimal',
+          name: 'Minimal',
+          description: 'Clean and simple design',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'thin',
+          showNavigation: true,
+          showCart: false,
+          showUserMenu: false,
+          showSearch: false,
+          showNotifications: false,
+          showMobileMenu: false,
+          layout: 'horizontal',
+        },
+        {
+          id: 'thick',
+          name: 'Thick Header',
+          description: 'Bold header with more height',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'thick',
+          showNavigation: true,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: false,
+          showNotifications: false,
+          showMobileMenu: false,
+          layout: 'horizontal',
+        },
+        {
+          id: 'centered',
+          name: 'Centered Layout',
+          description: 'Logo centered with side elements',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'medium',
+          showNavigation: true,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: false,
+          showNotifications: false,
+          showMobileMenu: false,
+          layout: 'centered',
+        },
+        {
+          id: 'split',
+          name: 'Split Layout',
+          description: 'Split design with different sections',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'medium',
+          showNavigation: true,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: true,
+          showNotifications: false,
+          showMobileMenu: false,
+          layout: 'split',
+        },
+        {
+          id: 'vertical',
+          name: 'Vertical Stack',
+          description: 'Vertical stacked elements',
+          logoText: 'Logo',
+          logoColor: '#4f46e5',
+          textColor: '#374151',
+          backgroundColor: '#ffffff',
+          height: 'tall',
+          showNavigation: true,
+          showCart: true,
+          showUserMenu: true,
+          showSearch: true,
+          showNotifications: true,
+          showMobileMenu: false,
+          layout: 'vertical',
+        }
+      ];
+    }
+  };
+
+  const applyTemplate = (templateId: string) => {
+    setCurrentTemplate(templateId);
+    const templates = getTemplatesForDevice(deviceType);
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      setSelectedDesign(templateId);
+      // Apply template settings
+      onSettingsChange({
+        ...settings,
+        headerDesign: templateId,
+        headerBackgroundColor: template.backgroundColor,
+        headerTextColor: template.textColor,
+        logoColor: template.logoColor,
+        logoText: template.logoText,
+      });
+      
+      // Update elements based on template features
+      const updatedElements = elements.map(el => {
+        if (el.type === 'navigation') return { ...el, visible: template.showNavigation };
+        if (el.type === 'cart') return { ...el, visible: template.showCart };
+        if (el.type === 'user-menu') return { ...el, visible: template.showUserMenu };
+        if (el.type === 'search') return { ...el, visible: template.showSearch };
+        if (el.type === 'notifications') return { ...el, visible: template.showNotifications };
+        if (el.type === 'mobile-menu') return { ...el, visible: template.showMobileMenu };
+        return el;
+      });
+      setElements(updatedElements);
+    }
+  };
 
   // Set client state to prevent hydration issues
   useEffect(() => {
@@ -677,277 +927,9 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
 
 
   return (
-    <div className="flex gap-4 h-full">
-      {/* Left Sidebar - Ultra Compact Options */}
-      <div className="w-40 flex-shrink-0 space-y-3">
-        <h2 className="text-sm font-semibold text-gray-900 mb-3">Header Editor</h2>
-        
-        {/* Available Elements - Compact */}
-        <div className="bg-white rounded border border-gray-200 p-3">
-          <h3 className="text-xs font-medium text-gray-900 mb-2">Elements</h3>
-          <div className="space-y-1">
-            {isClient ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext items={defaultElements.map(el => el.id)}>
-                  {defaultElements.map((element) => (
-                    <DraggableSidebarElement
-                      key={element.id}
-                      element={element}
-                      onAddElement={addElement}
-                    />
-                  ))}
-                </SortableContext>
-              </DndContext>
-            ) : (
-              <div className="space-y-1">
-                {defaultElements.map((element) => (
-                  <DraggableSidebarElement
-                    key={element.id}
-                    element={element}
-                    onAddElement={addElement}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Global Header Settings - Compact */}
-        <div className="bg-white rounded border border-gray-200 p-3">
-          <h3 className="text-xs font-medium text-gray-900 mb-2">Header</h3>
-          <div className="space-y-2">
-            {/* Static Menu Toggle */}
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-gray-600">Static</label>
-              <button
-                onClick={() => onSettingsChange({ ...settings, headerIsStatic: !settings.headerIsStatic })}
-                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
-                  settings.headerIsStatic ? 'bg-indigo-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                    settings.headerIsStatic ? 'translate-x-3' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Background Color */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Background</label>
-              <input
-                type="color"
-                value={settings.headerBackgroundColor || '#ffffff'}
-                onChange={(e) => onSettingsChange({ ...settings, headerBackgroundColor: e.target.value })}
-                className="h-6 w-full rounded border border-gray-300 cursor-pointer"
-              />
-            </div>
-
-            {/* Text Color */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Text Color</label>
-              <input
-                type="color"
-                value={settings.headerTextColor || '#374151'}
-                onChange={(e) => onSettingsChange({ ...settings, headerTextColor: e.target.value })}
-                className="h-6 w-full rounded border border-gray-300 cursor-pointer"
-              />
-            </div>
-
-            {/* Padding */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Padding</label>
-              <input
-                type="range"
-                min="8"
-                max="32"
-                value={settings.headerPadding || 16}
-                onChange={(e) => onSettingsChange({ ...settings, headerPadding: parseInt(e.target.value) })}
-                className="w-full"
-              />
-              <div className="text-xs text-gray-500 text-center">{settings.headerPadding || 16}px</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Logo Specific Settings */}
-        <div className="bg-white rounded border border-gray-200 p-3">
-          <h3 className="text-xs font-medium text-gray-900 mb-2">Logo</h3>
-          <div className="space-y-2">
-            {/* Logo Type Toggle */}
-            <div className="flex space-x-1">
-              <button
-                onClick={() => onSettingsChange({ ...settings, logo: null })}
-                className={`px-2 py-1 text-xs rounded ${
-                  !settings.logo ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                Text
-              </button>
-              <button
-                onClick={() => onSettingsChange({ ...settings, logo: 'https://via.placeholder.com/200x60' })}
-                className={`px-2 py-1 text-xs rounded ${
-                  settings.logo ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                Image
-              </button>
-            </div>
-
-            {/* Logo Text */}
-            {!settings.logo && (
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Text</label>
-                <input
-                  type="text"
-                  value={settings.logoText || 'NextPanel'}
-                  onChange={(e) => onSettingsChange({ ...settings, logoText: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                />
-              </div>
-            )}
-
-            {/* Logo Image Upload */}
-            {settings.logo && (
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Image URL</label>
-                <input
-                  type="url"
-                  value={settings.logo || ''}
-                  onChange={(e) => onSettingsChange({ ...settings, logo: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                  placeholder="https://example.com/logo.png"
-                />
-              </div>
-            )}
-
-            {/* Logo Color */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Color</label>
-              <input
-                type="color"
-                value={settings.logoColor || '#4f46e5'}
-                onChange={(e) => onSettingsChange({ ...settings, logoColor: e.target.value })}
-                className="h-6 w-full rounded border border-gray-300 cursor-pointer"
-              />
-            </div>
-
-            {/* Logo Dimensions */}
-            <div className="grid grid-cols-2 gap-1">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Width</label>
-                <input
-                  type="number"
-                  value={settings.logoWidth || 200}
-                  onChange={(e) => onSettingsChange({ ...settings, logoWidth: parseInt(e.target.value) || 200 })}
-                  className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                  min="50"
-                  max="400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Height</label>
-                <input
-                  type="number"
-                  value={settings.logoHeight || 60}
-                  onChange={(e) => onSettingsChange({ ...settings, logoHeight: parseInt(e.target.value) || 60 })}
-                  className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                  min="20"
-                  max="120"
-                />
-              </div>
-            </div>
-
-            {/* Logo Spacing */}
-            <div className="grid grid-cols-2 gap-1">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Padding</label>
-                <input
-                  type="number"
-                  value={settings.logoPadding || 16}
-                  onChange={(e) => onSettingsChange({ ...settings, logoPadding: parseInt(e.target.value) || 16 })}
-                  className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
-                  min="0"
-                  max="40"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Opacity</label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={settings.logoOpacity || 100}
-                  onChange={(e) => onSettingsChange({ ...settings, logoOpacity: parseInt(e.target.value) || 100 })}
-                  className="w-full"
-                />
-                <div className="text-xs text-gray-500 text-center">{settings.logoOpacity || 100}%</div>
-              </div>
-            </div>
-
-            {/* Logo Font Family */}
-            {!settings.logo && (
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Font Family</label>
-                <select
-                  value={settings.logoFontFamily || 'Inter'}
-                  onChange={(e) => onSettingsChange({ ...settings, logoFontFamily: e.target.value })}
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                >
-                  <option value="Inter">Inter</option>
-                  <option value="Roboto">Roboto</option>
-                  <option value="Open Sans">Open Sans</option>
-                  <option value="Lato">Lato</option>
-                  <option value="Montserrat">Montserrat</option>
-                  <option value="Poppins">Poppins</option>
-                  <option value="Source Sans Pro">Source Sans Pro</option>
-                  <option value="Nunito">Nunito</option>
-                </select>
-              </div>
-            )}
-
-            {/* Logo Position */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Position</label>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => onSettingsChange({ ...settings, logoPosition: 'left' })}
-                  className={`px-2 py-1 text-xs rounded ${
-                    settings.logoPosition === 'left' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  Left
-                </button>
-                <button
-                  onClick={() => onSettingsChange({ ...settings, logoPosition: 'center' })}
-                  className={`px-2 py-1 text-xs rounded ${
-                    settings.logoPosition === 'center' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  Center
-                </button>
-                <button
-                  onClick={() => onSettingsChange({ ...settings, logoPosition: 'right' })}
-                  className={`px-2 py-1 text-xs rounded ${
-                    settings.logoPosition === 'right' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  Right
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Side - Preview and Element Options */}
-      <div className="flex-1 sticky top-4 h-fit">
+    <div className="w-full">
+      {/* Preview and Templates */}
+      <div className="w-full">
         <div className="bg-white rounded border border-gray-200 p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-3">
@@ -997,45 +979,17 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
               </div>
             </div>
             
-            {/* Template Selection - Compact */}
+            {/* Edit with Header Editor Button */}
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-500">Template:</span>
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center space-x-1 bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 hover:border-gray-400"
-                >
-                  <span>{currentDesign.name}</span>
-                  <svg className={`w-3 h-3 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                
-                {/* Dropdown Menu - Compact */}
-                {isDropdownOpen && (
-                  <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-10">
-                    <div className="p-2">
-                      <div className="text-xs font-medium text-gray-700 mb-2">Templates</div>
-                      <div className="space-y-1">
-                        {headerDesigns.map((design) => (
-                          <div
-                            key={design.id}
-                            onClick={() => handleDesignSelect(design.id)}
-                            className={`p-2 border rounded cursor-pointer transition-all ${
-                              selectedDesign === design.id
-                                ? 'border-indigo-500 bg-indigo-50'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="text-xs font-medium text-gray-700">{design.name}</div>
-                            <div className="text-xs text-gray-500">{design.description}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => window.open('/admin/header-editor', '_blank')}
+                className="flex items-center space-x-1 bg-indigo-600 text-white border border-indigo-600 rounded px-3 py-1 text-xs hover:bg-indigo-700 transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span>Edit with Header Editor</span>
+              </button>
             </div>
           </div>
 
@@ -1280,6 +1234,490 @@ export default function HeaderCustomization({ settings, onSettingsChange }: Head
               </div>
             )}
           </div>
+
+          {/* Template Selection */}
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Choose Template</h4>
+            <div className="grid grid-cols-2 gap-3">
+              {getTemplatesForDevice(deviceType).map((template, index) => (
+                <div
+                  key={index}
+                  className={`p-2 rounded border cursor-pointer transition-colors ${
+                    currentTemplate === template.id 
+                      ? 'border-red-500 bg-red-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => applyTemplate(template.id)}
+                >
+                  {/* Radio Button and Template Name */}
+                  <div className="flex items-center space-x-2 mb-2">
+                    <input
+                      type="radio"
+                      name="template"
+                      value={template.id}
+                      checked={currentTemplate === template.id}
+                      onChange={() => applyTemplate(template.id)}
+                      className="w-3 h-3 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs font-medium text-gray-700">{template.name}</span>
+                  </div>
+                  
+                  {/* Compact Template Design Preview */}
+                  <div className="w-full">
+                    <div
+                      className={`rounded ${
+                        template.layout === 'vertical' ? 'flex flex-col space-y-1' : 'flex items-center justify-between'
+                      }`}
+                      style={{
+                        backgroundColor: 'rgb(243, 239, 239)',
+                        color: template.textColor || '#374151',
+                        padding: template.height === 'thin' ? '3px 6px' : 
+                                 template.height === 'medium' ? '4px 8px' : 
+                                 template.height === 'thick' ? '6px 10px' : 
+                                 template.height === 'tall' ? '8px 12px' : '4px',
+                        borderRadius: '0px',
+                        boxShadow: 'none',
+                        margin: '0px',
+                        fontSize: '8px'
+                      }}
+                    >
+                      {/* Compact layouts based on template */}
+                      {template.layout === 'centered' ? (
+                        <>
+                          <div className="flex items-center space-x-2">
+                            {template.showNavigation && (
+                              <nav className="flex space-x-2">
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Home</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Products</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>About</span>
+                              </nav>
+                            )}
+                          </div>
+                          <div className="flex items-center">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            {template.showCart && (
+                              <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors pointer-events-none" style={{ color: '#6b7280' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                </svg>
+                                <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                              </button>
+                            )}
+                            {template.showUserMenu && (
+                              <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                <span className="font-medium hidden sm:block text-xs">User</span>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      ) : template.layout === 'split' ? (
+                        <>
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                            {template.showSearch && (
+                              <div className="relative">
+                                <input 
+                                  placeholder="Search..." 
+                                  className="px-1 py-0.5 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs pointer-events-none" 
+                                  readOnly 
+                                  type="text" 
+                                  style={{
+                                    backgroundColor: '#f9fafb',
+                                    color: '#6b7280',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    fontSize: '8px'
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            {template.showNavigation && (
+                              <nav className="flex space-x-2">
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Home</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Products</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>About</span>
+                              </nav>
+                            )}
+                            {template.showCart && (
+                              <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors pointer-events-none" style={{ color: '#6b7280' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                </svg>
+                                <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                              </button>
+                            )}
+                            {template.showUserMenu && (
+                              <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                <span className="font-medium hidden sm:block text-xs">User</span>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      ) : template.layout === 'vertical' ? (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {template.showNotifications && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center text-[6px]">3</span>
+                                </button>
+                              )}
+                              {template.showCart && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                                </button>
+                              )}
+                              {template.showUserMenu && (
+                                <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                  <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                  <span className="font-medium hidden sm:block text-xs">User</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            {template.showNavigation && (
+                              <nav className="flex space-x-2">
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Home</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Products</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>About</span>
+                              </nav>
+                            )}
+                            {template.showSearch && (
+                              <div className="relative">
+                                <input 
+                                  placeholder="Search..." 
+                                  className="px-1 py-0.5 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs pointer-events-none" 
+                                  readOnly 
+                                  type="text" 
+                                  style={{
+                                    backgroundColor: '#f9fafb',
+                                    color: '#6b7280',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    fontSize: '8px'
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      ) : template.layout === 'mobile-burger' ? (
+                        // Mobile burger menu layout
+                        <>
+                          <div className="flex items-center justify-between w-full">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {template.showNotifications && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center text-[6px]">3</span>
+                                </button>
+                              )}
+                              {template.showCart && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                                </button>
+                              )}
+                              {template.showUserMenu && (
+                                <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                  <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                </div>
+                              )}
+                              {template.showMobileMenu && (
+                                <button className="p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-4 w-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : template.layout === 'mobile-compact' ? (
+                        // Mobile compact layout
+                        <>
+                          <div className="flex items-center justify-between w-full">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {template.showCart && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                                </button>
+                              )}
+                              {template.showUserMenu && (
+                                <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                  <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                </div>
+                              )}
+                              {template.showMobileMenu && (
+                                <button className="p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-4 w-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : template.layout === 'mobile-search' ? (
+                        // Mobile search layout
+                        <>
+                          <div className="flex items-center justify-between w-full">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {template.showSearch && (
+                                <div className="relative">
+                                  <input 
+                                    placeholder="Search..." 
+                                    className="px-1 py-0.5 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs pointer-events-none" 
+                                    readOnly 
+                                    type="text" 
+                                    style={{
+                                      backgroundColor: '#f9fafb',
+                                      color: '#6b7280',
+                                      padding: '4px',
+                                      borderRadius: '4px',
+                                      fontSize: '8px',
+                                      width: '60px'
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              {template.showCart && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                                </button>
+                              )}
+                              {template.showUserMenu && (
+                                <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                  <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                </div>
+                              )}
+                              {template.showMobileMenu && (
+                                <button className="p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-4 w-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : template.layout === 'mobile-full' ? (
+                        // Mobile full layout
+                        <>
+                          <div className="flex items-center justify-between w-full">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {template.showSearch && (
+                                <div className="relative">
+                                  <input 
+                                    placeholder="Search..." 
+                                    className="px-1 py-0.5 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs pointer-events-none" 
+                                    readOnly 
+                                    type="text" 
+                                    style={{
+                                      backgroundColor: '#f9fafb',
+                                      color: '#6b7280',
+                                      padding: '4px',
+                                      borderRadius: '4px',
+                                      fontSize: '8px',
+                                      width: '50px'
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              {template.showNotifications && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center text-[6px]">3</span>
+                                </button>
+                              )}
+                              {template.showCart && (
+                                <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                  </svg>
+                                  <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                                </button>
+                              )}
+                              {template.showUserMenu && (
+                                <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                  <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                </div>
+                              )}
+                              {template.showMobileMenu && (
+                                <button className="p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-4 w-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        // Default horizontal layout
+                        <>
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="font-bold"
+                              style={{ 
+                                color: template.logoColor || '#4f46e5',
+                                fontSize: template.height === 'thick' ? '14px' : template.height === 'tall' ? '16px' : '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {template.logoText || 'Logo'}
+                            </div>
+                            {template.showNavigation && (
+                              <nav className="flex space-x-2">
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Home</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>Products</span>
+                                <span className="text-xs hover:opacity-75 transition-opacity" style={{ color: template.textColor || '#374151' }}>About</span>
+                              </nav>
+                            )}
+                            {template.showSearch && (
+                              <div className="relative">
+                                <input 
+                                  placeholder="Search..." 
+                                  className="px-1 py-0.5 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs pointer-events-none" 
+                                  readOnly 
+                                  type="text" 
+                                  style={{
+                                    backgroundColor: '#f9fafb',
+                                    color: '#6b7280',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    fontSize: '8px'
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            {template.showNotifications && (
+                              <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors rounded hover:bg-gray-100 pointer-events-none" style={{ color: '#6b7280' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                                </svg>
+                                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full h-3 w-3 flex items-center justify-center">3</span>
+                              </button>
+                            )}
+                            {template.showCart && (
+                              <button className="relative p-1 text-gray-600 hover:text-gray-900 transition-colors pointer-events-none" style={{ color: '#6b7280' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" className="h-3 w-3">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                </svg>
+                                <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full h-2 w-2 flex items-center justify-center animate-pulse text-[6px]">0</span>
+                              </button>
+                            )}
+                            {template.showUserMenu && (
+                              <div className="flex items-center space-x-1 text-gray-700 hover:text-gray-900 transition-colors">
+                                <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: '#4f46e5', fontSize: '8px' }}>U</div>
+                                <span className="font-medium hidden sm:block text-xs">User</span>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
 
           {/* Element Options - Compact and Specific */}
           {selectedElement && (
