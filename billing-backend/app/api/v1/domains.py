@@ -1,320 +1,270 @@
 """
 Domain Management API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-from typing import List
-from datetime import datetime, timedelta
+from sqlalchemy import select
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+
 from app.core.database import get_db
 from app.core.security import get_current_user_id
-from app.models import Domain, User, License, DomainStatus
-from app.schemas import (
-    DomainCheckRequest, 
-    DomainCheckResponse,
-    DomainRegisterRequest,
-    DomainResponse,
-    DomainTransferRequest,
-    DomainUpdateNameserversRequest,
-    DomainRenewRequest
-)
+from app.models import Domain, User
 from app.services.domain_service import DomainService
+from app.services.namecheap_service import NamecheapService
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/domains", tags=["domains"])
 
+# Schemas
+class DomainSearchRequest(BaseModel):
+    domain_name: str
+    tlds: Optional[List[str]] = None
 
-@router.post("/check", response_model=DomainCheckResponse)
-async def check_domain_availability(
-    request: DomainCheckRequest,
+class DomainSearchResult(BaseModel):
+    domain: str
+    available: bool
+    price: Optional[float] = None
+    currency: str = "USD"
+    registrar: str
+    registration_period: int = 1
+
+class DomainSearchResponse(BaseModel):
+    results: List[DomainSearchResult]
+    search_term: str
+    total_found: int
+    available_count: int
+
+class DomainRegisterRequest(BaseModel):
+    domain_name: str
+    years: int = 1
+    registrant_info: Dict[str, str]
+
+class DomainInfoResponse(BaseModel):
+    domain: str
+    status: str
+    created_date: Optional[str] = None
+    expired_date: Optional[str] = None
+    auto_renew: bool
+    is_locked: bool
+    nameservers: List[str] = []
+    whois_guard: bool = False
+
+@router.post("/search", response_model=DomainSearchResponse)
+async def search_domains(
+    request: DomainSearchRequest,
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Check if a domain is available for registration"""
-    domain_service = DomainService()
-    
-    # Check if domain already exists in our database
-    result = await db.execute(
-        select(Domain).where(Domain.domain_name == request.domain_name)
-    )
-    existing_domain = result.scalars().first()
-    
-    if existing_domain:
-        return DomainCheckResponse(
-            domain_name=request.domain_name,
-            available=False,
-            price=None
+    """Search for domain availability and pricing"""
+    try:
+        # Initialize domain service
+        domain_service = DomainService()
+        
+        # Get TLDs to search
+        tlds = request.tlds or ['.com', '.net', '.org', '.io', '.co', '.dev']
+        
+        # Generate domain names to search
+        base_name = request.domain_name.lower().strip()
+        if not base_name:
+            raise HTTPException(status_code=400, detail="Domain name is required")
+        
+        # Remove TLD if user included it
+        if '.' in base_name:
+            base_name = base_name.split('.')[0]
+        
+        domains_to_search = [f"{base_name}{tld}" for tld in tlds]
+        
+        # Check availability using domain service
+        availability_results = {}
+        pricing_results = {}
+        
+        for domain in domains_to_search:
+            try:
+                # Check availability
+                is_available = await domain_service.check_availability(domain)
+                availability_results[domain] = is_available
+                
+                # Get pricing if available
+                if is_available:
+                    try:
+                        price_info = await domain_service.get_domain_price(domain)
+                        pricing_results[domain] = price_info.get('price', 0.0)
+                    except:
+                        pricing_results[domain] = 0.0
+                else:
+                    pricing_results[domain] = 0.0
+                    
+            except Exception as e:
+                print(f"Error checking domain {domain}: {str(e)}")
+                availability_results[domain] = False
+                pricing_results[domain] = 0.0
+        
+        # Build results
+        results = []
+        available_count = 0
+        
+        for domain in domains_to_search:
+            is_available = availability_results.get(domain, False)
+            price = pricing_results.get(domain, 0.0)
+            
+            if is_available:
+                available_count += 1
+            
+            results.append(DomainSearchResult(
+                domain=domain,
+                available=is_available,
+                price=price if is_available else None,
+                currency="USD",
+                registrar="namecheap",  # Default registrar
+                registration_period=1
+            ))
+        
+        return DomainSearchResponse(
+            results=results,
+            search_term=request.domain_name,
+            total_found=len(results),
+            available_count=available_count
         )
-    
-    # Check availability with registrar (mock for now)
-    is_available = await domain_service.check_availability(request.domain_name)
-    price = await domain_service.get_domain_price(request.domain_name) if is_available else None
-    
-    return DomainCheckResponse(
-        domain_name=request.domain_name,
-        available=is_available,
-        price=price
-    )
+        
+    except Exception as e:
+        print(f"Domain search error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Domain search failed: {str(e)}")
 
+@router.get("/pricing/{domain_name}")
+async def get_domain_pricing(
+    domain_name: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get detailed pricing for a specific domain"""
+    try:
+        domain_service = DomainService()
+        pricing = await domain_service.get_domain_price(domain_name)
+        
+        return {
+            "domain": domain_name,
+            "pricing": pricing,
+            "currency": "USD"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get pricing: {str(e)}")
 
-@router.post("/register", response_model=DomainResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register")
 async def register_domain(
     request: DomainRegisterRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Register a new domain"""
-    domain_service = DomainService()
-    
-    # Check if domain already exists
-    result = await db.execute(
-        select(Domain).where(Domain.domain_name == request.domain_name)
-    )
-    existing_domain = result.scalars().first()
-    
-    if existing_domain:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Domain already registered"
-        )
-    
-    # Check if user has license quota available
-    if request.license_id:
+    """Register a domain (placeholder - requires real API integration)"""
+    try:
+        # This would integrate with actual domain registrar APIs
+        # For now, return a mock response
+        
+        return {
+            "success": True,
+            "domain": request.domain_name,
+            "order_id": f"DOM-{int(datetime.now().timestamp())}",
+            "message": "Domain registration initiated (mock response)",
+            "status": "pending"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Domain registration failed: {str(e)}")
+
+@router.get("/my-domains", response_model=List[DomainInfoResponse])
+async def get_my_domains(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get user's registered domains"""
+    try:
         result = await db.execute(
-            select(License).where(
-                and_(
-                    License.id == request.license_id,
-                    License.user_id == user_id
-                )
-            )
+            select(Domain).where(Domain.user_id == user_id)
         )
-        license = result.scalars().first()
+        domains = result.scalars().all()
         
-        if not license:
-            raise HTTPException(status_code=404, detail="License not found")
+        domain_info = []
+        for domain in domains:
+            domain_info.append(DomainInfoResponse(
+                domain=domain.domain_name,
+                status=domain.status.value,
+                created_date=domain.registration_date.isoformat() if domain.registration_date else None,
+                expired_date=domain.expiry_date.isoformat() if domain.expiry_date else None,
+                auto_renew=domain.auto_renew,
+                is_locked=False,  # Would need to fetch from registrar
+                nameservers=domain.nameservers or [],
+                whois_guard=False  # Would need to fetch from registrar
+            ))
         
-        if license.current_domains >= license.max_domains:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Domain quota exceeded"
-            )
-    
-    # Register domain with registrar (mock for now)
-    registration_result = await domain_service.register_domain(
-        domain_name=request.domain_name,
-        years=request.years,
-        nameservers=request.nameservers,
-        contact_info=request.contact_info
-    )
-    
-    # Create domain record
-    new_domain = Domain(
-        user_id=user_id,
-        license_id=request.license_id,
-        domain_name=request.domain_name,
-        registrar=registration_result.get("registrar", "namecheap"),
-        registrar_domain_id=registration_result.get("domain_id"),
-        registration_date=datetime.utcnow(),
-        expiry_date=datetime.utcnow() + timedelta(days=365 * request.years),
-        auto_renew=request.auto_renew,
-        nameservers=request.nameservers,
-        status=DomainStatus.ACTIVE
-    )
-    
-    db.add(new_domain)
-    
-    # Update license quota if applicable
-    if request.license_id and license:
-        license.current_domains += 1
-    
-    await db.commit()
-    await db.refresh(new_domain)
-    
-    return new_domain
+        return domain_info
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get domains: {str(e)}")
 
-
-@router.get("/", response_model=List[DomainResponse])
-async def list_domains(
+@router.get("/info/{domain_name}")
+async def get_domain_info(
+    domain_name: str,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """List user's domains"""
-    result = await db.execute(
-        select(Domain).where(Domain.user_id == user_id).order_by(Domain.created_at.desc())
-    )
-    domains = result.scalars().all()
-    return domains
+    """Get detailed information about a domain"""
+    try:
+        domain_service = DomainService()
+        info = await domain_service.get_domain_info(domain_name)
+        
+        return info
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get domain info: {str(e)}")
 
-
-@router.get("/{domain_id}", response_model=DomainResponse)
-async def get_domain(
-    domain_id: str,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get domain details"""
-    result = await db.execute(
-        select(Domain).where(
-            and_(
-                Domain.id == domain_id,
-                Domain.user_id == user_id
-            )
-        )
-    )
-    domain = result.scalars().first()
-    
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    
-    return domain
-
-
-@router.post("/{domain_id}/renew", response_model=DomainResponse)
-async def renew_domain(
-    domain_id: str,
-    request: DomainRenewRequest,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """Renew a domain"""
-    result = await db.execute(
-        select(Domain).where(
-            and_(
-                Domain.id == domain_id,
-                Domain.user_id == user_id
-            )
-        )
-    )
-    domain = result.scalars().first()
-    
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    
-    # Renew domain with registrar
-    domain_service = DomainService()
-    renewal_result = await domain_service.renew_domain(
-        domain_name=domain.domain_name,
-        years=request.years
-    )
-    
-    # Update expiry date
-    if domain.expiry_date:
-        domain.expiry_date = domain.expiry_date + timedelta(days=365 * request.years)
-    else:
-        domain.expiry_date = datetime.utcnow() + timedelta(days=365 * request.years)
-    
-    domain.status = DomainStatus.ACTIVE
-    
-    await db.commit()
-    await db.refresh(domain)
-    
-    return domain
-
-
-@router.post("/{domain_id}/transfer", response_model=DomainResponse)
-async def transfer_domain(
-    domain_id: str,
-    request: DomainTransferRequest,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """Initiate domain transfer"""
-    result = await db.execute(
-        select(Domain).where(
-            and_(
-                Domain.id == domain_id,
-                Domain.user_id == user_id
-            )
-        )
-    )
-    domain = result.scalars().first()
-    
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    
-    # Initiate transfer with registrar
-    domain_service = DomainService()
-    transfer_result = await domain_service.transfer_domain(
-        domain_name=domain.domain_name,
-        auth_code=request.auth_code
-    )
-    
-    domain.status = DomainStatus.PENDING
-    
-    await db.commit()
-    await db.refresh(domain)
-    
-    return domain
-
-
-@router.put("/{domain_id}/nameservers", response_model=DomainResponse)
+@router.post("/nameservers/{domain_name}")
 async def update_nameservers(
-    domain_id: str,
-    request: DomainUpdateNameserversRequest,
+    domain_name: str,
+    nameservers: List[str],
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Update domain nameservers"""
-    result = await db.execute(
-        select(Domain).where(
-            and_(
-                Domain.id == domain_id,
-                Domain.user_id == user_id
-            )
-        )
-    )
-    domain = result.scalars().first()
-    
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    
-    # Update nameservers with registrar
-    domain_service = DomainService()
-    update_result = await domain_service.update_nameservers(
-        domain_name=domain.domain_name,
-        nameservers=request.nameservers
-    )
-    
-    domain.nameservers = request.nameservers
-    
-    await db.commit()
-    await db.refresh(domain)
-    
-    return domain
+    try:
+        if len(nameservers) < 2:
+            raise HTTPException(status_code=400, detail="At least 2 nameservers required")
+        
+        domain_service = DomainService()
+        result = await domain_service.update_nameservers(domain_name, nameservers)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update nameservers: {str(e)}")
 
-
-@router.delete("/{domain_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_domain(
-    domain_id: str,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
+@router.get("/suggestions")
+async def get_domain_suggestions(
+    query: str = Query(..., description="Base domain name"),
+    limit: int = Query(10, description="Number of suggestions"),
+    user_id: str = Depends(get_current_user_id)
 ):
-    """Delete domain (marks as cancelled)"""
-    result = await db.execute(
-        select(Domain).where(
-            and_(
-                Domain.id == domain_id,
-                Domain.user_id == user_id
-            )
-        )
-    )
-    domain = result.scalars().first()
-    
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    
-    # Update license quota
-    if domain.license_id:
-        result = await db.execute(
-            select(License).where(License.id == domain.license_id)
-        )
-        license = result.scalars().first()
-        if license and license.current_domains > 0:
-            license.current_domains -= 1
-    
-    # Mark as expired/cancelled instead of hard delete
-    domain.status = DomainStatus.EXPIRED
-    domain.auto_renew = False
-    
-    await db.commit()
-    
-    return None
-
+    """Get domain name suggestions"""
+    try:
+        if not query or len(query) < 2:
+            return {"suggestions": []}
+        
+        base_name = query.lower().strip()
+        
+        # Common TLDs for suggestions
+        common_tlds = ['.com', '.net', '.org', '.io', '.co', '.dev', '.app', '.tech', '.online']
+        
+        # Generate suggestions
+        suggestions = []
+        for tld in common_tlds[:limit]:
+            suggestions.append({
+                "domain": f"{base_name}{tld}",
+                "tld": tld,
+                "base_name": base_name
+            })
+        
+        return {"suggestions": suggestions}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get suggestions: {str(e)}")

@@ -16,33 +16,21 @@ interface Customer {
 
 interface Order {
   id: string;
+  customer_id: string;
+  status: string;
   invoice_number?: string;
   order_number?: string;
-  customer_id?: string;
-  customer?: Customer;
-  status: string;
-  subtotal: number;
-  discount_amount: number;
-  discount_percent?: number;
-  tax: number;
-  tax_rate?: number;
-  total: number;
-  amount_paid: number;
-  amount_due: number;
-  currency: string;
-  invoice_date?: string;
-  order_date?: string;
-  due_date: string;
-  paid_at: string | null;
   items: any[];
-  notes: string | null;
-  terms?: string | null;
-  payment_instructions?: string | null;
-  is_recurring: boolean;
-  recurring_interval?: string | null;
-  sent_to_customer: boolean;
-  reminder_count?: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  payment_method?: string;
+  billing_info?: any;
+  billing_period?: string;
+  due_date?: string;
   created_at: string;
+  updated_at?: string;
+  customer?: Customer;
 }
 
 interface OrderStats {
@@ -156,7 +144,7 @@ export default function OrdersPage() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `order-${order.invoice_number}.pdf`);
+      link.setAttribute('download', `order-${order.invoice_number || order.id}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -429,13 +417,13 @@ export default function OrdersPage() {
                       {order.invoice_number || order.order_number || order.id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(order.invoice_date || order.order_date || order.created_at)}
+                      {formatDate(order.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(order.due_date)}
+                      {formatDate(order.due_date || '')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.currency} ${order.total.toFixed(2)}
+                      ${order.total.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
@@ -474,7 +462,7 @@ export default function OrdersPage() {
                             </svg>
                           </button>
                         )}
-                        {!order.sent_to_customer && order.status !== 'void' && order.status !== 'cancelled' && (
+                        {order.status !== 'void' && order.status !== 'cancelled' && (
                           <button
                             onClick={() => sendOrder(order)}
                             className="text-purple-600 hover:text-purple-900"

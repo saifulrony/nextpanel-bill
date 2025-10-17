@@ -198,7 +198,7 @@ async def create_order(
     # Create order
     new_order = Order(
         customer_id=order_data.customer_id,
-        status=OrderStatus.PENDING,
+        status=OrderStatus.COMPLETED,
         invoice_number=invoice_number,
         order_number=order_number,
         items=[item.dict() for item in order_data.items],

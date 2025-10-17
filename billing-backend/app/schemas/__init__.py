@@ -733,3 +733,19 @@ from app.schemas.page import (
     PageResponse
 )
 
+# Import Domain Provider schemas
+from app.schemas.domain_providers import (
+    DomainProviderCreate,
+    DomainProviderUpdate,
+    DomainProviderResponse,
+    DomainProviderTestRequest,
+    DomainProviderTestResponse,
+    NamecheapConfig,
+    ResellerClubConfig,
+    GoDaddyConfig,
+    CloudflareConfig,
+    GoogleDomainsConfig,
+    NamecomConfig,
+    EnomConfig
+)
+

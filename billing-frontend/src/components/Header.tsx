@@ -328,6 +328,7 @@ export default function Header({ headerDesign, settings }: HeaderProps) {
               <h1 className="text-2xl font-bold text-gray-900 cursor-pointer">NextPanel</h1>
               <nav className="hidden md:flex space-x-6">
                 <a href="/" className="text-gray-600 hover:text-gray-900 font-medium">Home</a>
+                <a href="/domains" className="text-gray-600 hover:text-gray-900 font-medium">Domains</a>
                 <a href="/shop" className="text-indigo-600 hover:text-indigo-700 font-medium">Shop</a>
                 <a href="/#pricing" className="text-gray-600 hover:text-gray-900 font-medium">Pricing</a>
               </nav>

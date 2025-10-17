@@ -117,27 +117,6 @@ export const licensesAPI = {
     api.post('/licenses/validate', { license_key, feature }),
 };
 
-// Domains API
-export const domainsAPI = {
-  check: (domain_name: string) =>
-    api.post('/domains/check', { domain_name }),
-  
-  register: (data: any) =>
-    api.post('/domains/register', data),
-  
-  list: () =>
-    api.get('/domains'),
-  
-  get: (id: string) =>
-    api.get(`/domains/${id}`),
-  
-  renew: (id: string, years: number) =>
-    api.post(`/domains/${id}/renew`, { years }),
-  
-  updateNameservers: (id: string, nameservers: string[]) =>
-    api.put(`/domains/${id}/nameservers`, { nameservers }),
-};
-
 // Payments API
 export const paymentsAPI = {
   createIntent: (data: any) =>
@@ -489,6 +468,63 @@ export const settingsAPI = {
   
   initialize: () =>
     api.post('/settings/initialize'),
+};
+
+// Domains API
+export const domainsAPI = {
+  search: (data: any) =>
+    api.post('/domains/search', data),
+  
+  getPricing: (domainName: string) =>
+    api.get(`/domains/pricing/${domainName}`),
+  
+  register: (data: any) =>
+    api.post('/domains/register', data),
+  
+  list: () =>
+    api.get('/domains/my-domains'),
+  
+  getMyDomains: () =>
+    api.get('/domains/my-domains'),
+  
+  getDomainInfo: (domainName: string) =>
+    api.get(`/domains/info/${domainName}`),
+  
+  updateNameservers: (domainName: string, nameservers: string[]) =>
+    api.post(`/domains/nameservers/${domainName}`, nameservers),
+  
+  getSuggestions: (query: string, limit?: number) =>
+    api.get('/domains/suggestions', { params: { query, limit } }),
+};
+
+// Domain Providers API
+export const domainProvidersAPI = {
+  list: () =>
+    api.get('/domain-providers'),
+
+  get: (id: string) =>
+    api.get(`/domain-providers/${id}`),
+
+  create: (data: any) =>
+    api.post('/domain-providers', data),
+
+  update: (id: string, data: any) =>
+    api.put(`/domain-providers/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete(`/domain-providers/${id}`),
+
+  test: (id: string, data: any) =>
+    api.post(`/domain-providers/${id}/test`, data),
+
+  activate: (id: string) =>
+    api.post(`/domain-providers/${id}/activate`),
+
+  deactivate: (id: string) =>
+    api.post(`/domain-providers/${id}/deactivate`),
+
+  getTypes: () =>
+    api.get('/domain-providers/types/available'),
 };
 
 export default api;

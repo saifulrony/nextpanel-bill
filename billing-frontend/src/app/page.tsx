@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ShoppingCartIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { ShoppingCartIcon, CheckIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { DynamicHomepage } from '@/components/page-builder/DynamicHomepage';
 import Header from '@/components/Header';
+import { domainsAPI } from '@/lib/api';
 import axios from 'axios';
 
 interface FeaturedProduct {
@@ -50,6 +51,9 @@ export default function Home() {
   const [hasCustomHomepage, setHasCustomHomepage] = useState<boolean | null>(null);
   const [checkingHomepage, setCheckingHomepage] = useState(true);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
+  const [domainSearchResults, setDomainSearchResults] = useState<any[]>([]);
+  const [showDomainResults, setShowDomainResults] = useState(false);
+  const [domainSearchError, setDomainSearchError] = useState<string | null>(null);
   // Note: Chatbot widget removed from homepage to support true modularity
   // The chatbot functionality is now available at /support/chats when the plugin is installed
 
@@ -356,14 +360,29 @@ export default function Home() {
     }, 500);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
-    const fullDomain = searchQuery.includes('.') ? searchQuery : `${searchQuery}${selectedTld}`;
-    // Redirect to domain registration page (we'll create this later)
-    window.location.href = `/dashboard/domains?search=${encodeURIComponent(fullDomain)}`;
+    setDomainSearchError(null);
+    setShowDomainResults(false);
+    
+    try {
+      const baseName = searchQuery.includes('.') ? searchQuery.split('.')[0] : searchQuery;
+      const response = await domainsAPI.search({
+        domain_name: baseName,
+        tlds: popularTlds.map(tld => tld.extension)
+      });
+      
+      setDomainSearchResults(response.data.results);
+      setShowDomainResults(true);
+    } catch (error: any) {
+      console.error('Domain search error:', error);
+      setDomainSearchError('Failed to search domains. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // Show loading state while checking for custom homepage
@@ -470,6 +489,95 @@ export default function Home() {
               </div>
             </form>
           </div>
+
+          {/* Domain Search Results */}
+          {domainSearchError && (
+            <div className="mt-6 max-w-4xl mx-auto">
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+                <div className="flex">
+                  <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  {domainSearchError}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showDomainResults && domainSearchResults.length > 0 && (
+            <div className="mt-8 max-w-4xl mx-auto">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Search Results for "{searchQuery}"
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {domainSearchResults.filter(r => r.available).length} available domains found
+                  </p>
+                </div>
+                
+                <div className="divide-y divide-gray-200">
+                  {domainSearchResults.map((result) => (
+                    <div key={result.domain} className="px-6 py-4 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0">
+                            {result.available ? (
+                              <CheckIcon className="h-6 w-6 text-green-500" />
+                            ) : (
+                              <XMarkIcon className="h-6 w-6 text-red-500" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-lg font-semibold text-gray-900">
+                              {result.domain}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {result.available ? 'Available' : 'Not Available'} • {result.registrar}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4">
+                          {result.available && result.price ? (
+                            <>
+                              <div className="text-right">
+                                <div className="text-lg font-semibold text-gray-900">
+                                  ${result.price.toFixed(2)}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  per {result.registration_period} year{result.registration_period > 1 ? 's' : ''}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => router.push(`/domains?register=${result.domain}`)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                              >
+                                Register
+                              </button>
+                            </>
+                          ) : (
+                            <div className="text-sm text-gray-500">
+                              {result.available ? 'Contact for pricing' : 'Taken'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                  <button
+                    onClick={() => router.push('/domains')}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    View all domains →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-10">
             <a

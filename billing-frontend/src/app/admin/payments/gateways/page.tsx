@@ -12,6 +12,7 @@ import {
   PauseIcon,
   ChartBarIcon,
   WrenchScrewdriverIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
@@ -133,15 +134,47 @@ export default function PaymentGatewaysPage() {
   const handleTest = async (id: string) => {
     try {
       setTestingGateway(id);
-      const response = await paymentGatewaysAPI.test(id);
+      const response = await paymentGatewaysAPI.test(id, {
+        gateway_id: id,
+        test_amount: 1.00,
+        test_currency: 'USD'
+      });
       if (response.data.success) {
         alert('Gateway test successful!');
+        // Refresh the gateway list to show updated status
+        await loadGateways();
       } else {
         alert(`Gateway test failed: ${response.data.message}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Gateway test failed:', error);
-      alert('Gateway test failed. Please check the configuration.');
+      
+      // Handle different error response formats
+      let errorMessage = 'Gateway test failed. Please check the configuration.';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        if (Array.isArray(errorData)) {
+          errorMessage = errorData.map((err: any) => 
+            err.msg || err.message || 'Validation error'
+          ).join(', ');
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.msg) {
+          errorMessage = errorData.msg;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
+      // Refresh the gateway list even on error to show current state
+      await loadGateways();
     } finally {
       setTestingGateway(null);
     }
@@ -383,6 +416,14 @@ export default function PaymentGatewaysPage() {
                               <PlayIcon className="h-4 w-4" />
                             </button>
                           )}
+                          
+                          <button
+                            onClick={() => window.open(`/admin/payments/gateways/${gateway.id}/edit`, '_blank')}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Edit Gateway"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
                           
                           <button
                             onClick={() => handleDelete(gateway.id, gateway.display_name)}

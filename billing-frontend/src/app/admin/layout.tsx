@@ -43,7 +43,15 @@ const navigation = [
   { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
   { name: 'Licenses', href: '/admin/licenses', icon: KeyIcon },
-  { name: 'Domains', href: '/admin/domains', icon: GlobeAltIcon },
+  { 
+    name: 'Domains', 
+    href: '/admin/domains', 
+    icon: GlobeAltIcon,
+    children: [
+      { name: 'Domain Search', href: '/admin/domains', icon: MagnifyingGlassIcon },
+      { name: 'Domain Providers', href: '/admin/domain-providers', icon: Cog6ToothIcon },
+    ]
+  },
   { name: 'Subscriptions', href: '/admin/subscriptions', icon: CubeIcon },
   { 
     name: 'Payments', 
