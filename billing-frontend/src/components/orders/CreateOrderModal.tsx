@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ordersAPI, plansAPI } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { XMarkIcon, PlusIcon, TrashIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
 
 interface LineItem {
@@ -29,6 +30,7 @@ interface CreateOrderModalProps {
 }
 
 export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModalProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -161,13 +163,12 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
 
       // Prepare order data
       const orderData = {
-        customer_id: 'temp', // This needs to be selected from a customer list
+        customer_id: user?.id || 'temp', // Use current user's ID or fallback to temp
         items: validItems.map(item => ({
-          description: item.description,
+          product_id: item.product_id || 'custom',
+          product_name: item.description, // Backend expects product_name, not description
           quantity: item.quantity,
-          amount: item.unit_price,
-          unit_price: item.unit_price,
-          product_id: item.product_id,
+          price: item.unit_price, // Backend expects price, not unit_price
         })),
         subtotal,
         tax,
@@ -177,12 +178,47 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
         billing_period: billingPeriod,
       };
 
-      await ordersAPI.create(orderData);
+      console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
+      const result = await ordersAPI.create(orderData);
+      console.log('Order created successfully:', result);
       alert('Order created successfully!');
       onSuccess();
     } catch (error: any) {
       console.error('Failed to create order:', error);
-      alert(error.response?.data?.detail || 'Failed to create order');
+      
+      // Handle different error response formats
+      let errorMessage = 'Failed to create order';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        // Handle validation errors (array of error objects)
+        if (Array.isArray(errorData)) {
+          errorMessage = errorData.map((err: any) => 
+            err.msg || err.message || 'Validation error'
+          ).join(', ');
+        }
+        // Handle single error object
+        else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+        // Handle error with message
+        else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+        // Handle error with msg
+        else if (errorData.msg) {
+          errorMessage = errorData.msg;
+        }
+        // Handle other error formats
+        else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }

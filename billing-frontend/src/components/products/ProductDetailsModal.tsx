@@ -132,7 +132,7 @@ export default function ProductDetailsModal({ product, onClose, onEdit }: Produc
                       Monthly Price
                     </dt>
                     <dd className="text-3xl font-bold text-indigo-600">
-                      ${product.price_monthly}
+                      ${product.price_monthly?.toFixed(2) || '0.00'}
                       <span className="text-sm font-normal text-gray-500">/month</span>
                     </dd>
                   </div>
@@ -142,11 +142,11 @@ export default function ProductDetailsModal({ product, onClose, onEdit }: Produc
                       Yearly Price
                     </dt>
                     <dd className="text-3xl font-bold text-green-600">
-                      ${product.price_yearly}
+                      ${product.price_yearly?.toFixed(2) || '0.00'}
                       <span className="text-sm font-normal text-gray-500">/year</span>
                     </dd>
                     <dd className="mt-1 text-xs text-green-600">
-                      Save ${(product.price_monthly * 12 - product.price_yearly).toFixed(2)} per year
+                      Save ${((product.price_monthly || 0) * 12 - (product.price_yearly || 0)).toFixed(2)} per year
                     </dd>
                   </div>
                 </div>

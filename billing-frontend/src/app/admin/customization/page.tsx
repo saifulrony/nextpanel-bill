@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   PhotoIcon,
   SwatchIcon,
@@ -115,6 +116,8 @@ interface HeaderTemplate {
 
 export default function CustomizationPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'header' | 'sidebar' | 'footer' | 'fonts' | 'colors' | 'layout' | 'theme' | 'custom' | 'default-pages'>('header');
   const [selectedDevice, setSelectedDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -194,6 +197,26 @@ export default function CustomizationPage() {
   });
 
   const [savedThemes, setSavedThemes] = useState<Array<{ name: string; settings: CustomizationSettings }>>([]);
+
+  // Authentication check
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+  }, [isAuthenticated, router]);
+
+  // Show loading or redirect if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Header Templates Data
   const headerTemplates: HeaderTemplate[] = [

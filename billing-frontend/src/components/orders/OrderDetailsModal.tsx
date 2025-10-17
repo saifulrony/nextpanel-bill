@@ -206,7 +206,32 @@ NextPanel Team
       alert('Order sent successfully! (Offline mode - check console for details)');
       onUpdate();
     } catch (error: any) {
-      alert(error.response?.data?.detail || 'Failed to send order');
+      console.error('Failed to send order:', error);
+      
+      // Handle different error response formats
+      let errorMessage = 'Failed to send order';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        if (Array.isArray(errorData)) {
+          errorMessage = errorData.map((err: any) => 
+            err.msg || err.message || 'Validation error'
+          ).join(', ');
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.msg) {
+          errorMessage = errorData.msg;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     } finally {
       setSendingEmail(false);
     }
@@ -255,7 +280,30 @@ NextPanel Team
         alert('Authentication failed. Please login again.');
         // Don't redirect here, let the interceptor handle it
       } else {
-        alert(error.response?.data?.detail || error.message || 'Failed to update order');
+        // Handle different error response formats
+        let errorMessage = 'Failed to update order';
+        
+        if (error.response?.data) {
+          const errorData = error.response.data;
+          
+          if (Array.isArray(errorData)) {
+            errorMessage = errorData.map((err: any) => 
+              err.msg || err.message || 'Validation error'
+            ).join(', ');
+          } else if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.msg) {
+            errorMessage = errorData.msg;
+          } else if (typeof errorData === 'string') {
+            errorMessage = errorData;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        alert(errorMessage);
       }
     } finally {
       setSaving(false);

@@ -548,13 +548,13 @@ export default function ProductsPage() {
                   <div className="mt-4 flex items-baseline space-x-4">
                     <div>
                       <span className="text-2xl font-bold text-gray-900">
-                        ${product.price_monthly}
+                        ${product.price_monthly?.toFixed(2) || '0.00'}
                       </span>
                       <span className="text-sm text-gray-500">/mo</span>
                     </div>
                     <div>
                       <span className="text-lg font-semibold text-gray-700">
-                        ${product.price_yearly}
+                        ${product.price_yearly?.toFixed(2) || '0.00'}
                       </span>
                       <span className="text-sm text-gray-500">/yr</span>
                     </div>
