@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4000 -H 0.0.0.0",
+    "dev": "next dev -p 4000 -H 0.0.0.0 --turbo",
+    "dev:fast": "next dev -p 4000 -H 0.0.0.0 --turbo --experimental-https",
     "build": "next build",
     "start": "next start -p 4000 -H 0.0.0.0",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean": "rm -rf .next && rm -rf node_modules/.cache",
+    "dev:clean": "npm run clean && npm run dev"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -385,6 +385,26 @@ export default function Home() {
     }
   };
 
+  const handleAddDomainToCart = (domain: string, price: number) => {
+    const domainItem = {
+      id: `domain-${domain}`,
+      name: domain,
+      description: `Domain registration for ${domain}`,
+      price: price,
+      billing_cycle: 'yearly',
+      category: 'domain',
+      type: 'domain' as const,
+      domain_name: domain,
+      quantity: 1
+    };
+    
+    addItem(domainItem);
+  };
+
+  const isDomainInCart = (domain: string) => {
+    return items.some(item => item.domain_name === domain);
+  };
+
   // Show loading state while checking for custom homepage
   if (checkingHomepage) {
     return (
@@ -539,7 +559,7 @@ export default function Home() {
                         </div>
                         
                         <div className="flex items-center space-x-4">
-                          {result.available && result.price ? (
+                          {result.available && result.price && result.price > 0 ? (
                             <>
                               <div className="text-right">
                                 <div className="text-lg font-semibold text-gray-900">
@@ -549,12 +569,31 @@ export default function Home() {
                                   per {result.registration_period} year{result.registration_period > 1 ? 's' : ''}
                                 </div>
                               </div>
-                              <button
-                                onClick={() => router.push(`/domains?register=${result.domain}`)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                              >
-                                Register
-                              </button>
+                              <div className="flex space-x-2">
+                                {isDomainInCart(result.domain) ? (
+                                  <button
+                                    disabled
+                                    className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed flex items-center space-x-2"
+                                  >
+                                    <CheckIcon className="h-4 w-4" />
+                                    <span>In Cart</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleAddDomainToCart(result.domain, result.price)}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center space-x-2"
+                                  >
+                                    <ShoppingCartIcon className="h-4 w-4" />
+                                    <span>Add to Cart</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => router.push(`/domains?register=${result.domain}`)}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                >
+                                  Register Now
+                                </button>
+                              </div>
                             </>
                           ) : (
                             <div className="text-sm text-gray-500">
@@ -573,6 +612,28 @@ export default function Home() {
                     className="text-blue-600 hover:text-blue-700 font-medium"
                   >
                     View all domains →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cart Indicator */}
+          {items.length > 0 && (
+            <div className="mt-6 max-w-4xl mx-auto">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <ShoppingCartIcon className="h-5 w-5 text-green-600" />
+                    <span className="text-green-800 font-medium">
+                      {items.length} item{items.length > 1 ? 's' : ''} in cart
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => router.push('/checkout')}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                  >
+                    View Cart
                   </button>
                 </div>
               </div>

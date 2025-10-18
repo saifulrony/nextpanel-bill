@@ -257,9 +257,9 @@ if ! npm install --silent; then
     exit 1
 fi
 
-# Start frontend in background
-print_status "Starting frontend server..."
-if ! nohup npm run dev -- -p 4000 -H 0.0.0.0 > ../frontend.log 2>&1 & then
+# Start frontend in background with hot reloading
+print_status "Starting frontend server with hot reloading..."
+if ! nohup npm run dev > ../frontend.log 2>&1 & then
     print_error "Failed to start frontend server!"
     echo "Press any key to continue or Ctrl+C to exit..."
     read -n 1 -s

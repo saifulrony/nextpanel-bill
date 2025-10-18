@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { 
+  MagnifyingGlassIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  ShoppingCartIcon,
+  HeartIcon,
+  LightBulbIcon,
+  FireIcon,
+  StarIcon,
+  BoltIcon
+} from '@heroicons/react/24/outline';
 import { useCart } from '@/contexts/CartContext';
 
 // Global cache for products to prevent multiple API calls
@@ -9,12 +19,30 @@ let productsCache: any[] | null = null;
 let productsCacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Domain Search Component (Matches Homepage Design)
+// Domain Search Component (Namecheap-style with tabs)
 export function DomainSearchComponent({ style }: { style?: React.CSSProperties }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTld, setSelectedTld] = useState('.com');
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'results' | 'generator' | 'auctions' | 'premium' | 'beast' | 'favorites'>('results');
+  const [beastMode, setBeastMode] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [generatedDomains, setGeneratedDomains] = useState<any[]>([]);
+  const cartContext = useCart();
+  
+  // Only access cart context after component is mounted (client-side)
+  const { addItem, items } = mounted && cartContext ? cartContext : { addItem: () => {}, items: [] };
+  
+  useEffect(() => {
+    setMounted(true);
+    // Load favorites from localStorage
+    const savedFavorites = localStorage.getItem('domain_favorites');
+    if (savedFavorites) {
+      setFavorites(JSON.parse(savedFavorites));
+    }
+  }, []);
 
   const popularTlds = [
     { extension: '.com', price: '$8.99/yr' },
@@ -23,6 +51,24 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
     { extension: '.io', price: '$34.99/yr' },
     { extension: '.dev', price: '$14.99/yr' },
     { extension: '.app', price: '$17.99/yr' },
+    { extension: '.xyz', price: '$1.99/yr' },
+    { extension: '.store', price: '$4.99/yr' },
+    { extension: '.online', price: '$0.99/yr' },
+    { extension: '.tech', price: '$6.99/yr' },
+    { extension: '.co', price: '$29.99/yr' },
+    { extension: '.me', price: '$19.99/yr' },
+    { extension: '.pro', price: '$12.99/yr' },
+    { extension: '.biz', price: '$15.99/yr' },
+    { extension: '.info', price: '$13.99/yr' },
+    { extension: '.name', price: '$9.99/yr' },
+    { extension: '.us', price: '$7.99/yr' },
+    { extension: '.ca', price: '$11.99/yr' },
+    { extension: '.uk', price: '$8.99/yr' },
+    { extension: '.de', price: '$9.99/yr' },
+    { extension: '.fr', price: '$10.99/yr' },
+    { extension: '.es', price: '$9.99/yr' },
+    { extension: '.it', price: '$10.99/yr' },
+    { extension: '.nl', price: '$9.99/yr' },
   ];
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -62,7 +108,8 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
           domain: firstResult.domain,
           price: firstResult.price,
           currency: firstResult.currency,
-          registrar: firstResult.registrar
+          registrar: firstResult.registrar,
+          registration_period: firstResult.registration_period || 1
         });
       } else {
         setResult({ 
@@ -83,93 +130,497 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
     }
   };
 
+  const handleAddDomainToCart = (domain: string, price: number) => {
+    const domainItem = {
+      id: `domain-${domain}`,
+      name: domain,
+      description: `Domain registration for ${domain}`,
+      price: price,
+      billing_cycle: 'yearly',
+      category: 'domain',
+      type: 'domain' as const,
+      domain_name: domain,
+      quantity: 1
+    };
+    
+    addItem(domainItem);
+  };
+
+  const isDomainInCart = (domain: string) => {
+    return items.some(item => item.domain_name === domain);
+  };
+
+  const toggleFavorite = (domain: string) => {
+    const newFavorites = favorites.includes(domain)
+      ? favorites.filter(f => f !== domain)
+      : [...favorites, domain];
+    setFavorites(newFavorites);
+    localStorage.setItem('domain_favorites', JSON.stringify(newFavorites));
+  };
+
+  const handleDomainGenerator = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    
+    try {
+      // Generate domain suggestions based on search term
+      const suggestions: any[] = [];
+      const baseWord = searchQuery.toLowerCase();
+      const categories = ['Technology', 'Business', 'Creative', 'Personal', 'E-commerce'];
+      const keywords = ['app', 'tech', 'digital', 'online', 'web', 'cloud', 'data', 'smart', 'pro', 'hub'];
+      
+      // Generate variations
+      for (const category of categories.slice(0, 3)) {
+        for (const keyword of keywords.slice(0, 3)) {
+          const variations = [
+            `${baseWord}${keyword}.com`,
+            `${baseWord}${keyword}.net`,
+            `${baseWord}${keyword}.io`,
+            `${keyword}${baseWord}.com`,
+            `${baseWord}${category.toLowerCase()}.com`,
+            `${baseWord}pro.com`,
+            `${baseWord}hub.com`,
+            `${baseWord}app.com`,
+            `${baseWord}tech.com`,
+            `${baseWord}digital.com`
+          ];
+          
+          for (const domain of variations) {
+            if (suggestions.length >= 12) break;
+            
+            // Mock availability and pricing
+            const isAvailable = Math.random() > 0.7;
+            const price = isAvailable ? Math.random() * 50 + 10 : undefined;
+            const score = Math.random() * 100;
+            
+            suggestions.push({
+              domain,
+              available: isAvailable,
+              price,
+              category,
+              score
+            });
+          }
+        }
+      }
+      
+      // Sort by score and availability
+      suggestions.sort((a, b) => {
+        if (a.available && !b.available) return -1;
+        if (!a.available && b.available) return 1;
+        return b.score - a.score;
+      });
+      
+      setGeneratedDomains(suggestions.slice(0, 12));
+    } catch (error) {
+      console.error('Domain generation error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8" style={style}>
       <div className="max-w-4xl mx-auto">
-        <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+        {/* Simple Domain Search Form */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">🚀 Find Your Perfect Domain - Hot Reloading Test 2!</h2>
+            <p className="text-gray-600">Search for available domain names and register them instantly</p>
+          </div>
+          
+          <form onSubmit={handleSearch} className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Enter your domain name..."
+                  className="block w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 transition-all"
+                />
               </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for your domain name..."
-                className="block w-full pl-11 pr-3 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 transition-all"
-              />
+              <select
+                value={selectedTld}
+                onChange={(e) => setSelectedTld(e.target.value)}
+                className="px-4 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all min-w-[120px]"
+              >
+                {popularTlds.map((tld) => (
+                  <option key={tld.extension} value={tld.extension}>
+                    {tld.extension}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={isSearching || !searchQuery.trim()}
+                className="px-8 py-4 text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isSearching ? 'Searching...' : 'Search'}
+              </button>
             </div>
-            <select
-              value={selectedTld}
-              onChange={(e) => setSelectedTld(e.target.value)}
-              className="px-4 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              {popularTlds.map((tld) => (
-                <option key={tld.extension} value={tld.extension}>
-                  {tld.extension}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={isSearching || !searchQuery.trim()}
-              className="px-8 py-4 text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {isSearching ? 'Searching...' : 'Search'}
-            </button>
-          </div>
 
-          {/* Popular TLDs */}
-          <div className="mt-6">
-            <p className="text-sm text-gray-600 mb-3">Popular extensions:</p>
-            <div className="flex flex-wrap gap-2">
-              {popularTlds.map((tld) => (
-                <button
-                  key={tld.extension}
-                  type="button"
-                  onClick={() => setSelectedTld(tld.extension)}
-                  className={`px-3 py-1 text-sm rounded-full border transition-all ${
-                    selectedTld === tld.extension
-                      ? 'bg-blue-100 border-blue-300 text-blue-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  {tld.extension} - {tld.price}
-                </button>
-              ))}
+            {/* Tabs Navigation */}
+            <div className="mt-6">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  {[
+                    { id: 'results', name: 'Results', icon: MagnifyingGlassIcon },
+                    { id: 'generator', name: 'Generator', icon: LightBulbIcon },
+                    { id: 'auctions', name: 'Auctions', icon: FireIcon },
+                    { id: 'premium', name: 'Premium', icon: StarIcon },
+                    { id: 'beast', name: 'Beast Mode', icon: BoltIcon },
+                    { id: 'favorites', name: `Favorites (${favorites.length})`, icon: HeartIcon }
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={`${
+                          activeTab === tab.id
+                            ? 'border-indigo-500 text-indigo-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.name}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
             </div>
-          </div>
 
-          {/* Search Results */}
-          {result && (
-            <div className="mt-8 p-6 bg-gray-50 rounded-xl border">
-              {result.available ? (
+            {/* Tab Content */}
+            {activeTab === 'results' && (
+              <div className="mt-6">
+                {result ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-lg font-medium text-gray-900">
+                          {result.domain}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {result.available ? 'Available' : 'Taken'}
+                        </div>
+                        {result.price && result.price > 0 && (
+                          <div className="text-sm font-semibold text-gray-900">
+                            ${result.price.toFixed(2)}/yr
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => toggleFavorite(result.domain)}
+                          className={`p-2 rounded-lg ${
+                            favorites.includes(result.domain)
+                              ? 'text-red-500 bg-red-50'
+                              : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                          }`}
+                        >
+                          <HeartIcon className="h-4 w-4" />
+                        </button>
+                        {result.available && result.price && result.price > 0 && mounted && (
+                          <button
+                            onClick={() => handleAddDomainToCart(result.domain, result.price)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                          >
+                            Add to Cart
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <MagnifyingGlassIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-lg text-gray-600">No search results yet</p>
+                    <p className="text-gray-500 mt-2">Enter a domain name and click search to see results.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Generator Tab */}
+            {activeTab === 'generator' && (
+              <div className="mt-6">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <LightBulbIcon className="h-5 w-5 mr-2 text-blue-500" />
+                    Domain Generator
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Enter a keyword and we'll generate creative domain suggestions for you.
+                  </p>
+                  
+                  <div className="flex space-x-4">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Enter a keyword (e.g., 'tech', 'business', 'creative')"
+                    />
+                    <button
+                      onClick={handleDomainGenerator}
+                      disabled={isSearching || !searchQuery.trim()}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSearching ? 'Generating...' : 'Generate'}
+                    </button>
+                  </div>
+
+                  {generatedDomains.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-md font-semibold text-gray-900 mb-4">Generated Suggestions</h4>
+                      <div className="space-y-2">
+                        {generatedDomains.map((domain) => (
+                          <div key={domain.domain} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div className="flex items-center space-x-4">
+                              <div className="text-lg font-medium text-gray-900">
+                                {domain.domain}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {domain.available ? 'Available' : 'Taken'}
+                              </div>
+                              {domain.price && (
+                                <div className="text-sm font-semibold text-gray-900">
+                                  ${domain.price.toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => toggleFavorite(domain.domain)}
+                                className={`p-2 rounded-lg ${
+                                  favorites.includes(domain.domain)
+                                    ? 'text-red-500 bg-red-50'
+                                    : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                                }`}
+                              >
+                                <HeartIcon className="h-4 w-4" />
+                              </button>
+                              {domain.available && domain.price && (
+                                <button
+                                  onClick={() => handleAddDomainToCart(domain.domain, domain.price)}
+                                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+                                >
+                                  Add to Cart
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Auctions Tab */}
+            {activeTab === 'auctions' && (
+              <div className="mt-6">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FireIcon className="h-5 w-5 mr-2 text-orange-500" />
+                    Domain Auctions
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">Bid on expiring domains and grab a great deal!</p>
+                  
+                  <div className="text-center py-8">
+                    <FireIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-lg text-gray-600">No active auctions</p>
+                    <p className="text-gray-500 mt-2">Check back later for domain auction listings.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Premium Tab */}
+            {activeTab === 'premium' && (
+              <div className="mt-6">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <StarIcon className="h-5 w-5 mr-2 text-yellow-500" />
+                    Premium Domains
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">Discover high-value, memorable domains for your brand.</p>
+                  
+                  <div className="text-center py-8">
+                    <StarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-lg text-gray-600">No premium domains available</p>
+                    <p className="text-gray-500 mt-2">Check back later for premium domain listings.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Beast Mode Tab */}
+            {activeTab === 'beast' && (
+              <div className="mt-6">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <BoltIcon className="h-5 w-5 mr-2 text-yellow-500" />
+                    Beast Mode
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">Search across all available TLDs for maximum domain discovery.</p>
+                  
+                  <div className="flex items-center space-x-2 mb-4">
+                    <input
+                      type="checkbox"
+                      id="beastMode"
+                      checked={beastMode}
+                      onChange={(e) => setBeastMode(e.target.checked)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="beastMode" className="text-sm font-medium text-gray-700">
+                      Enable Beast Mode - Search all TLDs
+                    </label>
+                  </div>
+                  
+                  {beastMode && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="text-sm text-yellow-800">
+                        Beast Mode is enabled! This will search across all available TLDs when you perform a domain search.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Favorites Tab */}
+            {activeTab === 'favorites' && (
+              <div className="mt-6">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <HeartIcon className="h-5 w-5 mr-2 text-red-500" />
+                    My Favorites ({favorites.length})
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">Domains you've marked as favorites for quick access.</p>
+                  
+                  {favorites.length === 0 ? (
+                    <div className="text-center py-8">
+                      <HeartIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-lg text-gray-600">No favorites yet!</p>
+                      <p className="text-gray-500 mt-2">Start searching for domains and click the heart icon to add them here.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {favorites.map((domain) => (
+                        <div key={domain} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-lg font-medium text-gray-900">
+                              {domain}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Favorited
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => toggleFavorite(domain)}
+                              className="p-2 rounded-lg text-red-500 bg-red-50 hover:bg-red-100"
+                            >
+                              <HeartIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                // Use a default price for favorites since we don't have pricing data
+                                const price = 12.99; // Default price
+                                handleAddDomainToCart(domain, price);
+                              }}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                            >
+                              Add to Cart
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {/* Search Results */}
+        {result && (
+          <div className="mt-8 bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            {result.available ? (
+              <div className="space-y-4">
                 <div className="flex items-center space-x-3 text-green-600">
                   <CheckCircleIcon className="h-6 w-6" />
                   <div>
-                    <p className="font-semibold">Domain Available!</p>
-                    <p className="text-sm text-gray-600">
-                      {searchQuery}{selectedTld} is available for registration
+                    <p className="text-xl font-semibold">Domain Available!</p>
+                    <p className="text-gray-600">
+                      {result.domain} is available for registration
                     </p>
                   </div>
                 </div>
-              ) : (
-                <div className="flex items-center space-x-3 text-red-600">
-                  <XCircleIcon className="h-6 w-6" />
-                  <div>
-                    <p className="font-semibold">Domain Not Available</p>
-                    <p className="text-sm text-gray-600">
-                      {result.error || 'This domain is already registered'}
-                    </p>
+                
+                {result.price && result.price > 0 && (
+                  <div className="flex items-center justify-between bg-gray-50 p-6 rounded-lg border">
+                    <div>
+                      <div className="text-2xl font-bold text-gray-900">
+                        ${result.price.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        per {result.registration_period} year{result.registration_period > 1 ? 's' : ''}
+                      </div>
+                    </div>
+                    {mounted && (
+                      <div className="flex space-x-3">
+                        {isDomainInCart(result.domain) ? (
+                          <button
+                            disabled
+                            className="px-6 py-3 bg-gray-400 text-white rounded-lg cursor-not-allowed flex items-center space-x-2"
+                          >
+                            <CheckCircleIcon className="h-5 w-5" />
+                            <span>In Cart</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleAddDomainToCart(result.domain, result.price)}
+                            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center space-x-2"
+                          >
+                            <ShoppingCartIcon className="h-5 w-5" />
+                            <span>Add to Cart</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
+                )}
+                
+                {(!result.price || result.price <= 0) && (
+                  <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg border">
+                    Contact for pricing
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3 text-gray-600">
+                <XCircleIcon className="h-6 w-6" />
+                <div>
+                  <p className="text-xl font-semibold">Domain Taken</p>
+                  <p className="text-gray-600">
+                    {result.domain} is already registered
+                  </p>
                 </div>
-              )}
-            </div>
-          )}
-        </form>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

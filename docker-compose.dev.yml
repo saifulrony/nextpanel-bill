@@ -4,27 +4,90 @@ version: '3.8'
 services:
   backend:
     build:
+      context: ./billing-backend
+      dockerfile: Dockerfile
       target: development
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       ENV: development
       DEBUG: "true"
       LOG_LEVEL: DEBUG
+      DATABASE_URL: sqlite+aiosqlite:///./billing.db
+      REDIS_URL: redis://redis:6379/0
+      CORS_ALLOWED_HOSTS: 192.168.10.203
     volumes:
       - ./billing-backend:/app
       - backend_logs:/app/logs
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - billing-network
 
   frontend:
     build:
+      context: ./billing-frontend
+      dockerfile: Dockerfile
       target: development
     command: npm run dev
     environment:
       NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: 1
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      NEXT_PUBLIC_API_URL: http://192.168.10.203:8001
     volumes:
       - ./billing-frontend:/app
       - /app/node_modules
       - /app/.next
+    ports:
+      - "4000:4000"
+    depends_on:
+      - backend
+    networks:
+      - billing-network
+    stdin_open: true
+    tty: true
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: billing-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: billing
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - billing-network
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: billing-redis-dev
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - billing-network
 
   # Mailhog for email testing
   mailhog:
@@ -61,4 +124,16 @@ services:
       - billing-network
     depends_on:
       - redis
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_logs:
+    driver: local
+
+networks:
+  billing-network:
+    driver: bridge
 
