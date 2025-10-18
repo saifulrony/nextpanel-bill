@@ -107,4 +107,4 @@ billing-backend/alembic/__pycache__/
 billing-backend/alembic/versions/__pycache__/
 
 # Git backup directories
-.git_backup*
+.git_backup*.git_corrupted_*

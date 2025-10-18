@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Domain Features Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .feature-section { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .feature-title { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .search-form { margin: 15px 0; }
+        .search-form input, .search-form button { padding: 10px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        .search-form button { background: #007bff; color: white; cursor: pointer; }
+        .search-form button:hover { background: #0056b3; }
+        .results { margin-top: 15px; }
+        .domain-item { background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 4px; border-left: 4px solid #007bff; }
+        .domain-name { font-weight: bold; color: #333; }
+        .domain-price { color: #28a745; font-weight: bold; }
+        .domain-status { color: #6c757d; font-size: 0.9em; }
+        .loading { color: #007bff; font-style: italic; }
+        .error { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 4px; }
+        .success { color: #155724; background: #d4edda; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Enhanced Domain Features Test</h1>
+        <p>Test the new domain search features: Auctions, Premium Domains, Generator, and Beast Mode!</p>
+        
+        <!-- Auction Domains -->
+        <div class="feature-section">
+            <h2 class="feature-title">🏆 Auction Domains</h2>
+            <div class="search-form">
+                <input type="text" id="auction-keyword" placeholder="Enter keyword (e.g., 'example')" value="example">
+                <button onclick="searchAuctions()">Search Auctions</button>
+            </div>
+            <div id="auction-results" class="results"></div>
+        </div>
+
+        <!-- Premium Domains -->
+        <div class="feature-section">
+            <h2 class="feature-title">💎 Premium Domains</h2>
+            <div class="search-form">
+                <input type="text" id="premium-keyword" placeholder="Enter keyword (e.g., 'test')" value="test">
+                <button onclick="searchPremium()">Search Premium</button>
+            </div>
+            <div id="premium-results" class="results"></div>
+        </div>
+
+        <!-- Domain Generator -->
+        <div class="feature-section">
+            <h2 class="feature-title">🎯 Domain Generator</h2>
+            <div class="search-form">
+                <input type="text" id="generator-keyword" placeholder="Enter keyword (e.g., 'myapp')" value="myapp">
+                <button onclick="generateSuggestions()">Generate Suggestions</button>
+            </div>
+            <div id="generator-results" class="results"></div>
+        </div>
+
+        <!-- Beast Mode (Bulk Search) -->
+        <div class="feature-section">
+            <h2 class="feature-title">⚡ Beast Mode - Bulk Search</h2>
+            <div class="search-form">
+                <input type="text" id="bulk-keywords" placeholder="Enter keywords separated by commas (e.g., 'test,example')" value="test,example">
+                <button onclick="bulkSearch()">Bulk Search</button>
+            </div>
+            <div id="bulk-results" class="results"></div>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="feature-section">
+            <h2 class="feature-title">🛒 Domain Cart</h2>
+            <div id="cart-items" class="results">
+                <p>No domains in cart yet. Add domains from the search results above!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://192.168.10.203:8001/api/v1';
+        const AUTH_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMTkxNjJjYi0zOTI4LTRkMjQtOGYzMC1kMTc5NzIyMzQ5ODIiLCJpc19hZG1pbiI6ZmFsc2UsImV4cCI6MTc2MDc3NjQ5NCwidHlwZSI6ImFjY2VzcyJ9.xatnF8-AtF8LdFIan-6s4O9oyoYOVeI9cwXWl2WHowY';
+        
+        let cart = [];
+
+        async function searchAuctions() {
+            const keyword = document.getElementById('auction-keyword').value;
+            const resultsDiv = document.getElementById('auction-results');
+            
+            resultsDiv.innerHTML = '<div class="loading">Searching auction domains...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/domains/enhanced/auctions/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ keyword, page: 1, page_size: 10 })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const domains = data.data.domains;
+                    let html = '<div class="success">Found ' + domains.length + ' auction domains!</div>';
+                    
+                    domains.forEach(domain => {
+                        html += `
+                            <div class="domain-item">
+                                <div class="domain-name">${domain.domain}</div>
+                                <div class="domain-price">Current Bid: $${domain.current_bid}</div>
+                                <div class="domain-status">
+                                    Time Left: ${domain.time_left} | Bids: ${domain.bids} | Type: ${domain.auction_type}
+                                    ${domain.premium ? ' | ⭐ Premium' : ''}
+                                </div>
+                                <button onclick="addToCart('${domain.domain}', 'auction', ${domain.current_bid})" style="margin-top: 5px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Add to Cart</button>
+                            </div>
+                        `;
+                    });
+                    
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">Error: ' + (data.message || 'Unknown error') + '</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="error">Error: ' + error.message + '</div>';
+            }
+        }
+
+        async function searchPremium() {
+            const keyword = document.getElementById('premium-keyword').value;
+            const resultsDiv = document.getElementById('premium-results');
+            
+            resultsDiv.innerHTML = '<div class="loading">Searching premium domains...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/domains/enhanced/premium/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ keyword, tlds: ['.com', '.net', '.org'] })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const domains = data.data.domains;
+                    let html = '<div class="success">Found ' + domains.length + ' premium domains!</div>';
+                    
+                    domains.forEach(domain => {
+                        html += `
+                            <div class="domain-item">
+                                <div class="domain-name">${domain.domain}</div>
+                                <div class="domain-price">Price: $${domain.price} ${domain.currency}</div>
+                                <div class="domain-status">
+                                    Type: ${domain.premium_type} | ${domain.description}
+                                </div>
+                                <button onclick="addToCart('${domain.domain}', 'premium', ${domain.price})" style="margin-top: 5px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Add to Cart</button>
+                            </div>
+                        `;
+                    });
+                    
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">Error: ' + (data.message || 'Unknown error') + '</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="error">Error: ' + error.message + '</div>';
+            }
+        }
+
+        async function generateSuggestions() {
+            const keyword = document.getElementById('generator-keyword').value;
+            const resultsDiv = document.getElementById('generator-results');
+            
+            resultsDiv.innerHTML = '<div class="loading">Generating domain suggestions...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/domains/enhanced/suggestions/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ keyword, count: 10 })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const suggestions = data.data.suggestions;
+                    let html = '<div class="success">Generated ' + suggestions.length + ' domain suggestions!</div>';
+                    
+                    suggestions.forEach(suggestion => {
+                        const status = suggestion.available ? 'Available' : 'Taken';
+                        const statusClass = suggestion.available ? 'success' : 'error';
+                        html += `
+                            <div class="domain-item">
+                                <div class="domain-name">${suggestion.domain}</div>
+                                <div class="domain-price">Price: $${suggestion.price}</div>
+                                <div class="domain-status ${statusClass}">
+                                    Status: ${status} | TLD: ${suggestion.tld} | Variation: ${suggestion.variation}
+                                </div>
+                                ${suggestion.available ? `<button onclick="addToCart('${suggestion.domain}', 'regular', ${suggestion.price})" style="margin-top: 5px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Add to Cart</button>` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">Error: ' + (data.message || 'Unknown error') + '</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="error">Error: ' + error.message + '</div>';
+            }
+        }
+
+        async function bulkSearch() {
+            const keywordsInput = document.getElementById('bulk-keywords').value;
+            const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
+            const resultsDiv = document.getElementById('bulk-results');
+            
+            resultsDiv.innerHTML = '<div class="loading">Performing bulk domain search...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/domains/enhanced/bulk/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({ keywords, tlds: ['.com', '.net'] })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const result = data.data;
+                    let html = `
+                        <div class="success">
+                            Bulk search completed!<br>
+                            Total searched: ${result.total_searched}<br>
+                            Available: ${result.available_count}<br>
+                            Taken: ${result.taken_count}<br>
+                            Availability rate: ${result.availability_rate}%
+                        </div>
+                    `;
+                    
+                    if (result.available_domains.length > 0) {
+                        html += '<h4>Available Domains:</h4>';
+                        result.available_domains.forEach(domain => {
+                            html += `
+                                <div class="domain-item">
+                                    <div class="domain-name">${domain}</div>
+                                    <button onclick="addToCart('${domain}', 'regular', 12.99)" style="margin-top: 5px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Add to Cart</button>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    if (result.taken_domains.length > 0) {
+                        html += '<h4>Taken Domains:</h4>';
+                        result.taken_domains.forEach(domain => {
+                            html += `<div class="domain-item"><div class="domain-name">${domain}</div><div class="domain-status error">Not Available</div></div>`;
+                        });
+                    }
+                    
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">Error: ' + (data.message || 'Unknown error') + '</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="error">Error: ' + error.message + '</div>';
+            }
+        }
+
+        function addToCart(domain, type, price) {
+            cart.push({ domain, type, price });
+            updateCartDisplay();
+            alert(`Added ${domain} to cart!`);
+        }
+
+        function updateCartDisplay() {
+            const cartDiv = document.getElementById('cart-items');
+            
+            if (cart.length === 0) {
+                cartDiv.innerHTML = '<p>No domains in cart yet. Add domains from the search results above!</p>';
+                return;
+            }
+            
+            let html = '<h4>Cart Items (' + cart.length + '):</h4>';
+            let total = 0;
+            
+            cart.forEach((item, index) => {
+                total += item.price;
+                html += `
+                    <div class="domain-item">
+                        <div class="domain-name">${item.domain}</div>
+                        <div class="domain-price">$${item.price} (${item.type})</div>
+                        <button onclick="removeFromCart(${index})" style="margin-top: 5px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
+                    </div>
+                `;
+            });
+            
+            html += `<div style="margin-top: 15px; padding: 10px; background: #e9ecef; border-radius: 4px;"><strong>Total: $${total.toFixed(2)}</strong></div>`;
+            
+            cartDiv.innerHTML = html;
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCartDisplay();
+        }
+
+        // Initialize cart display
+        updateCartDisplay();
+    </script>
+</body>
+</html>

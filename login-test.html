@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login to Access Domain Features</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        .login-title { text-align: center; color: #333; margin-bottom: 30px; font-size: 24px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; box-sizing: border-box; }
+        .login-btn { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: background 0.3s; }
+        .login-btn:hover { background: #0056b3; }
+        .login-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .message { margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .features-link { text-align: center; margin-top: 20px; }
+        .features-link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .features-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1 class="login-title">🔐 Login Required</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            Please login to access the enhanced domain features
+        </p>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="test@example.com" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="Test123!" required>
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginBtn">Login</button>
+        </form>
+        
+        <div id="message"></div>
+        
+        <div class="features-link">
+            <a href="test-domain-features.html" target="_blank">🚀 Test Domain Features (Direct API Test)</a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://192.168.10.203:8001/api/v1';
+        
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const messageDiv = document.getElementById('message');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            messageDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.access_token) {
+                    // Store token in localStorage
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('user_email', email);
+                    
+                    messageDiv.innerHTML = '<div class="success">✅ Login successful! Redirecting to domains page...</div>';
+                    
+                    // Redirect to domains page after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = 'http://192.168.10.203:4000/domains';
+                    }, 2000);
+                } else {
+                    messageDiv.innerHTML = '<div class="error">❌ Login failed: ' + (data.detail || 'Invalid credentials') + '</div>';
+                }
+            } catch (error) {
+                messageDiv.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        });
+        
+        // Check if already logged in
+        if (localStorage.getItem('access_token')) {
+            document.getElementById('message').innerHTML = '<div class="success">✅ Already logged in! <a href="http://192.168.10.203:4000/domains" style="color: #007bff;">Go to Domains Page</a></div>';
+        }
+    </script>
+</body>
+</html>
