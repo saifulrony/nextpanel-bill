@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
+import { useElements, CardElement } from '@stripe/react-stripe-js';
+import { useStripe } from '@/contexts/StripeContext';
 import { CreditCardIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 
 interface StripePaymentFormProps {
@@ -23,6 +24,33 @@ export default function StripePaymentForm({
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'succeeded' | 'failed'>('idle');
+
+  // Show loading state while Stripe is initializing
+  if (isStripeLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="ml-2 text-gray-600">Loading payment form...</span>
+      </div>
+    );
+  }
+
+  // Show error if Stripe is not configured
+  if (!isConfigured || !stripe) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-md">
+        <div className="flex items-center">
+          <XCircleIcon className="h-5 w-5 text-red-400 mr-2" />
+          <div>
+            <h3 className="text-sm font-medium text-red-800">Payment Not Available</h3>
+            <p className="text-sm text-red-600 mt-1">
+              Stripe payment is not configured. Please contact support or try a different payment method.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
 
   // No need for manual loading state - handled by context
@@ -232,7 +260,10 @@ export default function StripePaymentForm({
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mr-3"></div>
-          <span className="text-gray-600">Loading payment system...</span>
+          <span className="text-gray-600">Loading secure payment form...</span>
+        </div>
+        <div className="text-center text-sm text-gray-500 mt-2">
+          Stripe is initializing
         </div>
       </div>
     );
@@ -255,6 +286,19 @@ export default function StripePaymentForm({
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
             <p className="text-sm text-yellow-800">
               <strong>Admin:</strong> Go to <code className="bg-yellow-100 px-2 py-1 rounded">/admin/payments/gateways</code> to configure Stripe keys.
+            </p>
+          </div>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={disabled}
+              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Process Payment (Test Mode)
+            </button>
+            <p className="text-xs text-gray-500 mt-2">
+              This will process the payment without Stripe integration
             </p>
           </div>
         </div>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import { getDemoData } from '@/lib/demoData';
+import { BarChart } from '@mui/x-charts/BarChart';
 import {
   UserGroupIcon,
   ShoppingCartIcon,
@@ -19,7 +20,7 @@ import {
   DocumentTextIcon,
   CubeIcon,
 } from '@heroicons/react/24/outline';
-import { PieChart, BarChart, LineChart, Gauge, gaugeClasses } from '@mui/x-charts';
+import { LineChart, Gauge, gaugeClasses } from '@mui/x-charts';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -440,35 +441,42 @@ export default function DashboardPage() {
 
       {/* Charts Row 1: Customer & License Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Customer Distribution Pie Chart */}
+        {/* Customer Distribution Chart */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Distribution</h3>
-          <div className="h-64">
-            <PieChart
-              series={[
-                {
-                  data: customerDistributionData,
-                  innerRadius: 30,
-                  outerRadius: 80,
-                },
-              ]}
-              width={300}
-              height={200}
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            />
+          <div className="h-64 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-4xl font-bold text-indigo-600 mb-2">
+                {customerDistributionData.reduce((sum, item) => sum + item.value, 0)}
+              </div>
+              <div className="text-sm text-gray-500">Total Customers</div>
+              <div className="mt-4 space-y-1">
+                {customerDistributionData.map((item, index) => (
+                  <div key={index} className="flex justify-between text-sm">
+                    <span>{item.label}</span>
+                    <span className="font-medium">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* License Status Pie Chart */}
+        {/* License Status Chart */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">License Status</h3>
           <div className="h-64">
-            <PieChart
+            <BarChart
               series={[
                 {
-                  data: licenseStatusData,
-                  innerRadius: 30,
-                  outerRadius: 80,
+                  data: licenseStatusData.map(item => item.value),
+                  label: 'Licenses',
+                },
+              ]}
+              xAxis={[
+                {
+                  data: licenseStatusData.map(item => item.label),
+                  scaleType: 'band',
                 },
               ]}
               width={300}
@@ -478,16 +486,21 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Invoice Status Pie Chart */}
+        {/* Invoice Status Chart */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Status</h3>
           <div className="h-64">
-            <PieChart
+            <BarChart
               series={[
                 {
-                  data: invoiceStatusData,
-                  innerRadius: 30,
-                  outerRadius: 80,
+                  data: invoiceStatusData.map(item => item.value),
+                  label: 'Invoices',
+                },
+              ]}
+              xAxis={[
+                {
+                  data: invoiceStatusData.map(item => item.label),
+                  scaleType: 'band',
                 },
               ]}
               width={300}

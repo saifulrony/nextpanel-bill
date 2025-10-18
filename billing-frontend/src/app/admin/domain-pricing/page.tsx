@@ -87,6 +87,8 @@ export default function DomainPricingPage() {
 
       if (configResponse.data) {
         setConfig(configResponse.data);
+        // Set the markup value from the config
+        setMarkupValue(configResponse.data.default_markup_percentage || 20);
       }
 
       if (tldResponse.data && Array.isArray(tldResponse.data)) {
@@ -186,7 +188,15 @@ export default function DomainPricingPage() {
     }
 
     try {
+      // Update the configuration with new markup percentage
+      if (markupType === 'percentage') {
+        await domainPricingAPI.updateConfig({
+          default_markup_percentage: markupValue
+        });
+      }
+
       const newSellingPrices: {[tld: string]: number} = {};
+      const bulkUpdateData: any[] = [];
       
       tldPricing.forEach(tld => {
         let sellingPrice: number;
@@ -198,10 +208,27 @@ export default function DomainPricingPage() {
         }
         
         newSellingPrices[tld.tld] = sellingPrice;
+        
+        // Prepare data for bulk update
+        bulkUpdateData.push({
+          tld: tld.tld,
+          custom_price: sellingPrice,
+          wholesale_price: tld.wholesale_price,
+          markup_percentage: markupType === 'percentage' ? markupValue : null
+        });
+      });
+      
+      // Save the calculated selling prices as custom prices for each TLD
+      await domainPricingAPI.bulkUpdatePricing({
+        tld_prices: bulkUpdateData
       });
       
       setSellingPricesState(newSellingPrices);
-      toast.success(`Selling prices calculated for ${tldPricing.length} TLDs using ${markupType === 'percentage' ? `${markupValue}%` : `$${markupValue}`} markup`);
+      
+      // Reload the data to get updated prices from backend
+      await loadData();
+      
+      toast.success(`Selling prices calculated and saved for ${tldPricing.length} TLDs using ${markupType === 'percentage' ? `${markupValue}%` : `$${markupValue}`} markup`);
     } catch (error) {
       console.error('Error setting selling prices:', error);
       toast.error('Failed to set selling prices');

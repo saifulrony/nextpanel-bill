@@ -60,7 +60,7 @@ export default function ServerPage() {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.10.203:8001';
 
   useEffect(() => {
     fetchServers();

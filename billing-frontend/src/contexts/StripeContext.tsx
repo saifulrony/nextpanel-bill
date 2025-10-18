@@ -47,9 +47,17 @@ export function StripeProvider({ children }: StripeProviderProps) {
   
   // Memoize stripePromise to prevent infinite re-renders
   const stripePromise = useMemo(() => {
-    return publishableKey && publishableKey.startsWith('pk_') 
-      ? loadStripe(publishableKey)
-      : Promise.resolve(null);
+    if (!publishableKey || !publishableKey.startsWith('pk_')) {
+      return Promise.resolve(null);
+    }
+    
+    // Check if this is a dummy/invalid test key that won't work
+    if (publishableKey.includes('51234567890abcdef') || publishableKey === 'pk_test_dummy') {
+      console.warn('Using dummy Stripe key - Stripe will not work properly');
+      return Promise.resolve(null);
+    }
+    
+    return loadStripe(publishableKey);
   }, [publishableKey]);
 
   useEffect(() => {

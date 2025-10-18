@@ -10,14 +10,14 @@ const getApiUrl = () => {
   // Otherwise, detect from window location
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    const port = 8000; // Backend port
+    const port = 8001; // Backend port
     
     // Use the same hostname as the frontend
     return `http://${hostname}:${port}`;
   }
   
-  // Fallback for server-side rendering
-  return 'http://localhost:8000';
+  // Fallback for server-side rendering - use network IP if available
+  return 'http://192.168.10.203:8001';
 };
 
 const API_URL = getApiUrl();
@@ -528,6 +528,27 @@ export const domainProvidersAPI = {
 
   getTypes: () =>
     api.get('/domain-providers/types/available'),
+};
+
+// Domain Pricing API
+export const domainPricingAPI = {
+  getConfig: () =>
+    api.get('/domain-pricing/pricing/config'),
+  
+  updateConfig: (data: any) =>
+    api.put('/domain-pricing/pricing/config', data),
+  
+  getTLDPricing: () =>
+    api.get('/domain-pricing/pricing/tld-pricing'),
+  
+  updateTLDPricing: (id: string, data: any) =>
+    api.put(`/domain-pricing/pricing/tld-pricing/${id}`, data),
+  
+  autoFetchPrices: () =>
+    api.post('/domain-pricing/pricing/auto-fetch-prices'),
+  
+  bulkUpdatePricing: (data: any) =>
+    api.post('/domain-pricing/pricing/tld-pricing/bulk', data),
 };
 
 export default api;

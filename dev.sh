@@ -3,7 +3,25 @@
 # NextPanel Billing System - Development Mode Script
 # This script starts the full system in development mode
 
-set -e
+# Don't exit on error - handle errors gracefully instead
+# set -e  # Commented out to prevent editor from closing
+
+# Function to cleanup on exit
+cleanup() {
+    echo -e "\n\n🛑 Cleaning up..."
+    # Kill background processes if they exist
+    if [ ! -z "$BACKEND_PID" ]; then
+        kill $BACKEND_PID 2>/dev/null || true
+    fi
+    if [ ! -z "$FRONTEND_PID" ]; then
+        kill $FRONTEND_PID 2>/dev/null || true
+    fi
+    echo "✅ Cleanup complete. Press any key to exit..."
+    read -n 1 -s
+}
+
+# Set up signal handlers to prevent abrupt termination
+trap cleanup INT TERM EXIT
 
 echo "🚀 Starting NextPanel Billing System in Development Mode..."
 echo "=================================================="
@@ -35,6 +53,8 @@ print_error() {
 # Check if we're in the right directory
 if [ ! -f "docker-compose.yml" ]; then
     print_error "Please run this script from the project root directory"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
     exit 1
 fi
 
@@ -144,12 +164,16 @@ sleep 3
 # Check if backend directory exists
 if [ ! -d "billing-backend" ]; then
     print_error "Backend directory not found!"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
     exit 1
 fi
 
 # Check if frontend directory exists
 if [ ! -d "billing-frontend" ]; then
     print_error "Frontend directory not found!"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
     exit 1
 fi
 
@@ -160,18 +184,39 @@ cd billing-backend
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
     print_warning "Virtual environment not found, creating one..."
-    python3 -m venv venv
+    if ! python3 -m venv venv; then
+        print_error "Failed to create virtual environment!"
+        echo "Press any key to continue or Ctrl+C to exit..."
+        read -n 1 -s
+        exit 1
+    fi
 fi
 
 # Activate virtual environment
-source venv/bin/activate
+if ! source venv/bin/activate; then
+    print_error "Failed to activate virtual environment!"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
+    exit 1
+fi
 
 # Install/update dependencies
 print_status "Installing backend dependencies..."
-pip install -q -r requirements.txt
+if ! pip install -q -r requirements.txt; then
+    print_error "Failed to install backend dependencies!"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
+    exit 1
+fi
 
 # Start backend in background
-nohup uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload > ../backend.log 2>&1 &
+print_status "Starting backend server..."
+if ! nohup uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload > ../backend.log 2>&1 & then
+    print_error "Failed to start backend server!"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
+    exit 1
+fi
 BACKEND_PID=$!
 
 # Wait for backend to start
@@ -185,6 +230,8 @@ else
     print_error "Failed to start backend!"
     print_error "Check backend.log for details:"
     tail -10 ../backend.log
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
     exit 1
 fi
 
@@ -203,10 +250,21 @@ fi
 
 # Install/update dependencies
 print_status "Installing frontend dependencies..."
-npm install --silent
+if ! npm install --silent; then
+    print_error "Failed to install frontend dependencies!"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
+    exit 1
+fi
 
 # Start frontend in background
-nohup npm run dev -- -p 4000 -H 0.0.0.0 > ../frontend.log 2>&1 &
+print_status "Starting frontend server..."
+if ! nohup npm run dev -- -p 4000 -H 0.0.0.0 > ../frontend.log 2>&1 & then
+    print_error "Failed to start frontend server!"
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
+    exit 1
+fi
 FRONTEND_PID=$!
 
 # Wait for frontend to start
@@ -220,6 +278,8 @@ else
     print_error "Failed to start frontend!"
     print_error "Check frontend.log for details:"
     tail -10 ../frontend.log
+    echo "Press any key to continue or Ctrl+C to exit..."
+    read -n 1 -s
     exit 1
 fi
 
@@ -321,3 +381,11 @@ chmod +x stop-dev.sh
 ./check-dev-status.sh
 
 print_success "Development environment is ready! 🚀"
+echo ""
+echo "💡 Tips:"
+echo "   - The system will continue running in the background"
+echo "   - Use Ctrl+C to stop the system gracefully"
+echo "   - Check logs with: tail -f backend.log or tail -f frontend.log"
+echo ""
+echo "Press any key to exit this script (the system will keep running)..."
+read -n 1 -s

@@ -50,6 +50,7 @@ const navigation = [
     children: [
       { name: 'Domain Search', href: '/admin/domains', icon: MagnifyingGlassIcon },
       { name: 'Domain Providers', href: '/admin/domain-providers', icon: Cog6ToothIcon },
+      { name: 'Domain Pricing', href: '/admin/domain-pricing', icon: BanknotesIcon },
     ]
   },
   { name: 'Subscriptions', href: '/admin/subscriptions', icon: CubeIcon },
@@ -170,6 +171,7 @@ export default function DashboardLayout({
       { name: 'Order History', href: '/admin/orders', category: 'Quick Access' },
       { name: 'License Keys', href: '/admin/licenses', category: 'Quick Access' },
       { name: 'Domain Management', href: '/admin/domains', category: 'Quick Access' },
+      { name: 'Domain Pricing', href: '/admin/domain-pricing', category: 'Quick Access' },
       { name: 'Payment Settings', href: '/admin/payments/gateways', category: 'Quick Access' },
       { name: 'Analytics & Reports', href: '/admin/analytics', category: 'Quick Access' },
       { name: 'Support Tickets', href: '/admin/support', category: 'Quick Access' },

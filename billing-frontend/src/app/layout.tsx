@@ -6,6 +6,8 @@ import { CartProvider } from '@/contexts/CartContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { DefaultPageProvider } from '@/contexts/DefaultPageContext'
 import { StripeProvider } from '@/contexts/StripeContext'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -28,6 +30,18 @@ export default function RootLayout({
               <DefaultPageProvider>
                 <StripeProvider>
                   {children}
+                  <ToastContainer
+                    position="top-right"
+                    autoClose={5000}
+                    hideProgressBar={false}
+                    newestOnTop={false}
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                    theme="light"
+                  />
                 </StripeProvider>
               </DefaultPageProvider>
             </CartProvider>

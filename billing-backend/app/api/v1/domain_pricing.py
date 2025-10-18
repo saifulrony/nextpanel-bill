@@ -125,6 +125,39 @@ async def create_config(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.put("/config", response_model=ConfigResponse)
+async def update_active_config(
+    config_data: ConfigUpdate,
+    db: AsyncSession = Depends(get_db)
+    # Temporarily removed auth for testing
+    # current_user_id: str = Depends(get_current_user_id)
+):
+    """Update the active pricing configuration"""
+    pricing_service = DomainPricingService(db)
+    
+    try:
+        # Get the active config first
+        config = await pricing_service.get_active_config()
+        if not config:
+            raise HTTPException(status_code=404, detail="No active configuration found")
+        
+        # Update the active config
+        updated_config = await pricing_service.update_config(str(config.id), **config_data.dict(exclude_unset=True))
+        
+        return ConfigResponse(
+            id=str(updated_config.id),
+            name=updated_config.name,
+            description=updated_config.description,
+            default_markup_percentage=updated_config.default_markup_percentage,
+            is_active=updated_config.is_active,
+            created_at=updated_config.created_at.isoformat(),
+            updated_at=updated_config.updated_at.isoformat()
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.put("/config/{config_id}", response_model=ConfigResponse)
 async def update_config(
     config_id: str,

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { useRouter } from 'next/navigation';
-import { MagnifyingGlassIcon, CheckIcon, XMarkIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, CheckIcon, XMarkIcon, GlobeAltIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { domainsAPI } from '@/lib/api';
 import DomainRegistrationModal from '@/components/domains/DomainRegistrationModal';
 
@@ -25,6 +26,7 @@ interface DomainSearchResponse {
 
 export default function DomainsPage() {
   const { user, isAuthenticated } = useAuth();
+  const { addItem, items } = useCart();
   const router = useRouter();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,12 +115,53 @@ export default function DomainsPage() {
     console.log('Domain registration successful!');
   };
 
-  if (!isAuthenticated) {
+  const handleAddToCart = (domain: string, price: number) => {
+    const domainItem = {
+      id: `domain-${domain}`,
+      name: domain,
+      description: `Domain registration for ${domain}`,
+      price: price,
+      billing_cycle: 'yearly',
+      category: 'domain',
+      type: 'domain' as const,
+      domain_name: domain,
+      quantity: 1
+    };
+    
+    addItem(domainItem);
+  };
+
+  const isInCart = (domain: string) => {
+    return items.some(item => item.domain_name === domain);
+  };
+
+  // Show loading state while checking authentication
+  if (typeof window === 'undefined' || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecting to login...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="py-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">Domain Search</h1>
+                  <p className="mt-2 text-gray-600">
+                    Find and register the perfect domain for your project
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">
+                {typeof window === 'undefined' ? 'Loading...' : 'Redirecting to login...'}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -137,9 +180,23 @@ export default function DomainsPage() {
                   Find and register the perfect domain for your project
                 </p>
               </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <GlobeAltIcon className="h-5 w-5" />
-                <span>Powered by Namecheap</span>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <GlobeAltIcon className="h-5 w-5" />
+                  <span>Powered by Namecheap</span>
+                </div>
+                {items.length > 0 && (
+                  <div className="flex items-center space-x-2 text-sm text-indigo-600">
+                    <ShoppingCartIcon className="h-5 w-5" />
+                    <span>{items.length} item{items.length > 1 ? 's' : ''} in cart</span>
+                    <button
+                      onClick={() => router.push('/checkout')}
+                      className="px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-xs"
+                    >
+                      View Cart
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -257,7 +314,7 @@ export default function DomainsPage() {
                     </div>
                     
                     <div className="flex items-center space-x-4">
-                      {result.available && result.price ? (
+                      {result.available && result.price !== undefined && result.price > 0 ? (
                         <>
                           <div className="text-right">
                             <div className="text-lg font-semibold text-gray-900">
@@ -267,12 +324,31 @@ export default function DomainsPage() {
                               per {result.registration_period} year{result.registration_period > 1 ? 's' : ''}
                             </div>
                           </div>
-                          <button
-                            onClick={() => handleRegisterDomain(result.domain, result.price!)}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                          >
-                            Register
-                          </button>
+                          <div className="flex space-x-2">
+                            {isInCart(result.domain) ? (
+                              <button
+                                disabled
+                                className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed flex items-center space-x-2"
+                              >
+                                <CheckIcon className="h-4 w-4" />
+                                <span>In Cart</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleAddToCart(result.domain, result.price!)}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center space-x-2"
+                              >
+                                <ShoppingCartIcon className="h-4 w-4" />
+                                <span>Add to Cart</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleRegisterDomain(result.domain, result.price!)}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            >
+                              Register Now
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <div className="text-sm text-gray-500">

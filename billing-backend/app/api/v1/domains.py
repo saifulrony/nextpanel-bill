@@ -12,6 +12,7 @@ from app.core.security import get_current_user_id
 from app.models import Domain, User
 from app.services.domain_service import DomainService
 from app.services.namecheap_service import NamecheapService
+from app.services.domain_pricing_service import DomainPricingService
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/domains", tags=["domains"])
@@ -57,9 +58,10 @@ async def search_domains(
 ):
     """Search for domain availability and pricing"""
     try:
-        # Initialize domain service with database session
+        # Initialize services with database session
         domain_service = DomainService(db)
         await domain_service._initialize_services()
+        pricing_service = DomainPricingService(db)
         
         # Get TLDs to search
         tlds = request.tlds or ['.com', '.net', '.org', '.io', '.co', '.dev']
@@ -88,9 +90,12 @@ async def search_domains(
                 # Get pricing if available
                 if is_available:
                     try:
-                        price_info = await domain_service.get_domain_price(domain)
-                        pricing_results[domain] = price_info.get('price', 0.0)
-                    except:
+                        # Extract TLD from domain
+                        tld = '.' + domain.split('.')[-1]
+                        price = await pricing_service.calculate_domain_price(tld)
+                        pricing_results[domain] = price
+                    except Exception as e:
+                        print(f"Error calculating price for {domain}: {str(e)}")
                         pricing_results[domain] = 0.0
                 else:
                     pricing_results[domain] = 0.0
