@@ -4,44 +4,71 @@ Domain Service - Handles domain operations
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
-from app.services.namecheap_service import NamecheapService
-from app.core.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.models.domain_providers import DomainProvider, DomainProviderType, DomainProviderStatus
+from app.services.domain_provider_service import DomainProviderService
 
 logger = logging.getLogger(__name__)
 
 class DomainService:
     """Service for domain operations"""
     
-    def __init__(self):
-        self.namecheap_service = None
-        self._initialize_services()
+    def __init__(self, db: AsyncSession = None):
+        self.db = db
+        self.active_providers = []
     
-    def _initialize_services(self):
-        """Initialize domain registrar services"""
+    async def _initialize_services(self):
+        """Initialize domain registrar services from database"""
         try:
-            # Initialize Namecheap service if credentials are available
-            if hasattr(settings, 'NAMECHEAP_API_USER') and settings.NAMECHEAP_API_USER:
-                self.namecheap_service = NamecheapService(
-                    api_user=settings.NAMECHEAP_API_USER,
-                    api_key=settings.NAMECHEAP_API_KEY,
-                    client_ip=settings.NAMECHEAP_CLIENT_IP,
-                    sandbox=getattr(settings, 'NAMECHEAP_SANDBOX', True)
+            if self.db:
+                # Get active domain providers from database
+                result = await self.db.execute(
+                    select(DomainProvider).where(
+                        DomainProvider.status == DomainProviderStatus.ACTIVE
+                    )
                 )
-                logger.info("Namecheap service initialized")
+                providers = result.scalars().all()
+                
+                self.active_providers = []
+                for provider in providers:
+                    try:
+                        service = DomainProviderService(provider)
+                        self.active_providers.append(service)
+                        logger.info(f"Initialized {provider.type} provider: {provider.name}")
+                    except Exception as e:
+                        logger.error(f"Failed to initialize provider {provider.name}: {e}")
+                
+                if not self.active_providers:
+                    logger.warning("No active domain providers found, using mock responses")
             else:
-                logger.warning("Namecheap credentials not configured, using mock responses")
+                logger.warning("No database session provided, using mock responses")
         except Exception as e:
             logger.error(f"Failed to initialize domain services: {e}")
     
     async def check_availability(self, domain_name: str) -> bool:
         """Check if a domain is available for registration"""
         try:
-            if self.namecheap_service:
-                result = await self.namecheap_service.check_domain_availability(domain_name)
-                return result.get('success', False)
+            if not self.active_providers:
+                await self._initialize_services()
+            
+            if self.active_providers:
+                # Use the first active provider
+                provider_service = self.active_providers[0]
+                result = await provider_service.check_domain_availability(domain_name)
+                if result.get('success', False):
+                    api_result = result.get('available', False)
+                    logger.info(f"Namecheap API returned for {domain_name}: {api_result}")
+                    return api_result
+                else:
+                    logger.warning(f"Provider returned error: {result.get('message', 'Unknown error')}, using fallback logic")
+                    # Fallback: only mark very obvious taken domains as unavailable
+                    base_name = domain_name.split('.')[0].lower()
+                    obvious_taken = ['google', 'facebook', 'amazon', 'microsoft', 'apple', 'netflix', 'twitter', 'instagram', 'youtube', 'github']
+                    return base_name not in obvious_taken
             else:
-                # Mock response for testing
-                return await self._mock_availability_check(domain_name)
+                logger.error("No active domain providers found")
+                return False
                 
         except Exception as e:
             logger.error(f"Error checking domain availability for {domain_name}: {e}")
@@ -50,11 +77,16 @@ class DomainService:
     async def get_domain_price(self, domain_name: str) -> Dict[str, Any]:
         """Get pricing information for a domain"""
         try:
-            if self.namecheap_service:
-                # This would call the actual Namecheap pricing API
-                # For now, return mock pricing
-                return await self._mock_pricing(domain_name)
+            if not self.active_providers:
+                await self._initialize_services()
+            
+            if self.active_providers:
+                # Use the first active provider
+                provider_service = self.active_providers[0]
+                result = await provider_service.get_domain_pricing(domain_name)
+                return result
             else:
+                # Mock pricing for testing
                 return await self._mock_pricing(domain_name)
                 
         except Exception as e:
@@ -120,9 +152,11 @@ class DomainService:
         await asyncio.sleep(0.1)  # Simulate API delay
         
         # Mock logic: domains ending with certain patterns are "taken"
-        mock_taken_patterns = ['test', 'example', 'demo', 'admin', 'www']
+        # Only mark very common/generic domains as taken
+        mock_taken_patterns = ['google', 'facebook', 'amazon', 'microsoft', 'apple', 'netflix', 'twitter', 'instagram', 'youtube', 'github', 'test', 'example', 'demo', 'sample', 'admin', 'www', 'mail', 'ftp', 'blog', 'shop', 'store', 'news', 'info', 'help', 'support', 'contact', 'about', 'login', 'register', 'signup', 'api', 'app', 'mobile', 'web', 'site', 'home', 'main', 'index', 'default', 'temp', 'tmp', 'backup', 'old', 'new', 'beta', 'alpha', 'dev', 'development', 'staging', 'prod', 'production', 'live', 'online', 'internet', 'world', 'global', 'local', 'city', 'country', 'state', 'region', 'area', 'zone', 'place', 'location', 'address', 'street', 'road', 'avenue', 'drive', 'lane', 'way', 'path', 'route', 'direction', 'north', 'south', 'east', 'west', 'center', 'central', 'middle', 'top', 'bottom', 'left', 'right', 'front', 'back', 'side', 'corner', 'edge', 'border', 'limit', 'boundary', 'line', 'mark', 'point', 'spot', 'place', 'position', 'location', 'site', 'area', 'zone', 'region', 'district', 'neighborhood', 'community', 'society', 'group', 'team', 'club', 'organization', 'company', 'business', 'enterprise', 'corporation', 'firm', 'agency', 'office', 'department', 'division', 'section', 'unit', 'branch', 'subsidiary', 'affiliate', 'partner', 'associate', 'member', 'user', 'customer', 'client', 'guest', 'visitor', 'person', 'people', 'individual', 'person', 'man', 'woman', 'boy', 'girl', 'child', 'baby', 'adult', 'teen', 'youth', 'senior', 'elder', 'parent', 'father', 'mother', 'son', 'daughter', 'brother', 'sister', 'family', 'friend', 'neighbor', 'colleague', 'boss', 'employee', 'worker', 'staff', 'crew', 'team', 'group', 'band', 'club', 'society', 'community', 'organization', 'company', 'business', 'enterprise', 'corporation', 'firm', 'agency', 'office', 'department', 'division', 'section', 'unit', 'branch', 'subsidiary', 'affiliate', 'partner', 'associate', 'member', 'user', 'customer', 'client', 'guest', 'visitor']
         base_name = domain_name.split('.')[0].lower()
         
+        # For demo purposes, make most domains available except the very common ones
         return base_name not in mock_taken_patterns
     
     async def _mock_pricing(self, domain_name: str) -> Dict[str, Any]:

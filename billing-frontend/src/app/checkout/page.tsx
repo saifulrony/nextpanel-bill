@@ -7,19 +7,108 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDefaultPages } from '@/contexts/DefaultPageContext';
 import { TrashIcon, ShoppingBagIcon, ArrowLeftIcon, ShoppingCartIcon, CreditCardIcon } from '@heroicons/react/24/outline';
 import { DynamicPageRenderer } from '@/components/page-builder/DynamicPageRenderer';
+import { ordersAPI } from '@/lib/api';
+import { Elements } from '@stripe/react-stripe-js';
+import StripePaymentForm from '@/components/payments/StripePaymentForm';
+import { useStripe } from '@/contexts/StripeContext';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, removeItem, updateQuantity, getTotal, clearCart, getItemCount } = useCart();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { defaultPageConfig, isLoading: isLoadingConfig } = useDefaultPages();
+  const { stripePromise } = useStripe();
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'manual'>('stripe');
+  const [formData, setFormData] = useState({
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com',
+    phone: '+1-555-123-4567',
+    address: '123 Main Street',
+    city: 'New York',
+    state: 'NY',
+    zipCode: '12345',
+    country: 'US',
+    cardNumber: '4242424242424242',
+    expiryDate: '12/29',
+    cvv: '123',
+    nameOnCard: 'John Doe'
+  });
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  // Handle successful Stripe payment
+  const handleStripePaymentSuccess = async (paymentIntent: any) => {
+    try {
+      // Create order with Stripe payment info
+      const subtotal = getTotal();
+      const tax = 0;
+      const total = subtotal + tax;
+      
+      const orderData = {
+        customer_id: user!.id,
+        items: items.map(item => ({
+          product_id: item.id || 'custom',
+          product_name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        subtotal: subtotal,
+        tax: tax,
+        total: total,
+        payment_method: 'stripe',
+        billing_info: {
+          customer_name: `${formData.firstName} ${formData.lastName}`,
+          customer_email: formData.email,
+          customer_phone: formData.phone || null,
+          billing_address: {
+            street: formData.address,
+            city: formData.city,
+            state: formData.state,
+            zip_code: formData.zipCode,
+            country: formData.country
+          },
+          payment_notes: `Stripe payment: ${paymentIntent.id}`,
+          stripe_payment_intent_id: paymentIntent.id
+        },
+        billing_period: 'monthly'
+      };
+
+      console.log('Creating order with Stripe payment:', JSON.stringify(orderData, null, 2));
+      
+      // Create the order
+      const result = await ordersAPI.create(orderData);
+      console.log('Order created successfully:', result);
+      
+      // Clear the cart
+      clearCart();
+      
+      // Redirect to success page
+      router.push('/order-success');
+      
+    } catch (error: any) {
+      console.error('Failed to create order after Stripe payment:', error);
+      alert('Payment successful but failed to create order. Please contact support.');
+    }
+  };
+
+  // Handle Stripe payment error
+  const handleStripePaymentError = (error: string) => {
+    console.error('Stripe payment error:', error);
+    alert(`Payment failed: ${error}`);
+  };
 
   // Check if a custom checkout page is configured
   const customCheckoutPage = defaultPageConfig?.checkout;
 
-  // Show loading while checking for custom page configuration
-  if (isLoadingConfig) {
+  // Show loading while checking for custom page configuration or authentication
+  if (isLoadingConfig || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -30,6 +119,11 @@ export default function CheckoutPage() {
     );
   }
 
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   // If custom checkout page is configured, render it
   if (customCheckoutPage) {
     console.log('Rendering custom checkout page:', customCheckoutPage);
@@ -38,21 +132,6 @@ export default function CheckoutPage() {
 
   // Default checkout page component
   function DefaultCheckoutPage() {
-    const [formData, setFormData] = useState({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      address: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: 'US',
-      cardNumber: '',
-      expiryDate: '',
-      cvv: '',
-      nameOnCard: ''
-    });
     const [isProcessing, setIsProcessing] = useState(false);
 
     const formatPrice = (price: number) => {
@@ -74,11 +153,80 @@ export default function CheckoutPage() {
       e.preventDefault();
       setIsProcessing(true);
       
-      // Simulate payment processing
-      setTimeout(() => {
-        setIsProcessing(false);
+      try {
+        // Check if user is authenticated
+        if (!isAuthenticated || !user) {
+          alert('Please log in to complete your order');
+          router.push('/login');
+          return;
+        }
+
+        // Create order data
+        const subtotal = getTotal();
+        const tax = 0; // No tax for now
+        const total = subtotal + tax;
+        
+        const orderData = {
+          customer_id: user.id,
+          items: items.map(item => ({
+            product_id: item.id || 'custom',
+            product_name: item.name,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          subtotal: subtotal,
+          tax: tax,
+          total: total,
+          payment_method: 'credit_card',
+          billing_info: {
+            customer_name: `${formData.firstName} ${formData.lastName}`,
+            customer_email: formData.email,
+            customer_phone: formData.phone || null,
+            billing_address: {
+              street: formData.address,
+              city: formData.city,
+              state: formData.state,
+              zip_code: formData.zipCode,
+              country: formData.country
+            },
+            payment_notes: `Order placed via checkout page. Card ending in ${formData.cardNumber.slice(-4)}`
+          },
+          billing_period: 'monthly' // Default to monthly
+        };
+
+        console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
+        
+        // Create the order
+        const result = await ordersAPI.create(orderData);
+        console.log('Order created successfully:', result);
+        
+        // Clear the cart
+        clearCart();
+        
+        // Redirect to success page
         router.push('/order-success');
-      }, 2000);
+        
+      } catch (error: any) {
+        console.error('Failed to create order:', error);
+        
+        // Parse error message
+        let errorMessage = 'Failed to create order. Please try again.';
+        if (error.response?.data?.detail) {
+          if (typeof error.response.data.detail === 'string') {
+            errorMessage = error.response.data.detail;
+          } else if (Array.isArray(error.response.data.detail)) {
+            errorMessage = error.response.data.detail.map((err: any) => err.msg || err.message || err).join(', ');
+          } else if (error.response.data.detail.message) {
+            errorMessage = error.response.data.detail.message;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        alert(`Error: ${errorMessage}`);
+      } finally {
+        setIsProcessing(false);
+      }
     };
 
     return (
@@ -273,81 +421,65 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Payment Information */}
+                {/* Payment Method Selection */}
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-semibold mb-4 flex items-center">
                     <CreditCardIcon className="h-5 w-5 mr-2" />
-                    Payment Information
+                    Payment Method
                   </h3>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Card Number *
-                    </label>
-                    <input
-                      type="text"
-                      name="cardNumber"
-                      value={formData.cardNumber}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="1234 5678 9012 3456"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Expiry Date *
-                      </label>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
                       <input
-                        type="text"
-                        name="expiryDate"
-                        value={formData.expiryDate}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="MM/YY"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        id="stripe-payment"
+                        name="payment-method"
+                        type="radio"
+                        value="stripe"
+                        checked={paymentMethod === 'stripe'}
+                        onChange={(e) => setPaymentMethod(e.target.value as 'stripe' | 'manual')}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CVV *
+                      <label htmlFor="stripe-payment" className="ml-3 block text-sm font-medium text-gray-700">
+                        Credit/Debit Card (Stripe)
                       </label>
-                      <input
-                        type="text"
-                        name="cvv"
-                        value={formData.cvv}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="123"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
                     </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Name on Card *
-                    </label>
-                    <input
-                      type="text"
-                      name="nameOnCard"
-                      value={formData.nameOnCard}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                    <div className="flex items-center">
+                      <input
+                        id="manual-payment"
+                        name="payment-method"
+                        type="radio"
+                        value="manual"
+                        checked={paymentMethod === 'manual'}
+                        onChange={(e) => setPaymentMethod(e.target.value as 'stripe' | 'manual')}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                      />
+                      <label htmlFor="manual-payment" className="ml-3 block text-sm font-medium text-gray-700">
+                        Manual Payment (Bank Transfer, etc.)
+                      </label>
+                    </div>
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isProcessing || items.length === 0}
-                  className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isProcessing ? 'Processing...' : `Complete Order - ${formatPrice(getTotal())}`}
-                </button>
+                {paymentMethod === 'stripe' ? (
+                  <div className="mt-6">
+                    <Elements stripe={stripePromise}>
+                      <StripePaymentForm
+                        amount={getTotal()}
+                        onSuccess={handleStripePaymentSuccess}
+                        onError={handleStripePaymentError}
+                        disabled={isProcessing || items.length === 0}
+                      />
+                    </Elements>
+                  </div>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isProcessing || items.length === 0}
+                    className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isProcessing ? 'Processing...' : `Complete Order - ${formatPrice(getTotal())}`}
+                  </button>
+                )}
               </form>
             </div>
 

@@ -32,8 +32,31 @@ export default function DomainsPage() {
     setSearchResult(null);
     
     try {
-      const response = await domainsAPI.check(searchDomain);
-      setSearchResult(response.data);
+      const response = await domainsAPI.search({
+        domain_name: searchDomain,
+        tlds: ['.com', '.net', '.org', '.io', '.co']
+      });
+      
+      // Extract the first result for single domain check
+      const results = response.data.results;
+      if (results && results.length > 0) {
+        const firstResult = results[0];
+        setSearchResult({
+          domain_name: firstResult.domain,
+          available: firstResult.available,
+          price: firstResult.price,
+          currency: firstResult.currency,
+          registrar: firstResult.registrar
+        });
+      } else {
+        setSearchResult({
+          domain_name: searchDomain,
+          available: false,
+          price: 0,
+          currency: 'USD',
+          registrar: 'Unknown'
+        });
+      }
     } catch (error) {
       console.error('Failed to check domain:', error);
     } finally {
@@ -76,6 +99,24 @@ export default function DomainsPage() {
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
             Register New Domain
           </h3>
+          
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Sandbox Environment
+                </h3>
+                <div className="mt-1 text-sm text-yellow-700">
+                  <p>This is using Namecheap's sandbox API. Domain availability data may not be accurate. For production use, configure the production API with valid credentials.</p>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <div className="flex gap-4">
             <input

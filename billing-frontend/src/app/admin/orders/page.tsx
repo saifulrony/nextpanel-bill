@@ -154,6 +154,46 @@ export default function OrdersPage() {
     }
   };
 
+  const handleStripePayment = async (order: Order) => {
+    try {
+      // Create payment intent for this order
+      const response = await fetch('/api/v1/payments/intent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: JSON.stringify({
+          amount: order.total,
+          currency: 'USD',
+          metadata: {
+            order_id: order.id,
+            invoice_number: order.invoice_number || order.order_number
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create payment intent');
+      }
+
+      const { client_secret } = await response.json();
+      
+      // Open Stripe payment modal or redirect to payment page
+      // For now, we'll show an alert with the payment intent ID
+      alert(`Payment intent created: ${client_secret}. This would open Stripe Checkout in a real implementation.`);
+      
+      // In a real implementation, you would:
+      // 1. Open a Stripe Checkout session
+      // 2. Or redirect to a payment page with the client_secret
+      // 3. Handle the payment completion webhook
+      
+    } catch (error: any) {
+      console.error('Error creating Stripe payment:', error);
+      alert(`Failed to create payment: ${error.message}`);
+    }
+  };
+
   const sendOrder = async (order: Order) => {
     try {
       await ordersAPI.send(order.id);
@@ -442,6 +482,17 @@ export default function OrdersPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
+                        {order.payment_method !== 'stripe' && order.status === 'pending' && (
+                          <button
+                            onClick={() => handleStripePayment(order)}
+                            className="text-purple-600 hover:text-purple-900"
+                            title="Pay with Stripe"
+                          >
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={() => downloadPDF(order)}
                           className="text-green-600 hover:text-green-900"

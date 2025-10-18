@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { CartProvider } from '@/contexts/CartContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { DefaultPageProvider } from '@/contexts/DefaultPageContext'
+import { StripeProvider } from '@/contexts/StripeContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -25,7 +26,9 @@ export default function RootLayout({
           <AuthProvider>
             <CartProvider>
               <DefaultPageProvider>
-                {children}
+                <StripeProvider>
+                  {children}
+                </StripeProvider>
               </DefaultPageProvider>
             </CartProvider>
           </AuthProvider>

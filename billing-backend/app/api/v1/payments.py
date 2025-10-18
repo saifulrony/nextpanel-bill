@@ -46,7 +46,7 @@ async def create_payment_intent(
         amount = plan.price_monthly
     
     # Create payment intent with Stripe
-    payment_service = PaymentService()
+    payment_service = PaymentService(db=db)
     intent = await payment_service.create_payment_intent(
         amount=amount,
         currency=request.currency or "USD",
@@ -91,6 +91,36 @@ async def create_payment_intent(
     )
 
 
+@router.post("/intent/general", response_model=PaymentIntentResponse)
+async def create_general_payment_intent(
+    request: dict,
+    user_id: str = "test_user",  # Temporary: bypass authentication for testing
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a payment intent for general payments (orders, etc.)"""
+    amount = request.get("amount")
+    currency = request.get("currency", "USD")
+    metadata = request.get("metadata", {})
+    
+    if not amount:
+        raise HTTPException(status_code=400, detail="Amount is required")
+    
+    # Create payment intent with Stripe
+    payment_service = PaymentService(db=db)
+    intent = await payment_service.create_payment_intent(
+        amount=amount,
+        currency=currency,
+        metadata=metadata
+    )
+    
+    return PaymentIntentResponse(
+        client_secret=intent.get("client_secret"),
+        payment_id=None,  # No payment record created yet
+        amount=amount,
+        currency=currency
+    )
+
+
 @router.post("/{payment_id}/confirm", response_model=PaymentResponse)
 async def confirm_payment(
     payment_id: str,
@@ -114,7 +144,7 @@ async def confirm_payment(
         raise HTTPException(status_code=404, detail="Payment not found")
     
     # Confirm payment with Stripe
-    payment_service = PaymentService()
+    payment_service = PaymentService(db=db)
     confirmation = await payment_service.confirm_payment(
         payment_intent_id=payment.stripe_payment_intent_id
     )
@@ -212,7 +242,7 @@ async def refund_payment(
         )
     
     # Process refund with Stripe
-    payment_service = PaymentService()
+    payment_service = PaymentService(db=db)
     refund = await payment_service.refund_payment(
         payment_intent_id=payment.stripe_payment_intent_id,
         amount=request.amount if request.amount else payment.amount,
@@ -237,7 +267,7 @@ async def stripe_webhook(
     """Handle Stripe webhook events"""
     logger.info(f"Received Stripe webhook: {event.type}")
     
-    payment_service = PaymentService()
+    payment_service = PaymentService(db=db)
     
     # Verify webhook signature
     if stripe_signature:

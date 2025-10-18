@@ -34,15 +34,50 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
-      const response = await fetch(`${apiUrl}/api/v1/domains/check?domain=${searchQuery}${selectedTld}`);
+      const domainName = searchQuery.includes('.') ? searchQuery.split('.')[0] : searchQuery;
+      const tld = selectedTld.startsWith('.') ? selectedTld : `.${selectedTld}`;
+      
+      const response = await fetch(`${apiUrl}/api/v1/domains/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          domain_name: domainName,
+          tlds: [tld]
+        })
+      });
+      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
       const data = await response.json();
-      setResult(data);
+      
+      // Extract the first result for single domain check
+      if (data.results && data.results.length > 0) {
+        const firstResult = data.results[0];
+        setResult({
+          available: firstResult.available,
+          domain: firstResult.domain,
+          price: firstResult.price,
+          currency: firstResult.currency,
+          registrar: firstResult.registrar
+        });
+      } else {
+        setResult({ 
+          available: false, 
+          domain: `${domainName}${tld}`,
+          error: 'No results found' 
+        });
+      }
     } catch (error) {
-      console.warn('Domain check API not available:', error);
-      setResult({ available: false, error: 'Domain check API not configured.' });
+      console.warn('Domain search API error:', error);
+      setResult({ 
+        available: false, 
+        domain: `${searchQuery}${selectedTld}`,
+        error: 'Domain check API not configured.' 
+      });
     } finally {
       setIsSearching(false);
     }
@@ -232,7 +267,7 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: product.price_monthly || product.price || 0,
       billing_cycle: product.billing_cycle || 'monthly',
       category: product.category || 'hosting'
     });
@@ -292,8 +327,8 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
               {showPrices && (
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <span className="text-3xl font-bold text-indigo-600">${product.price}</span>
-                    <span className="text-gray-600 ml-1">/{product.billing_cycle}</span>
+                    <span className="text-3xl font-bold text-indigo-600">${product.price_monthly || product.price || 0}</span>
+                    <span className="text-gray-600 ml-1">/month</span>
                   </div>
                 </div>
               )}
@@ -408,7 +443,7 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: product.price_monthly || product.price || 0,
       billing_cycle: product.billing_cycle || 'monthly',
       category: product.category || 'hosting'
     });
@@ -475,8 +510,8 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
               {showPrices && (
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <span className="text-3xl font-bold text-indigo-600">${product.price}</span>
-                    <span className="text-gray-600 ml-1">/{product.billing_cycle}</span>
+                    <span className="text-3xl font-bold text-indigo-600">${product.price_monthly || product.price || 0}</span>
+                    <span className="text-gray-600 ml-1">/month</span>
                   </div>
                 </div>
               )}
@@ -685,7 +720,7 @@ export function ProductSearchComponent({ style }: { style?: React.CSSProperties 
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: product.price_monthly || product.price || 0,
       billing_cycle: product.billing_cycle || 'monthly',
       category: product.category || 'hosting'
     });
@@ -722,7 +757,7 @@ export function ProductSearchComponent({ style }: { style?: React.CSSProperties 
               <h3 className="text-xl font-semibold text-gray-900 mb-2">{product.name}</h3>
               <p className="text-gray-600 mb-4">{product.description}</p>
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-indigo-600">${product.price}</span>
+                <span className="text-2xl font-bold text-indigo-600">${product.price_monthly || product.price || 0}</span>
                 <button
                   onClick={() => handleAddToCart(product)}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200"

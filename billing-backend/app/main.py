@@ -10,7 +10,7 @@ import socket
 
 from app.core.config import settings as config_settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, domains, domain_providers, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages
+from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages
 from app.api.v1 import settings as settings_api
 from app.schemas import HealthResponse
 
@@ -169,6 +169,7 @@ async def root():
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(licenses.router, prefix="/api/v1")
 app.include_router(plans.router, prefix="/api/v1")
+app.include_router(products.router, prefix="/api/v1")
 app.include_router(domains.router, prefix="/api/v1")
 app.include_router(domain_providers.router, prefix="/api/v1/domain-providers", tags=["domain-providers"])
 app.include_router(payments.router, prefix="/api/v1")

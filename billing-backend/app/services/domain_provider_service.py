@@ -93,10 +93,24 @@ class DomainProviderService:
     async def check_domain_availability(self, domain_name: str) -> Dict[str, Any]:
         """Check domain availability"""
         try:
-            return await self.service.check_domain_availability(domain_name)
+            # Check if the service expects a list or single domain
+            if hasattr(self.service, 'check_domain_availability'):
+                # For NamecheapService, pass as a list
+                if self.provider.type.value == 'namecheap':
+                    availability_result = await self.service.check_domain_availability([domain_name])
+                    logger.info(f"Namecheap availability result for {domain_name}: {availability_result}")
+                    is_available = availability_result.get(domain_name, False)
+                    logger.info(f"Final availability for {domain_name}: {is_available}")
+                    return {"success": True, "available": is_available, "domain": domain_name}
+                else:
+                    # For other services, pass as single domain
+                    return await self.service.check_domain_availability(domain_name)
+            else:
+                return {"success": False, "message": "Domain availability check not supported by this provider"}
         except Exception as e:
             logger.error(f"Domain availability check failed: {str(e)}")
-            return {"success": False, "message": str(e)}
+            # Return success: False so domain service can fall back to mock
+            return {"success": False, "message": str(e), "available": False}
     
     async def get_domain_pricing(self, domain_name: str) -> Dict[str, Any]:
         """Get domain pricing information"""

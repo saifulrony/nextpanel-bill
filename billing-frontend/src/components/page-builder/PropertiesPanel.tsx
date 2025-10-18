@@ -109,7 +109,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                   This component connects to your backend API. Customize its appearance using the styling options below.
                 </p>
                 {component.type === 'domain-search' && (
-                  <p className="text-xs text-blue-600">API: /api/v1/domains/check</p>
+                  <p className="text-xs text-blue-600">API: /api/v1/domains/search</p>
                 )}
                 {component.type === 'products-grid' && (
                   <p className="text-xs text-blue-600">API: /api/v1/plans</p>

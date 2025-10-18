@@ -10,14 +10,14 @@ const getApiUrl = () => {
   // Otherwise, detect from window location
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    const port = 8001; // Backend port
+    const port = 8000; // Backend port
     
     // Use the same hostname as the frontend
     return `http://${hostname}:${port}`;
   }
   
   // Fallback for server-side rendering
-  return 'http://localhost:8001';
+  return 'http://localhost:8000';
 };
 
 const API_URL = getApiUrl();
@@ -181,6 +181,9 @@ export const paymentGatewaysAPI = {
   
   stats: (id: string) =>
     api.get(`/payment-gateways/${id}/stats`),
+  
+  getStripeConfig: () =>
+    api.get('/payment-gateways/stripe/config'),
 };
 
 // Subscriptions API

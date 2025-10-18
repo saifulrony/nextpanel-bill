@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Debug Test</title>
+</head>
+<body>
+    <h1>CORS Debug Test</h1>
+    <button onclick="testCORS()">Test CORS</button>
+    <button onclick="testPaymentAPI()">Test Payment API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testCORS() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing CORS preflight...';
+            
+            try {
+                // Test OPTIONS request first
+                const optionsResponse = await fetch('http://192.168.10.203:8001/api/v1/payments/intent/general', {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://192.168.10.203:4000',
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type,Authorization'
+                    }
+                });
+                
+                resultDiv.innerHTML = `
+                    <h3>CORS Preflight Test:</h3>
+                    <p>Status: ${optionsResponse.status}</p>
+                    <p>Headers:</p>
+                    <pre>${JSON.stringify(Object.fromEntries(optionsResponse.headers.entries()), null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<pre style="color: red;">CORS Error: ${error.message}</pre>`;
+                console.error('CORS test error:', error);
+            }
+        }
+
+        async function testPaymentAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing Payment API...';
+            
+            try {
+                const response = await fetch('http://192.168.10.203:8001/api/v1/payments/intent/general', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer test_token'
+                    },
+                    body: JSON.stringify({
+                        amount: 9.99,
+                        currency: 'USD'
+                    })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <h3>Payment API Test:</h3>
+                    <p>Status: ${response.status}</p>
+                    <p>Response:</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<pre style="color: red;">Payment API Error: ${error.message}</pre>`;
+                console.error('Payment API test error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

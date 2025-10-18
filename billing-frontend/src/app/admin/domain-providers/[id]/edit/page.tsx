@@ -109,7 +109,10 @@ export default function EditDomainProviderPage() {
         supports_whois_privacy: providerData.supports_whois_privacy !== false,
         rate_limit_per_minute: providerData.rate_limit_per_minute || '60',
         rate_limit_per_hour: providerData.rate_limit_per_hour || '1000',
-        settings: providerData.settings || {}
+        settings: {
+          ...providerData.settings,
+          client_ip: providerData.settings?.client_ip || ''
+        }
       });
     } catch (error) {
       console.error('Failed to load provider:', error);
@@ -117,17 +120,42 @@ export default function EditDomainProviderPage() {
     }
   };
 
-  const getDefaultApiUrl = (type: string) => {
-    const urls: { [key: string]: string } = {
-      namecheap: 'https://api.sandbox.namecheap.com/xml.response',
-      resellerclub: 'https://test.httpapi.com/api/',
-      godaddy: 'https://api.ote-godaddy.com/v1',
-      cloudflare: 'https://api.cloudflare.com/client/v4',
-      google_domains: 'https://domains.googleapis.com/v1',
-      namecom: 'https://api.name.com/v4',
-      enom: 'https://reseller.enom.com/interface.asp'
+  const getDefaultApiUrl = (type: string, isSandbox: boolean = true) => {
+    const urls: { [key: string]: { sandbox: string; production: string } } = {
+      namecheap: {
+        sandbox: 'https://api.sandbox.namecheap.com/xml.response',
+        production: 'https://api.namecheap.com/xml.response'
+      },
+      resellerclub: {
+        sandbox: 'https://test.httpapi.com/api/',
+        production: 'https://httpapi.com/api/'
+      },
+      godaddy: {
+        sandbox: 'https://api.ote-godaddy.com/v1',
+        production: 'https://api.godaddy.com/v1'
+      },
+      cloudflare: {
+        sandbox: 'https://api.cloudflare.com/client/v4',
+        production: 'https://api.cloudflare.com/client/v4'
+      },
+      google_domains: {
+        sandbox: 'https://domains.googleapis.com/v1',
+        production: 'https://domains.googleapis.com/v1'
+      },
+      namecom: {
+        sandbox: 'https://api.name.com/v4',
+        production: 'https://api.name.com/v4'
+      },
+      enom: {
+        sandbox: 'https://reseller.enom.com/interface.asp',
+        production: 'https://reseller.enom.com/interface.asp'
+      }
     };
-    return urls[type] || '';
+    
+    const providerUrls = urls[type];
+    if (!providerUrls) return '';
+    
+    return isSandbox ? providerUrls.sandbox : providerUrls.production;
   };
 
   const getRequiredFields = (type: string) => {
@@ -187,7 +215,17 @@ export default function EditDomainProviderPage() {
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      
+      // If toggling sandbox mode, update API URL
+      if (name === 'is_sandbox' && selectedType) {
+        setFormData(prev => ({
+          ...prev,
+          [name]: checked,
+          api_url: getDefaultApiUrl(selectedType, checked)
+        }));
+      } else {
+        setFormData(prev => ({ ...prev, [name]: checked }));
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -199,7 +237,7 @@ export default function EditDomainProviderPage() {
     setFormData(prev => ({
       ...prev,
       type: newType,
-      api_url: getDefaultApiUrl(newType)
+      api_url: getDefaultApiUrl(newType, prev.is_sandbox)
     }));
   };
 
@@ -215,10 +253,11 @@ export default function EditDomainProviderPage() {
     setError('');
 
     try {
-      // Prepare settings with api_username
+      // Prepare settings with api_username and client_ip
       const settings = {
         ...formData.settings,
-        ...(formData.api_username && { api_username: formData.api_username })
+        ...(formData.api_username && { api_username: formData.api_username }),
+        ...(formData.settings?.client_ip && { client_ip: formData.settings.client_ip })
       };
 
       const updateData = {
@@ -374,6 +413,29 @@ export default function EditDomainProviderPage() {
             {/* API Configuration */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">API Configuration</h3>
+              
+              {selectedType === 'namecheap' && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">
+                        Namecheap API Configuration
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p><strong>Sandbox URL:</strong> https://api.sandbox.namecheap.com/xml.response</p>
+                        <p><strong>Production URL:</strong> https://api.namecheap.com/xml.response</p>
+                        <p className="mt-2">To use production API, uncheck "Use sandbox/test environment" and update the API URL above.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-4">
                 <div>
                   <label htmlFor="api_url" className="block text-sm font-medium text-gray-700">
@@ -409,6 +471,30 @@ export default function EditDomainProviderPage() {
                         ? 'This is your Namecheap API Username (different from your account username)'
                         : 'Your API username or account identifier'
                       }
+                    </p>
+                  </div>
+                )}
+
+                {selectedType === 'namecheap' && (
+                  <div>
+                    <label htmlFor="client_ip" className="block text-sm font-medium text-gray-700">
+                      Client IP Address *
+                    </label>
+                    <input
+                      type="text"
+                      name="client_ip"
+                      id="client_ip"
+                      value={formData.settings?.client_ip || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: { ...prev.settings, client_ip: e.target.value }
+                      }))}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="127.0.0.1 or your server's public IP"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Your server's IP address that will be whitelisted in Namecheap's API settings
                     </p>
                   </div>
                 )}

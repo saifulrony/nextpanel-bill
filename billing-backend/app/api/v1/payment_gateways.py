@@ -234,33 +234,53 @@ async def test_payment_gateway(
         # This would integrate with actual payment gateway APIs
         # For now, we'll simulate a test
         if gateway.type == PaymentGatewayType.STRIPE:
-            if not gateway.api_key or not gateway.secret_key:
+            # Check credentials based on sandbox/live mode
+            if gateway.is_sandbox:
+                api_key = gateway.sandbox_api_key
+                secret_key = gateway.sandbox_secret_key
+                mode = "sandbox"
+            else:
+                api_key = gateway.api_key
+                secret_key = gateway.secret_key
+                mode = "live"
+            
+            if not api_key or not secret_key:
                 return PaymentGatewayTestResponse(
                     success=False,
-                    message="Missing API credentials"
+                    message=f"Missing {mode} API credentials"
                 )
             
             # Simulate Stripe test
             return PaymentGatewayTestResponse(
                 success=True,
-                message="Stripe connection test successful",
+                message=f"Stripe {mode} connection test successful",
                 test_transaction_id="test_" + str(datetime.now().timestamp()),
-                response_data={"status": "test_mode"}
+                response_data={"status": mode + "_mode"}
             )
         
         elif gateway.type == PaymentGatewayType.PAYPAL:
-            if not gateway.api_key or not gateway.secret_key:
+            # Check credentials based on sandbox/live mode
+            if gateway.is_sandbox:
+                api_key = gateway.sandbox_api_key
+                secret_key = gateway.sandbox_secret_key
+                mode = "sandbox"
+            else:
+                api_key = gateway.api_key
+                secret_key = gateway.secret_key
+                mode = "live"
+            
+            if not api_key or not secret_key:
                 return PaymentGatewayTestResponse(
                     success=False,
-                    message="Missing PayPal credentials"
+                    message=f"Missing PayPal {mode} credentials"
                 )
             
             # Simulate PayPal test
             return PaymentGatewayTestResponse(
                 success=True,
-                message="PayPal connection test successful",
+                message=f"PayPal {mode} connection test successful",
                 test_transaction_id="pp_test_" + str(datetime.now().timestamp()),
-                response_data={"status": "sandbox_mode"}
+                response_data={"status": mode + "_mode"}
             )
         
         else:
@@ -371,4 +391,39 @@ async def get_payment_gateway_stats(
             (successful_payments.scalar() or 0) / max(total_payments.scalar() or 1, 1) * 100, 
             2
         )
+    }
+
+
+@router.get("/stripe/config")
+async def get_stripe_config(
+    db: AsyncSession = Depends(get_db)
+):
+    """Get active Stripe configuration for frontend"""
+    result = await db.execute(
+        select(PaymentGateway).where(
+            and_(
+                PaymentGateway.type == PaymentGatewayType.STRIPE,
+                PaymentGateway.status == PaymentGatewayStatus.ACTIVE
+            )
+        )
+    )
+    gateway = result.scalars().first()
+    
+    if not gateway:
+        return {
+            "publishable_key": None,
+            "is_sandbox": True,
+            "is_configured": False
+        }
+    
+    # Return the appropriate keys based on sandbox mode
+    if gateway.is_sandbox:
+        publishable_key = gateway.sandbox_api_key
+    else:
+        publishable_key = gateway.api_key
+    
+    return {
+        "publishable_key": publishable_key,
+        "is_sandbox": gateway.is_sandbox,
+        "is_configured": bool(publishable_key)
     }

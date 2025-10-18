@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stripe Test</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>Stripe Integration Test</h1>
+    <div id="result"></div>
+
+    <script>
+        // Test Stripe loading
+        const publishableKey = 'pk_test_51234567890abcdef';
+        
+        console.log('Testing Stripe with key:', publishableKey);
+        
+        if (publishableKey && publishableKey.startsWith('pk_')) {
+            console.log('Key format is valid, loading Stripe...');
+            
+            const stripe = Stripe(publishableKey);
+            
+            stripe.then((stripeInstance) => {
+                console.log('Stripe loaded successfully:', stripeInstance);
+                document.getElementById('result').innerHTML = `
+                    <h2>✅ Stripe Loaded Successfully!</h2>
+                    <p>Publishable Key: ${publishableKey}</p>
+                    <p>Stripe Instance: ${stripeInstance ? 'Available' : 'Not Available'}</p>
+                `;
+            }).catch((error) => {
+                console.error('Stripe loading failed:', error);
+                document.getElementById('result').innerHTML = `
+                    <h2>❌ Stripe Loading Failed</h2>
+                    <p>Error: ${error.message}</p>
+                `;
+            });
+        } else {
+            console.log('Invalid key format');
+            document.getElementById('result').innerHTML = `
+                <h2>❌ Invalid Key Format</h2>
+                <p>Key must start with 'pk_'</p>
+            `;
+        }
+    </script>
+</body>
+</html>

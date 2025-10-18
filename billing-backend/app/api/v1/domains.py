@@ -53,13 +53,13 @@ class DomainInfoResponse(BaseModel):
 @router.post("/search", response_model=DomainSearchResponse)
 async def search_domains(
     request: DomainSearchRequest,
-    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Search for domain availability and pricing"""
     try:
-        # Initialize domain service
-        domain_service = DomainService()
+        # Initialize domain service with database session
+        domain_service = DomainService(db)
+        await domain_service._initialize_services()
         
         # Get TLDs to search
         tlds = request.tlds or ['.com', '.net', '.org', '.io', '.co', '.dev']

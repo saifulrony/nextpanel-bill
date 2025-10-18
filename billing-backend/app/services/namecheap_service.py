@@ -98,16 +98,32 @@ class NamecheapService:
     
     def _parse_response(self, root: ET.Element) -> Dict[str, Any]:
         """Parse XML response into dictionary"""
+        logger.info(f"Root element: {root.tag}, attributes: {root.attrib}")
+        logger.info(f"Full XML: {ET.tostring(root, encoding='unicode')}")
+        
         result = {
             'status': root.get('Status'),
             'command': root.get('Command'),
             'data': {}
         }
         
-        # Parse command response
-        command_response = root.find('CommandResponse')
+        # Parse command response (handle namespaces properly)
+        # Try different ways to find CommandResponse
+        command_response = None
+        for elem in root.iter():
+            if elem.tag.endswith('CommandResponse'):
+                command_response = elem
+                break
+        
         if command_response is not None:
+            logger.info(f"CommandResponse element found: {ET.tostring(command_response, encoding='unicode')}")
             result['data'] = self._xml_to_dict(command_response)
+            logger.info(f"Parsed data: {result['data']}")
+        else:
+            logger.warning("No CommandResponse element found in XML")
+            # List all child elements for debugging
+            for child in root:
+                logger.info(f"Child element: {child.tag}, attributes: {child.attrib}")
         
         return result
     
@@ -117,8 +133,13 @@ class NamecheapService:
         
         for child in element:
             if len(child) == 0:
-                result[child.tag] = child.text
+                # Element with no children - store text and attributes
+                child_data = {'text': child.text}
+                if child.attrib:
+                    child_data.update(child.attrib)
+                result[child.tag] = child_data
             else:
+                # Element with children - recurse
                 if child.tag not in result:
                     result[child.tag] = []
                 result[child.tag].append(self._xml_to_dict(child))
@@ -133,19 +154,40 @@ class NamecheapService:
             }
             
             response = self._make_request('namecheap.domains.check', params)
+            logger.info(f"Namecheap response data: {response.get('data', {})}")
             
             # Parse availability results
             availability = {}
-            if 'DomainCheckResult' in response['data']:
-                domains = response['data']['DomainCheckResult']
+            
+            # Look for DomainCheckResult with or without namespace
+            domain_check_result = None
+            for key in response['data'].keys():
+                if key.endswith('DomainCheckResult'):
+                    domain_check_result = response['data'][key]
+                    break
+            
+            if domain_check_result:
+                domains = domain_check_result
+                logger.info(f"DomainCheckResult: {domains}")
                 if not isinstance(domains, list):
                     domains = [domains]
                 
                 for domain in domains:
-                    domain_name = domain.get('Domain', '')
-                    is_available = domain.get('Available', 'false').lower() == 'true'
+                    # Handle the new structure with attributes
+                    if isinstance(domain, dict):
+                        domain_name = domain.get('Domain', '')
+                        is_available = domain.get('Available', 'false').lower() == 'true'
+                    else:
+                        # Fallback for old structure
+                        domain_name = domain.get('Domain', '')
+                        is_available = domain.get('Available', 'false').lower() == 'true'
+                    
+                    logger.info(f"Processing domain {domain_name}: available={is_available}")
                     availability[domain_name] = is_available
+            else:
+                logger.warning(f"No DomainCheckResult in response data: {response.get('data', {})}")
             
+            logger.info(f"Final availability dictionary: {availability}")
             return availability
             
         except Exception as e:

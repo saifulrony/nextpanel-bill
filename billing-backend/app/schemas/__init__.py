@@ -216,7 +216,7 @@ class PaymentIntentRequest(BaseModel):
 
 class PaymentIntentResponse(BaseModel):
     client_secret: str
-    payment_id: str
+    payment_id: Optional[str] = None
     amount: float
     currency: str
 

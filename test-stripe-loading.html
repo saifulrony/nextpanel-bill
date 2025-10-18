@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stripe Loading Test</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>Stripe Loading Test</h1>
+    <div id="status">Loading...</div>
+    <div id="result"></div>
+
+    <script>
+        const publishableKey = 'pk_test_51H1234567890abcdef';
+        let loadingCount = 0;
+        
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML = message;
+            console.log(message);
+        }
+        
+        function testStripeLoading() {
+            loadingCount++;
+            updateStatus(`Attempt ${loadingCount}: Testing Stripe loading...`);
+            
+            if (loadingCount > 10) {
+                updateStatus('❌ Too many attempts - possible infinite loop!');
+                return;
+            }
+            
+            if (publishableKey && publishableKey.startsWith('pk_')) {
+                try {
+                    const stripe = Stripe(publishableKey);
+                    
+                    stripe.then((stripeInstance) => {
+                        if (stripeInstance) {
+                            updateStatus('✅ Stripe loaded successfully!');
+                            document.getElementById('result').innerHTML = `
+                                <h2>Success!</h2>
+                                <p>Stripe loaded in ${loadingCount} attempt(s)</p>
+                                <p>Instance: ${stripeInstance ? 'Available' : 'Not Available'}</p>
+                            `;
+                        } else {
+                            updateStatus('⚠️ Stripe instance is null');
+                        }
+                    }).catch((error) => {
+                        updateStatus(`❌ Stripe loading failed: ${error.message}`);
+                    });
+                } catch (error) {
+                    updateStatus(`❌ Error creating Stripe: ${error.message}`);
+                }
+            } else {
+                updateStatus('❌ Invalid publishable key format');
+            }
+        }
+        
+        // Test immediately
+        testStripeLoading();
+        
+        // Test again after 2 seconds to check for loops
+        setTimeout(() => {
+            if (loadingCount === 1) {
+                updateStatus('✅ No infinite loop detected!');
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
