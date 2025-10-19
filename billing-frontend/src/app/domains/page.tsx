@@ -597,23 +597,13 @@ export default function DomainsPage() {
                                     <HeartIcon className="h-5 w-5" />
                                   )}
                                 </button>
-                                {isInCart(result.domain) ? (
-                                  <button
-                                    disabled
-                                    className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed flex items-center space-x-2"
-                                  >
-                                    <CheckIcon className="h-4 w-4" />
-                                    <span>In Cart</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleAddToCart(result.domain, result.price!)}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center space-x-2"
-                                  >
-                                    <ShoppingCartIcon className="h-4 w-4" />
-                                    <span>Add to Cart</span>
-                                  </button>
-                                )}
+                                <button
+                                  onClick={() => handleAddToCart(result.domain, result.price!)}
+                                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center space-x-2"
+                                >
+                                  <ShoppingCartIcon className="h-4 w-4" />
+                                  <span>Add to Cart</span>
+                                </button>
                                 <button
                                   onClick={() => setRegistrationModal({
                                     isOpen: true,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -510,7 +510,7 @@ export default function Home() {
             </form>
           </div>
 
-          {/* Domain Search Results */}
+          {/* Domain Search Results - Simplified */}
           {domainSearchError && (
             <div className="mt-6 max-w-4xl mx-auto">
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
@@ -570,23 +570,6 @@ export default function Home() {
                                 </div>
                               </div>
                               <div className="flex space-x-2">
-                                {isDomainInCart(result.domain) ? (
-                                  <button
-                                    disabled
-                                    className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed flex items-center space-x-2"
-                                  >
-                                    <CheckIcon className="h-4 w-4" />
-                                    <span>In Cart</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleAddDomainToCart(result.domain, result.price)}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center space-x-2"
-                                  >
-                                    <ShoppingCartIcon className="h-4 w-4" />
-                                    <span>Add to Cart</span>
-                                  </button>
-                                )}
                                 <button
                                   onClick={() => router.push(`/domains?register=${result.domain}`)}
                                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -649,8 +632,10 @@ export default function Home() {
             </a>
           </div>
         </div>
+      </div>
 
-        {/* Features */}
+      {/* Features */}
+      <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
         <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3">
           <div className="bg-white p-8 rounded-xl shadow-sm">
             <div className="text-blue-600 text-3xl mb-4">🚀</div>
@@ -676,8 +661,9 @@ export default function Home() {
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Featured Products - Only show if there are featured products or loading */}
+      {/* Featured Products - Only show if there are featured products or loading */}
         {(loadingProducts || featuredProducts.length > 0) && (
         <div id="pricing" className="mt-24">
           <h3 className="text-3xl font-bold text-center text-gray-900 mb-4">
@@ -795,7 +781,6 @@ export default function Home() {
           </div>
         </div>
         )}
-      </div>
 
       {/* Browse by Category Section */}
       <div className="mt-16 max-w-7xl mx-auto px-4">

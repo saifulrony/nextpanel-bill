@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   MagnifyingGlassIcon, 
   CheckCircleIcon, 
@@ -21,10 +22,14 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Domain Search Component (Namecheap-style with tabs)
 export function DomainSearchComponent({ style }: { style?: React.CSSProperties }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTld, setSelectedTld] = useState('.com');
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [showCartNotification, setShowCartNotification] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'results' | 'generator' | 'auctions' | 'premium' | 'beast' | 'favorites'>('results');
   const [beastMode, setBeastMode] = useState(false);
@@ -32,8 +37,8 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
   const [generatedDomains, setGeneratedDomains] = useState<any[]>([]);
   const cartContext = useCart();
   
-  // Only access cart context after component is mounted (client-side)
-  const { addItem, items } = mounted && cartContext ? cartContext : { addItem: () => {}, items: [] };
+  // Always access cart context, but handle cases where it might be null
+  const { addItem, items } = cartContext || { addItem: () => {}, items: [] };
   
   useEffect(() => {
     setMounted(true);
@@ -42,7 +47,16 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
     if (savedFavorites) {
       setFavorites(JSON.parse(savedFavorites));
     }
-  }, []);
+    
+    // Check for search query in URL
+    const searchFromUrl = searchParams.get('search');
+    if (searchFromUrl) {
+      setSearchQuery(searchFromUrl);
+      // Perform automatic search
+      performSearch(searchFromUrl);
+    }
+  }, [searchParams]);
+
 
   const popularTlds = [
     { extension: '.com', price: '$8.99/yr' },
@@ -71,16 +85,15 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
     { extension: '.nl', price: '$9.99/yr' },
   ];
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+  const performSearch = async (query: string) => {
+    if (!query.trim()) return;
     
     setIsSearching(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
-      const domainName = searchQuery.includes('.') ? searchQuery.split('.')[0] : searchQuery;
+      const domainName = query.includes('.') ? query.split('.')[0] : query;
       const tld = selectedTld.startsWith('.') ? selectedTld : `.${selectedTld}`;
       
       const response = await fetch(`${apiUrl}/api/v1/domains/search`, {
@@ -103,34 +116,54 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
       // Extract the first result for single domain check
       if (data.results && data.results.length > 0) {
         const firstResult = data.results[0];
-        setResult({
+        const resultData = {
           available: firstResult.available,
           domain: firstResult.domain,
           price: firstResult.price,
           currency: firstResult.currency,
           registrar: firstResult.registrar,
           registration_period: firstResult.registration_period || 1
-        });
+        };
+        setResult(resultData);
       } else {
-        setResult({ 
+        const resultData = { 
           available: false, 
           domain: `${domainName}${tld}`,
           error: 'No results found' 
-        });
+        };
+        setResult(resultData);
       }
     } catch (error) {
       console.warn('Domain search API error:', error);
-      setResult({ 
+      const resultData = { 
         available: false, 
-        domain: `${searchQuery}${selectedTld}`,
-        error: 'Domain check API not configured.' 
-      });
+        domain: `${query}${selectedTld}`,
+        error: 'Domain check API not configured.'
+      };
+      setResult(resultData);
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleAddDomainToCart = (domain: string, price: number) => {
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    // Update URL with search query
+    const params = new URLSearchParams(searchParams);
+    params.set('search', searchQuery);
+    router.push(`?${params.toString()}`, { scroll: false });
+    
+    // Perform search
+    await performSearch(searchQuery);
+  };
+
+  const handleAddDomainToCart = async (domain: string, price: number) => {
+    if (addingToCart) return; // Prevent duplicate calls
+    
+    setAddingToCart(true);
+    
     const domainItem = {
       id: `domain-${domain}`,
       name: domain,
@@ -144,6 +177,19 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
     };
     
     addItem(domainItem);
+    
+    // Show cart notification
+    setShowCartNotification(true);
+    
+    // Reset after a short delay
+    setTimeout(() => {
+      setAddingToCart(false);
+    }, 1000);
+    
+    // Hide notification after 3 seconds
+    setTimeout(() => {
+      setShowCartNotification(false);
+    }, 3000);
   };
 
   const isDomainInCart = (domain: string) => {
@@ -158,7 +204,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
     localStorage.setItem('domain_favorites', JSON.stringify(newFavorites));
   };
 
-  const handleDomainGenerator = async () => {
+  const handleDomainGenerator = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
@@ -265,91 +314,107 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
               </button>
             </div>
 
-            {/* Tabs Navigation */}
-            <div className="mt-6">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8">
-                  {[
-                    { id: 'results', name: 'Results', icon: MagnifyingGlassIcon },
-                    { id: 'generator', name: 'Generator', icon: LightBulbIcon },
-                    { id: 'auctions', name: 'Auctions', icon: FireIcon },
-                    { id: 'premium', name: 'Premium', icon: StarIcon },
-                    { id: 'beast', name: 'Beast Mode', icon: BoltIcon },
-                    { id: 'favorites', name: `Favorites (${favorites.length})`, icon: HeartIcon }
-                  ].map((tab) => {
-                    const Icon = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
-                        className={`${
-                          activeTab === tab.id
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span>{tab.name}</span>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
-            </div>
-
-            {/* Tab Content */}
-            {activeTab === 'results' && (
+            {/* Tabs Navigation - Only show after search */}
+            {result && (
               <div className="mt-6">
-                {result ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
-                      <div className="flex items-center space-x-4">
-                        <div className="text-lg font-medium text-gray-900">
-                          {result.domain}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {result.available ? 'Available' : 'Taken'}
-                        </div>
-                        {result.price && result.price > 0 && (
-                          <div className="text-sm font-semibold text-gray-900">
-                            ${result.price.toFixed(2)}/yr
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2">
+                <div className="border-b border-gray-200">
+                  <nav className="-mb-px flex space-x-8">
+                    {[
+                      { id: 'results', name: 'Results', icon: MagnifyingGlassIcon },
+                      { id: 'generator', name: 'Generator', icon: LightBulbIcon },
+                      { id: 'auctions', name: 'Auctions', icon: FireIcon },
+                      { id: 'premium', name: 'Premium', icon: StarIcon },
+                      { id: 'beast', name: 'Beast Mode', icon: BoltIcon },
+                      { id: 'favorites', name: `Favorites (${favorites.length})`, icon: HeartIcon }
+                    ].map((tab) => {
+                      const Icon = tab.icon;
+                      return (
                         <button
-                          onClick={() => toggleFavorite(result.domain)}
-                          className={`p-2 rounded-lg ${
-                            favorites.includes(result.domain)
-                              ? 'text-red-500 bg-red-50'
-                              : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                          }`}
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={`${
+                            activeTab === tab.id
+                              ? 'border-indigo-500 text-indigo-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                         >
-                          <HeartIcon className="h-4 w-4" />
+                          <Icon className="h-4 w-4" />
+                          <span>{tab.name}</span>
                         </button>
-                        {result.available && result.price && result.price > 0 && mounted && (
-                          <button
-                            onClick={() => handleAddDomainToCart(result.domain, result.price)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                          >
-                            Add to Cart
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <MagnifyingGlassIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-lg text-gray-600">No search results yet</p>
-                    <p className="text-gray-500 mt-2">Enter a domain name and click search to see results.</p>
-                  </div>
-                )}
+                      );
+                    })}
+                  </nav>
+                </div>
               </div>
             )}
 
+            {/* Tab Content - Only show after search */}
+            {result && (
+              <>
+                {activeTab === 'results' && (
+                  <div className="mt-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                        <div className="flex items-center space-x-4">
+                          <div className="text-lg font-medium text-gray-900">
+                            {result.domain}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {result.available ? 'Available' : 'Taken'}
+                          </div>
+                          {result.price && result.price > 0 && (
+                            <div className="text-sm font-semibold text-gray-900">
+                              ${result.price.toFixed(2)}/yr
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => toggleFavorite(result.domain)}
+                            className={`p-2 rounded-lg ${
+                              favorites.includes(result.domain)
+                                ? 'text-red-500 bg-red-50'
+                                : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                            }`}
+                          >
+                            <HeartIcon className="h-4 w-4" />
+                          </button>
+                          {result.available && result.price && result.price > 0 && mounted && (
+                            <>
+                              {isDomainInCart(result.domain) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => router.push('/cart')}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center space-x-2"
+                                >
+                                  <ShoppingCartIcon className="h-4 w-4" />
+                                  <span>View Cart</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleAddDomainToCart(result.domain, result.price)}
+                                  disabled={addingToCart}
+                                  className={`px-4 py-2 text-white rounded-lg text-sm ${
+                                    addingToCart 
+                                      ? 'bg-gray-400 cursor-not-allowed' 
+                                      : 'bg-green-600 hover:bg-green-700'
+                                  }`}
+                                >
+                                  {addingToCart ? 'Adding...' : 'Add to Cart'}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Generator Tab */}
-            {activeTab === 'generator' && (
+            {result && activeTab === 'generator' && (
               <div className="mt-6">
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -357,23 +422,17 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                     Domain Generator
                   </h3>
                   <p className="text-sm text-gray-600 mb-6">
-                    Enter a keyword and we'll generate creative domain suggestions for you.
+                    Use the search box above to enter a keyword, then click "Generate" to create domain suggestions.
                   </p>
                   
                   <div className="flex space-x-4">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Enter a keyword (e.g., 'tech', 'business', 'creative')"
-                    />
                     <button
-                      onClick={handleDomainGenerator}
+                      type="button"
+                      onClick={(e) => handleDomainGenerator(e)}
                       disabled={isSearching || !searchQuery.trim()}
                       className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isSearching ? 'Generating...' : 'Generate'}
+                      {isSearching ? 'Generating...' : 'Generate Domains'}
                     </button>
                   </div>
 
@@ -381,8 +440,8 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                     <div className="mt-6">
                       <h4 className="text-md font-semibold text-gray-900 mb-4">Generated Suggestions</h4>
                       <div className="space-y-2">
-                        {generatedDomains.map((domain) => (
-                          <div key={domain.domain} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        {generatedDomains.map((domain, index) => (
+                          <div key={`${domain.domain}-${index}`} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
                             <div className="flex items-center space-x-4">
                               <div className="text-lg font-medium text-gray-900">
                                 {domain.domain}
@@ -408,12 +467,30 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                                 <HeartIcon className="h-4 w-4" />
                               </button>
                               {domain.available && domain.price && (
-                                <button
-                                  onClick={() => handleAddDomainToCart(domain.domain, domain.price)}
-                                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
-                                >
-                                  Add to Cart
-                                </button>
+                                <>
+                                  {isDomainInCart(domain.domain) ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => router.push('/cart')}
+                                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center space-x-2"
+                                    >
+                                      <ShoppingCartIcon className="h-4 w-4" />
+                                      <span>View Cart</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleAddDomainToCart(domain.domain, domain.price)}
+                                      disabled={addingToCart}
+                                      className={`px-4 py-2 text-white rounded-lg text-sm ${
+                                        addingToCart 
+                                          ? 'bg-gray-400 cursor-not-allowed' 
+                                          : 'bg-green-600 hover:bg-green-700'
+                                      }`}
+                                    >
+                                      {addingToCart ? 'Adding...' : 'Add to Cart'}
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
@@ -426,7 +503,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             )}
 
             {/* Auctions Tab */}
-            {activeTab === 'auctions' && (
+            {result && activeTab === 'auctions' && (
               <div className="mt-6">
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -445,7 +522,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             )}
 
             {/* Premium Tab */}
-            {activeTab === 'premium' && (
+            {result && activeTab === 'premium' && (
               <div className="mt-6">
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -464,7 +541,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             )}
 
             {/* Beast Mode Tab */}
-            {activeTab === 'beast' && (
+            {result && activeTab === 'beast' && (
               <div className="mt-6">
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -498,7 +575,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             )}
 
             {/* Favorites Tab */}
-            {activeTab === 'favorites' && (
+            {result && activeTab === 'favorites' && (
               <div className="mt-6">
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -532,16 +609,32 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                             >
                               <HeartIcon className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => {
-                                // Use a default price for favorites since we don't have pricing data
-                                const price = 12.99; // Default price
-                                handleAddDomainToCart(domain, price);
-                              }}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                            >
-                              Add to Cart
-                            </button>
+                            {isDomainInCart(domain) ? (
+                              <button
+                                type="button"
+                                onClick={() => router.push('/cart')}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center space-x-2"
+                              >
+                                <ShoppingCartIcon className="h-4 w-4" />
+                                <span>View Cart</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  // Use a default price for favorites since we don't have pricing data
+                                  const price = 12.99; // Default price
+                                  handleAddDomainToCart(domain, price);
+                                }}
+                                disabled={addingToCart}
+                                className={`px-4 py-2 text-white rounded-lg text-sm ${
+                                  addingToCart 
+                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                    : 'bg-green-600 hover:bg-green-700'
+                                }`}
+                              >
+                                {addingToCart ? 'Adding...' : 'Add to Cart'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -553,74 +646,44 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
           </form>
         </div>
 
-        {/* Search Results */}
-        {result && (
-          <div className="mt-8 bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            {result.available ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 text-green-600">
-                  <CheckCircleIcon className="h-6 w-6" />
+        {/* Cart Notification */}
+        {showCartNotification && (
+          <div className="mt-4 max-w-4xl mx-auto">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <CheckCircleIcon className="h-6 w-6 text-green-500" />
+                  </div>
                   <div>
-                    <p className="text-xl font-semibold">Domain Available!</p>
-                    <p className="text-gray-600">
-                      {result.domain} is available for registration
+                    <p className="text-sm font-medium text-green-800">
+                      Item added to cart successfully!
+                    </p>
+                    <p className="text-xs text-green-600">
+                      {items.length} item{items.length > 1 ? 's' : ''} in your cart
                     </p>
                   </div>
                 </div>
-                
-                {result.price && result.price > 0 && (
-                  <div className="flex items-center justify-between bg-gray-50 p-6 rounded-lg border">
-                    <div>
-                      <div className="text-2xl font-bold text-gray-900">
-                        ${result.price.toFixed(2)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        per {result.registration_period} year{result.registration_period > 1 ? 's' : ''}
-                      </div>
-                    </div>
-                    {mounted && (
-                      <div className="flex space-x-3">
-                        {isDomainInCart(result.domain) ? (
-                          <button
-                            disabled
-                            className="px-6 py-3 bg-gray-400 text-white rounded-lg cursor-not-allowed flex items-center space-x-2"
-                          >
-                            <CheckCircleIcon className="h-5 w-5" />
-                            <span>In Cart</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleAddDomainToCart(result.domain, result.price)}
-                            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center space-x-2"
-                          >
-                            <ShoppingCartIcon className="h-5 w-5" />
-                            <span>Add to Cart</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {(!result.price || result.price <= 0) && (
-                  <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg border">
-                    Contact for pricing
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center space-x-3 text-gray-600">
-                <XCircleIcon className="h-6 w-6" />
-                <div>
-                  <p className="text-xl font-semibold">Domain Taken</p>
-                  <p className="text-gray-600">
-                    {result.domain} is already registered
-                  </p>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => router.push('/cart')}
+                    className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                  >
+                    <ShoppingCartIcon className="h-4 w-4" />
+                    <span>View Cart</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCartNotification(false)}
+                    className="p-2 text-green-400 hover:text-green-600 transition-colors"
+                  >
+                    <XCircleIcon className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         )}
+
       </div>
     </div>
   );

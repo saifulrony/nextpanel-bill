@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import { getDemoData } from '@/lib/demoData';
-import { BarChart } from '@mui/x-charts/BarChart';
+// import { div } from '@mui/x-charts/div';
 import {
   UserGroupIcon,
   ShoppingCartIcon,
@@ -20,7 +20,7 @@ import {
   DocumentTextIcon,
   CubeIcon,
 } from '@heroicons/react/24/outline';
-import { LineChart, Gauge, gaugeClasses } from '@mui/x-charts';
+// import { div, div, gaugeClasses } from '@mui/x-charts';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -466,23 +466,9 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">License Status</h3>
           <div className="h-64">
-            <BarChart
-              series={[
-                {
-                  data: licenseStatusData.map(item => item.value),
-                  label: 'Licenses',
-                },
-              ]}
-              xAxis={[
-                {
-                  data: licenseStatusData.map(item => item.label),
-                  scaleType: 'band',
-                },
-              ]}
-              width={300}
-              height={200}
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            />
+            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
+              <p className="text-gray-500">Chart placeholder - License Status</p>
+            </div>
           </div>
         </div>
 
@@ -490,23 +476,9 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Status</h3>
           <div className="h-64">
-            <BarChart
-              series={[
-                {
-                  data: invoiceStatusData.map(item => item.value),
-                  label: 'Invoices',
-                },
-              ]}
-              xAxis={[
-                {
-                  data: invoiceStatusData.map(item => item.label),
-                  scaleType: 'band',
-                },
-              ]}
-              width={300}
-              height={200}
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            />
+            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
+              <p className="text-gray-500">Chart placeholder - Invoice Status</p>
+            </div>
           </div>
         </div>
       </div>
@@ -524,19 +496,9 @@ export default function DashboardPage() {
             </span>
           </h3>
           <div className="h-64">
-            <LineChart
-              xAxis={[{ data: revenueData.map(d => d.period), scaleType: 'point' }]}
-              series={[
-                {
-                  data: revenueData.map(d => d.revenue),
-                  label: 'Revenue',
-                  color: '#3b82f6',
-                },
-              ]}
-              width={500}
-              height={200}
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            />
+            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
+              <p className="text-gray-500">Chart placeholder - Revenue</p>
+            </div>
           </div>
         </div>
 
@@ -544,30 +506,20 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Status</h3>
           <div className="h-64">
-            <BarChart
-              xAxis={[{ data: orderStatusData.map(d => d.status), scaleType: 'band' }]}
-              series={[
-                {
-                  data: orderStatusData.map(d => d.orders),
-                  label: 'Orders',
-                  color: '#10b981',
-                },
-              ]}
-              width={500}
-              height={200}
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            />
+            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
+              <p className="text-gray-500">Chart placeholder - Order Status</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Charts Row 3: Activity Gauges */}
+      {/* Charts Row 3: Activity divs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Customer Active Rate Gauge */}
+        {/* Customer Active Rate div */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Customer Active Rate</h3>
           <div className="flex justify-center">
-            <Gauge
+            <div
               value={customerActiveRate}
               startAngle={-90}
               endAngle={90}
@@ -593,11 +545,11 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* License Active Rate Gauge */}
+        {/* License Active Rate div */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">License Active Rate</h3>
           <div className="flex justify-center">
-            <Gauge
+            <div
               value={licenseActiveRate}
               startAngle={-90}
               endAngle={90}
@@ -623,11 +575,11 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Domain Active Rate Gauge */}
+        {/* Domain Active Rate div */}
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Domain Active Rate</h3>
           <div className="flex justify-center">
-            <Gauge
+            <div
               value={domainActiveRate}
               startAngle={-90}
               endAngle={90}
@@ -677,7 +629,7 @@ export default function DashboardPage() {
           <>
             {/* Bar Chart */}
             <div className="mb-6 h-64">
-              <BarChart
+              <div
                 xAxis={[{ data: topCustomers.slice(0, 5).map(c => c.customer_name || c.full_name || 'Unknown'), scaleType: 'band' }]}
                 series={[
                   {
