@@ -519,26 +519,18 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Customer Active Rate</h3>
           <div className="flex justify-center">
-            <div
-              value={customerActiveRate}
-              startAngle={-90}
-              endAngle={90}
-              innerRadius="40%"
-              outerRadius="80%"
-              text={`${customerActiveRate.toFixed(1)}%`}
-              sx={{
-                [`& .${gaugeClasses.valueText}`]: {
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                  fill: customerActiveRate > 70 ? '#10b981' : customerActiveRate > 50 ? '#f59e0b' : '#ef4444',
-                },
-                [`& .${gaugeClasses.valueArc}`]: {
-                  fill: customerActiveRate > 70 ? '#10b981' : customerActiveRate > 50 ? '#f59e0b' : '#ef4444',
-                },
-              }}
-              width={200}
-              height={150}
-            />
+            <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
+                 style={{
+                   background: `conic-gradient(${customerActiveRate > 70 ? '#10b981' : customerActiveRate > 50 ? '#f59e0b' : '#ef4444'} ${customerActiveRate * 3.6}deg, #e5e7eb 0deg)`
+                 }}>
+              <div className="text-center">
+                <div className="text-3xl font-bold" 
+                     style={{ color: customerActiveRate > 70 ? '#10b981' : customerActiveRate > 50 ? '#f59e0b' : '#ef4444' }}>
+                  {customerActiveRate.toFixed(1)}%
+                </div>
+                <div className="text-sm text-gray-600">Active</div>
+              </div>
+            </div>
           </div>
           <p className="text-center text-sm text-gray-500 mt-2">
             {stats?.active_customers || 0} / {stats?.total_customers || 0} active
@@ -549,26 +541,18 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">License Active Rate</h3>
           <div className="flex justify-center">
-            <div
-              value={licenseActiveRate}
-              startAngle={-90}
-              endAngle={90}
-              innerRadius="40%"
-              outerRadius="80%"
-              text={`${licenseActiveRate.toFixed(1)}%`}
-              sx={{
-                [`& .${gaugeClasses.valueText}`]: {
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                  fill: licenseActiveRate > 70 ? '#10b981' : licenseActiveRate > 50 ? '#f59e0b' : '#ef4444',
-                },
-                [`& .${gaugeClasses.valueArc}`]: {
-                  fill: licenseActiveRate > 70 ? '#10b981' : licenseActiveRate > 50 ? '#f59e0b' : '#ef4444',
-                },
-              }}
-              width={200}
-              height={150}
-            />
+            <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
+                 style={{
+                   background: `conic-gradient(${licenseActiveRate > 70 ? '#10b981' : licenseActiveRate > 50 ? '#f59e0b' : '#ef4444'} ${licenseActiveRate * 3.6}deg, #e5e7eb 0deg)`
+                 }}>
+              <div className="text-center">
+                <div className="text-3xl font-bold" 
+                     style={{ color: licenseActiveRate > 70 ? '#10b981' : licenseActiveRate > 50 ? '#f59e0b' : '#ef4444' }}>
+                  {licenseActiveRate.toFixed(1)}%
+                </div>
+                <div className="text-sm text-gray-600">Active</div>
+              </div>
+            </div>
           </div>
           <p className="text-center text-sm text-gray-500 mt-2">
             {stats?.active_licenses || 0} / {stats?.total_licenses || 0} active
@@ -579,26 +563,18 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Domain Active Rate</h3>
           <div className="flex justify-center">
-            <div
-              value={domainActiveRate}
-              startAngle={-90}
-              endAngle={90}
-              innerRadius="40%"
-              outerRadius="80%"
-              text={`${domainActiveRate.toFixed(1)}%`}
-              sx={{
-                [`& .${gaugeClasses.valueText}`]: {
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                  fill: domainActiveRate > 70 ? '#10b981' : domainActiveRate > 50 ? '#f59e0b' : '#ef4444',
-                },
-                [`& .${gaugeClasses.valueArc}`]: {
-                  fill: domainActiveRate > 70 ? '#10b981' : domainActiveRate > 50 ? '#f59e0b' : '#ef4444',
-                },
-              }}
-              width={200}
-              height={150}
-            />
+            <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
+                 style={{
+                   background: `conic-gradient(${domainActiveRate > 70 ? '#10b981' : domainActiveRate > 50 ? '#f59e0b' : '#ef4444'} ${domainActiveRate * 3.6}deg, #e5e7eb 0deg)`
+                 }}>
+              <div className="text-center">
+                <div className="text-3xl font-bold" 
+                     style={{ color: domainActiveRate > 70 ? '#10b981' : domainActiveRate > 50 ? '#f59e0b' : '#ef4444' }}>
+                  {domainActiveRate.toFixed(1)}%
+                </div>
+                <div className="text-sm text-gray-600">Active</div>
+              </div>
+            </div>
           </div>
           <p className="text-center text-sm text-gray-500 mt-2">
             {stats?.active_domains || 0} / {stats?.total_domains || 0} active

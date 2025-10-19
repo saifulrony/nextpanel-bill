@@ -19,7 +19,7 @@ export default function PublicRoute({ children }: { children: React.ReactNode })
       } else if (!hasRedirected.current) {
         hasRedirected.current = true;
         setRedirecting(true);
-        router.replace('/dashboard');
+        router.replace('/admin/dashboard');
       }
     }
   }, [isAuthenticated, isLoading, router]);

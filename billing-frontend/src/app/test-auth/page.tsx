@@ -79,7 +79,7 @@ export default function TestAuthPage() {
               Logout
             </button>
             <div className="space-y-2 mt-4">
-              <a href="/dashboard" className="block w-full bg-indigo-600 text-white py-2 rounded text-center hover:bg-indigo-700">
+              <a href="/admin/dashboard" className="block w-full bg-indigo-600 text-white py-2 rounded text-center hover:bg-indigo-700">
                 Go to Dashboard
               </a>
               <a href="/login" className="block w-full bg-gray-600 text-white py-2 rounded text-center hover:bg-gray-700">
