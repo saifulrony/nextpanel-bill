@@ -62,7 +62,8 @@ export default function RegisterPage() {
       const { confirmPassword, ...registerData } = formData;
       await registerUser(registerData);
       
-      // The AuthContext will handle login and redirect to dashboard
+      // Redirect to admin dashboard after successful registration
+      router.push('/admin/dashboard');
     } catch (error: any) {
       console.error('Registration error:', error);
       setGeneralError(

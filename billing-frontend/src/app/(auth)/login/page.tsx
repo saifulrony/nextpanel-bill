@@ -59,8 +59,9 @@ export default function LoginPage() {
       console.log('Calling login function...');
       await login(formData.email, formData.password);
       console.log('=== LOGIN SUCCESS ===');
-      console.log('Auth state updated, redirect should happen automatically');
-      // Keep isSubmitting true to prevent any further attempts
+      console.log('Auth state updated, redirecting to admin dashboard');
+      // Redirect to admin dashboard after successful login
+      router.push('/admin/dashboard');
     } catch (error: any) {
       console.error('=== LOGIN ERROR ===');
       console.error('Error:', error);

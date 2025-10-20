@@ -86,11 +86,21 @@ export default function CheckoutPage() {
       const result = await ordersAPI.create(orderData);
       console.log('Order created successfully:', result);
       
+      // Store order data for success page
+      if (result.data) {
+        localStorage.setItem('lastOrderData', JSON.stringify(result.data));
+      }
+      
       // Clear the cart
       clearCart();
       
-      // Redirect to success page
-      router.push('/order-success');
+      // Redirect to success page with order ID
+      const orderId = result.data?.id || result.data?.order_number;
+      if (orderId) {
+        router.push(`/order-success?order=${orderId}`);
+      } else {
+        router.push('/order-success');
+      }
       
     } catch (error: any) {
       console.error('Failed to create order after Stripe payment:', error);
@@ -200,11 +210,21 @@ export default function CheckoutPage() {
         const result = await ordersAPI.create(orderData);
         console.log('Order created successfully:', result);
         
+        // Store order data for success page
+        if (result.data) {
+          localStorage.setItem('lastOrderData', JSON.stringify(result.data));
+        }
+        
         // Clear the cart
         clearCart();
         
-        // Redirect to success page
-        router.push('/order-success');
+        // Redirect to success page with order ID
+        const orderId = result.data?.id || result.data?.order_number;
+        if (orderId) {
+          router.push(`/order-success?order=${orderId}`);
+        } else {
+          router.push('/order-success');
+        }
         
       } catch (error: any) {
         console.error('Failed to create order:', error);

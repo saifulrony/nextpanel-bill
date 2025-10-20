@@ -93,10 +93,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       document.cookie = `access_token=${access_token}; path=/; max-age=86400; SameSite=Lax`;
       document.cookie = `refresh_token=${refresh_token}; path=/; max-age=604800; SameSite=Lax`;
 
-      // DON'T update React state - just redirect
-      // The dashboard will load fresh and pick up auth from localStorage
-      // This prevents double redirect issue
-      window.location.href = '/admin/dashboard';
+      // Update auth state immediately
+      setAuthState({
+        user: response.data.user || response.data,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      // Don't redirect automatically - let the calling component decide
+      // This allows customers to stay on homepage for purchases
+      // and admins to be redirected to dashboard by their login page
     } catch (error) {
       throw error;
     }
@@ -106,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authAPI.register(data);
       await login(data.email, data.password);
-      router.push('/admin/dashboard');
+      // Don't redirect automatically - let the calling component decide
     } catch (error) {
       throw error;
     }

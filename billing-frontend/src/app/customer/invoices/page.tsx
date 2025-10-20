@@ -10,6 +10,7 @@ import {
   ExclamationTriangleIcon,
   ClockIcon,
 } from '@heroicons/react/24/outline';
+import { ordersAPI } from '@/lib/api';
 
 interface Invoice {
   id: string;
@@ -23,6 +24,10 @@ interface Invoice {
   subtotal: number;
   tax: number;
   total: number;
+  customer_name?: string;
+  customer_email?: string;
+  payment_method?: string;
+  payment_status?: string;
 }
 
 interface InvoiceItem {
@@ -33,116 +38,131 @@ interface InvoiceItem {
   total: number;
 }
 
+interface Order {
+  id: string;
+  order_number: string;
+  created_at: string;
+  due_date: string;
+  total: number;
+  status: string;
+  description?: string;
+  items?: any[];
+  subtotal?: number;
+  tax_amount?: number;
+  customer_name?: string;
+  customer_email?: string;
+  payment_method?: string;
+  payment_status?: string;
+}
+
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
+  // Function to convert order to invoice format
+  const convertOrderToInvoice = (order: Order): Invoice => {
+    const items: InvoiceItem[] = order.items?.map((item: any, index: number) => ({
+      id: item.id || index.toString(),
+      description: item.name || item.description || 'Service',
+      quantity: item.quantity || 1,
+      price: item.price || item.unit_price || 0,
+      total: (item.price || item.unit_price || 0) * (item.quantity || 1)
+    })) || [];
+
+    // Map order status to invoice status
+    const getInvoiceStatus = (orderStatus: string): 'paid' | 'pending' | 'overdue' | 'draft' => {
+      switch (orderStatus.toLowerCase()) {
+        case 'completed':
+        case 'paid':
+          return 'paid';
+        case 'pending':
+        case 'processing':
+          return 'pending';
+        case 'overdue':
+        case 'cancelled':
+          return 'overdue';
+        default:
+          return 'draft';
+      }
+    };
+
+    return {
+      id: order.id,
+      number: order.order_number,
+      date: order.created_at,
+      dueDate: order.due_date,
+      amount: order.total,
+      status: getInvoiceStatus(order.status),
+      description: order.description || `Order ${order.order_number}`,
+      items,
+      subtotal: order.subtotal || order.total,
+      tax: order.tax_amount || 0,
+      total: order.total,
+      customer_name: order.customer_name,
+      customer_email: order.customer_email,
+      payment_method: order.payment_method,
+      payment_status: order.payment_status
+    };
+  };
+
   useEffect(() => {
-    // Simulate loading invoices
-    setTimeout(() => {
-      setInvoices([
-        {
-          id: '1',
-          number: 'INV-2024-001',
-          date: '2024-01-15',
-          dueDate: '2024-02-15',
-          amount: 89.99,
-          status: 'paid',
-          description: 'Professional Hosting - January 2024',
-          items: [
-            {
-              id: '1',
-              description: 'Professional Hosting Plan',
-              quantity: 1,
-              price: 79.99,
-              total: 79.99,
-            },
-            {
-              id: '2',
-              description: 'SSL Certificate',
-              quantity: 1,
-              price: 10.00,
-              total: 10.00,
-            },
-          ],
-          subtotal: 89.99,
-          tax: 0.00,
-          total: 89.99,
-        },
-        {
-          id: '2',
-          number: 'INV-2024-002',
-          date: '2024-01-15',
-          dueDate: '2024-02-15',
-          amount: 12.99,
-          status: 'paid',
-          description: 'Domain Registration - mycompany.com',
-          items: [
-            {
-              id: '1',
-              description: 'Domain Registration - mycompany.com',
-              quantity: 1,
-              price: 12.99,
-              total: 12.99,
-            },
-          ],
-          subtotal: 12.99,
-          tax: 0.00,
-          total: 12.99,
-        },
-        {
-          id: '3',
-          number: 'INV-2024-003',
-          date: '2024-02-01',
-          dueDate: '2024-02-15',
-          amount: 89.99,
-          status: 'pending',
-          description: 'Professional Hosting - February 2024',
-          items: [
-            {
-              id: '1',
-              description: 'Professional Hosting Plan',
-              quantity: 1,
-              price: 79.99,
-              total: 79.99,
-            },
-            {
-              id: '2',
-              description: 'SSL Certificate',
-              quantity: 1,
-              price: 10.00,
-              total: 10.00,
-            },
-          ],
-          subtotal: 89.99,
-          tax: 0.00,
-          total: 89.99,
-        },
-        {
-          id: '4',
-          number: 'INV-2023-012',
-          date: '2023-12-15',
-          dueDate: '2024-01-15',
-          amount: 29.99,
-          status: 'overdue',
-          description: 'SSL Certificate - December 2023',
-          items: [
-            {
-              id: '1',
-              description: 'Wildcard SSL Certificate',
-              quantity: 1,
-              price: 29.99,
-              total: 29.99,
-            },
-          ],
-          subtotal: 29.99,
-          tax: 0.00,
-          total: 29.99,
-        },
-      ]);
-      setLoading(false);
-    }, 1000);
+    const loadInvoices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch orders from API
+        const response = await ordersAPI.list();
+        
+        if (response.data && Array.isArray(response.data)) {
+          const convertedInvoices = response.data.map(convertOrderToInvoice);
+          setInvoices(convertedInvoices);
+        } else {
+          setInvoices([]);
+        }
+      } catch (error: any) {
+        console.error('Failed to load invoices:', error);
+        setError('Failed to load invoices. Please try again later.');
+        
+        // Fallback to demo data if API fails
+        setInvoices([
+          {
+            id: 'demo-1',
+            number: 'INV-2024-001',
+            date: '2024-01-15',
+            dueDate: '2024-02-15',
+            amount: 89.99,
+            status: 'paid',
+            description: 'Professional Hosting - January 2024',
+            items: [
+              {
+                id: '1',
+                description: 'Professional Hosting Plan',
+                quantity: 1,
+                price: 79.99,
+                total: 79.99,
+              },
+              {
+                id: '2',
+                description: 'SSL Certificate',
+                quantity: 1,
+                price: 10.00,
+                total: 10.00,
+              },
+            ],
+            subtotal: 89.99,
+            tax: 0.00,
+            total: 89.99,
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInvoices();
   }, []);
 
   const getStatusIcon = (status: string) => {
@@ -190,6 +210,37 @@ export default function InvoicesPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              View and manage your billing invoices and payment history.
+            </p>
+          </div>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error Loading Invoices</h3>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm font-medium text-red-800 hover:text-red-600"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -319,10 +370,9 @@ export default function InvoicesPage() {
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-2">Bill To:</h4>
                   <div className="text-sm text-gray-600">
-                    <p>John Doe</p>
-                    <p>john@example.com</p>
-                    <p>123 Business St</p>
-                    <p>City, State 12345</p>
+                    <p>{selectedInvoice.customer_name || 'Customer'}</p>
+                    <p>{selectedInvoice.customer_email || 'customer@example.com'}</p>
+                    <p>Address not available</p>
                   </div>
                 </div>
                 <div>
@@ -334,6 +384,12 @@ export default function InvoicesPage() {
                       {getStatusIcon(selectedInvoice.status)}
                       <span className="ml-1 capitalize">{selectedInvoice.status}</span>
                     </span></p>
+                    {selectedInvoice.payment_method && (
+                      <p>Payment Method: {selectedInvoice.payment_method}</p>
+                    )}
+                    {selectedInvoice.payment_status && (
+                      <p>Payment Status: {selectedInvoice.payment_status}</p>
+                    )}
                   </div>
                 </div>
               </div>

@@ -14,7 +14,7 @@ export default function AuthLayout({
     // Only redirect if fully loaded and authenticated
     if (!isLoading && isAuthenticated) {
       // Use hard redirect to completely break any potential loop
-      window.location.href = '/dashboard';
+      window.location.href = '/admin/dashboard';
     }
   }, [isAuthenticated, isLoading]);
 

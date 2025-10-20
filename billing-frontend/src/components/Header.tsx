@@ -58,6 +58,13 @@ interface HeaderProps {
     headerMarginRight?: number;
     headerIsStatic?: boolean;
   };
+  // Custom authentication props for homepage
+  customAuth?: {
+    isAuthenticated: boolean;
+    user: any;
+    userType: string | null;
+  };
+  customLogout?: () => void;
 }
 
 const iconMap = {
@@ -69,7 +76,7 @@ const iconMap = {
   'menu': Bars3BottomLeftIcon,
 };
 
-const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUserMenu: (show: boolean) => void, settings?: any, router?: any, user?: any, isAuthenticated?: boolean, logout?: () => void, getItemCount?: () => number, searchQuery?: string, setSearchQuery?: (query: string) => void) => {
+const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUserMenu: (show: boolean) => void, settings?: any, router?: any, user?: any, isAuthenticated?: boolean, logout?: () => void, getItemCount?: () => number, searchQuery?: string, setSearchQuery?: (query: string) => void, customAuth?: any, customLogout?: () => void) => {
   
   // Try to get icon from element, or fallback to iconMap
   let IconComponent = element.icon;
@@ -191,9 +198,13 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
       );
     
     case 'user-menu':
+      // Use custom auth if provided, otherwise fall back to default auth
+      const authState = customAuth || { isAuthenticated, user };
+      const logoutFunction = customLogout || logout;
+      
       return (
         <div className="relative">
-          {isAuthenticated && user ? (
+          {authState.isAuthenticated && authState.user ? (
             <>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -204,56 +215,126 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
                   className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold"
                   style={{ backgroundColor: element.settings.backgroundColor || '#4f46e5' }}
                 >
-                  {user.full_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                  {authState.user.full_name?.charAt(0).toUpperCase() || 
+                   authState.user.name?.charAt(0).toUpperCase() ||
+                   authState.user.email?.charAt(0).toUpperCase()}
                 </div>
-                <span className="font-medium hidden sm:block">{user.full_name || user.email}</span>
+                <span className="font-medium hidden sm:block">
+                  {authState.user.full_name || authState.user.name || authState.user.email}
+                </span>
               </button>
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
-                        <a
-                          href="/admin/dashboard"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          Admin Dashboard
-                        </a>
-                        <a
-                          href="/customer"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          Customer Portal
-                        </a>
-                        <a
-                          href="/shop"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          Shop
-                        </a>
-                        <button
-                          onClick={() => {
-                            logout?.();
-                            setShowUserMenu(false);
-                          }}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          Logout
-                        </button>
+                  {/* Show different menu items based on user type */}
+                  {customAuth?.userType === 'customer' ? (
+                    <>
+                      <a
+                        href="/customer"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Customer Portal
+                      </a>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <a
+                        href="/customer/my-services/domains"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Domains
+                      </a>
+                      <a
+                        href="/customer/my-services/hosting"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Hosting
+                      </a>
+                      <a
+                        href="/customer/my-services/servers"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Servers
+                      </a>
+                      <a
+                        href="/customer/my-services/licenses"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Licenses
+                      </a>
+                      <a
+                        href="/customer/my-services/others"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Other Services
+                      </a>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <a
+                        href="/customer/services"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        All Services
+                      </a>
+                      <a
+                        href="/shop"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Shop
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <a
+                        href="/admin/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Admin Dashboard
+                      </a>
+                      <a
+                        href="/customer"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Customer Portal
+                      </a>
+                      <a
+                        href="/shop"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Shop
+                      </a>
+                    </>
+                  )}
+                  <button
+                    onClick={() => {
+                      logoutFunction?.();
+                      setShowUserMenu(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Logout
+                  </button>
                 </div>
               )}
             </>
           ) : (
             <div className="flex items-center space-x-4">
               <a 
-                href="/login" 
+                href="/customer/login" 
                 className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
                 style={{ color: element.settings.color || '#6b7280' }}
               >
                 Login
               </a>
               <a 
-                href="/auth/register" 
+                href="/customer/register" 
                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                 style={{ backgroundColor: element.settings.backgroundColor || '#4f46e5' }}
               >
@@ -301,7 +382,7 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
   }
 };
 
-export default function Header({ headerDesign, settings }: HeaderProps) {
+export default function Header({ headerDesign, settings, customAuth, customLogout }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
@@ -378,7 +459,7 @@ export default function Header({ headerDesign, settings }: HeaderProps) {
           <div className="flex items-center space-x-8">
             {leftElements.map(el => (
               <div key={el.id}>
-                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery)}
+                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery, customAuth, customLogout)}
               </div>
             ))}
           </div>
@@ -387,7 +468,7 @@ export default function Header({ headerDesign, settings }: HeaderProps) {
           <div className="flex items-center">
             {centerElements.map(el => (
               <div key={el.id}>
-                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery)}
+                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery, customAuth, customLogout)}
               </div>
             ))}
           </div>
@@ -396,7 +477,7 @@ export default function Header({ headerDesign, settings }: HeaderProps) {
           <div className="flex items-center space-x-4">
             {rightElements.map(el => (
               <div key={el.id} className={el.type === 'user-menu' ? 'user-menu-container' : ''}>
-                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery)}
+                {renderElement(el, showUserMenu, setShowUserMenu, settings, router, user, isAuthenticated, logout, getItemCount, searchQuery, setSearchQuery, customAuth, customLogout)}
               </div>
             ))}
           </div>

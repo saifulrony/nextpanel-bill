@@ -47,6 +47,9 @@ export default function Home() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  // Customer authentication state
+  const [customerAuth, setCustomerAuth] = useState<{ isAuthenticated: boolean; user: any }>({ isAuthenticated: false, user: null });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hasCustomHomepage, setHasCustomHomepage] = useState<boolean | null>(null);
   const [checkingHomepage, setCheckingHomepage] = useState(true);
@@ -98,6 +101,103 @@ export default function Home() {
     }
   }, []);
 
+  // Check for customer authentication
+  useEffect(() => {
+    const checkCustomerAuth = () => {
+      const token = localStorage.getItem('token');
+      const userType = localStorage.getItem('user_type');
+      const userData = localStorage.getItem('user');
+      
+      console.log('Customer auth check:', { token: !!token, userType, userData: !!userData });
+      
+      if (token && userType === 'customer' && userData) {
+        try {
+          const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+          console.log('Decoded customer token:', decoded);
+          
+          // Check if token is expired
+          if (decoded.exp && Date.now() / 1000 > decoded.exp) {
+            console.log('Customer token expired');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user_type');
+            localStorage.removeItem('user');
+            setCustomerAuth({ isAuthenticated: false, user: null });
+          } else {
+            const user = JSON.parse(userData);
+            console.log('Customer authenticated:', user);
+            setCustomerAuth({ isAuthenticated: true, user });
+          }
+        } catch (error) {
+          console.error('Customer token decode error:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user_type');
+          localStorage.removeItem('user');
+          setCustomerAuth({ isAuthenticated: false, user: null });
+        }
+      } else {
+        console.log('No customer token or wrong user type:', { token: !!token, userType });
+        setCustomerAuth({ isAuthenticated: false, user: null });
+      }
+    };
+    
+    // Check immediately
+    checkCustomerAuth();
+    
+    // Also check on window focus (in case user logged in from another tab)
+    const handleFocus = () => {
+      checkCustomerAuth();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // Combined authentication state - check both admin and customer auth
+  const combinedAuth = {
+    isAuthenticated: isAuthenticated || customerAuth.isAuthenticated,
+    user: user || customerAuth.user,
+    userType: customerAuth.isAuthenticated ? 'customer' : (isAuthenticated ? 'admin' : null)
+  };
+
+  // Debug logging
+  console.log('Auth states:', {
+    admin: { isAuthenticated, user: !!user },
+    customer: customerAuth,
+    combined: combinedAuth
+  });
+
+  // Debug info for development
+  const debugInfo = {
+    localStorage: typeof window !== 'undefined' ? {
+      token: localStorage.getItem('token'),
+      userType: localStorage.getItem('user_type'),
+      user: localStorage.getItem('user')
+    } : null,
+    customerAuth,
+    combinedAuth
+  };
+  console.log('Full debug info:', debugInfo);
+
+
+  // Combined logout function that handles both admin and customer logout
+  const handleLogout = () => {
+    if (customerAuth.isAuthenticated) {
+      // Customer logout
+      localStorage.removeItem('token');
+      localStorage.removeItem('user_type');
+      localStorage.removeItem('user');
+      document.cookie = 'auth_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      setCustomerAuth({ isAuthenticated: false, user: null });
+      setShowUserMenu(false);
+    } else if (isAuthenticated) {
+      // Admin logout
+      logout();
+      setShowUserMenu(false);
+    }
+  };
+
   const checkForCustomHomepage = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
@@ -105,7 +205,9 @@ export default function Home() {
       
       console.log('Checking for custom homepage at:', `${apiUrl}/api/v1/pages/homepage`);
       
-      const response = await fetch(`${apiUrl}/api/v1/pages/homepage`);
+      const response = await fetch(`${apiUrl}/api/v1/pages/homepage`, {
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
       
       console.log('Homepage response status:', response.status);
       
@@ -127,11 +229,13 @@ export default function Home() {
 
   const loadFeaturedProducts = async () => {
     try {
+      setLoadingProducts(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
       const response = await axios.get(`${apiUrl}/api/v1/plans`, {
-        params: { is_active: true, is_featured: true }
+        params: { is_active: true, is_featured: true },
+        timeout: 5000 // 5 second timeout
       });
       
       // Check if API returned empty data
@@ -293,11 +397,14 @@ export default function Home() {
       
       // Load all active products
       const productsResponse = await axios.get(`${apiUrl}/api/v1/plans`, {
-        params: { is_active: true }
+        params: { is_active: true },
+        timeout: 5000
       });
       
       // Load categories
-      const categoriesResponse = await axios.get(`${apiUrl}/api/v1/plans/categories`);
+      const categoriesResponse = await axios.get(`${apiUrl}/api/v1/plans/categories`, {
+        timeout: 5000
+      });
       
       // Group products by category
       const grouped: Record<string, FeaturedProduct[]> = {};
@@ -430,7 +537,97 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Custom Header */}
-      <Header headerDesign={headerDesign} />
+      <Header 
+        headerDesign={headerDesign} 
+        customAuth={combinedAuth}
+        customLogout={handleLogout}
+      />
+
+      {/* Debug info for development - remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 m-4 rounded">
+          <strong>Debug Info:</strong>
+          <br />
+          Admin Auth: {isAuthenticated ? 'Yes' : 'No'} {user ? `(${user.email})` : ''}
+          <br />
+          Customer Auth: {customerAuth.isAuthenticated ? 'Yes' : 'No'} {customerAuth.user ? `(${customerAuth.user.email || customerAuth.user.name})` : ''}
+          <br />
+          Combined Auth: {combinedAuth.isAuthenticated ? 'Yes' : 'No'} {combinedAuth.user ? `(${combinedAuth.user.email || combinedAuth.user.name})` : ''}
+          <br />
+          User Type: {combinedAuth.userType || 'None'}
+          <br />
+          <button 
+            onClick={() => {
+              console.log('Manual refresh triggered');
+              const token = localStorage.getItem('token');
+              const userType = localStorage.getItem('user_type');
+              const userData = localStorage.getItem('user');
+              console.log('Current localStorage:', { token: !!token, userType, userData: !!userData });
+              if (token && userType === 'customer') {
+                try {
+                  const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+                  console.log('Token decoded:', decoded);
+                  const user = userData ? JSON.parse(userData) : null;
+                  setCustomerAuth({ isAuthenticated: true, user });
+                } catch (error) {
+                  console.error('Token decode error:', error);
+                }
+              }
+            }}
+            className="bg-blue-500 text-white px-2 py-1 rounded text-sm mt-2 mr-2"
+          >
+            Manual Refresh Auth
+          </button>
+          <button 
+            onClick={() => {
+              console.log('Setting test customer auth');
+              const testUser = {
+                id: '1',
+                email: 'test@customer.com',
+                name: 'Test Customer',
+                user_type: 'customer'
+              };
+              const testToken = Buffer.from(JSON.stringify({
+                userId: '1',
+                email: 'test@customer.com',
+                userType: 'customer',
+                iat: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60)
+              })).toString('base64');
+              
+              localStorage.setItem('token', testToken);
+              localStorage.setItem('user', JSON.stringify(testUser));
+              localStorage.setItem('user_type', 'customer');
+              
+              console.log('Test customer data set:', { testUser, testToken });
+              setCustomerAuth({ isAuthenticated: true, user: testUser });
+              
+              // Force a re-render
+              setTimeout(() => {
+                window.location.reload();
+              }, 100);
+            }}
+            className="bg-green-500 text-white px-2 py-1 rounded text-sm mt-2 mr-2"
+          >
+            Set Test Customer
+          </button>
+          <button 
+            onClick={() => {
+              console.log('Clearing all auth data');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              localStorage.removeItem('user_type');
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              setCustomerAuth({ isAuthenticated: false, user: null });
+              window.location.reload();
+            }}
+            className="bg-red-500 text-white px-2 py-1 rounded text-sm mt-2"
+          >
+            Clear All Auth
+          </button>
+        </div>
+      )}
 
       {/* Hero Section with Domain Search */}
       <div id="domain-search" className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">

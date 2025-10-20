@@ -48,6 +48,11 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
     backups: 'weekly',
     support: '24/7 Email',
     uptime: '99.9%',
+    // Stock system
+    stock_enabled: false,
+    stock_quantity: '',
+    stock_low_threshold: '',
+    allow_backorder: false,
   });
 
   const billingCycleOptions = [
@@ -63,7 +68,8 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
     { id: 1, name: 'Basic Info', description: 'Product name and category' },
     { id: 2, name: 'Pricing', description: 'Billing cycles and pricing' },
     { id: 3, name: 'Resources', description: 'Limits and features' },
-    { id: 4, name: 'Review', description: 'Review and create' },
+    { id: 4, name: 'Stock', description: 'Inventory management' },
+    { id: 5, name: 'Review', description: 'Review and create' },
   ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -116,6 +122,8 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
       case 3:
         return true; // Resources step is optional
       case 4:
+        return true; // Stock step is optional
+      case 5:
         return true; // Review step
       default:
         return false;
@@ -227,6 +235,11 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
         max_databases: parseInt(formData.max_databases) || 0,
         max_emails: parseInt(formData.max_emails) || 0,
         features,
+        // Stock system fields
+        stock_enabled: formData.stock_enabled,
+        stock_quantity: formData.stock_enabled ? parseInt(formData.stock_quantity) || 0 : null,
+        stock_low_threshold: formData.stock_enabled ? parseInt(formData.stock_low_threshold) || 0 : null,
+        allow_backorder: formData.stock_enabled ? formData.allow_backorder : false,
       };
 
       console.log('Creating product with payload:', JSON.stringify(payload, null, 2));
@@ -624,6 +637,90 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
         );
 
       case 4:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-lg font-medium text-gray-900 mb-4">Stock Management</h4>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure inventory tracking for this product. This is optional - you can disable stock tracking for unlimited products.
+              </p>
+              
+              <div className="space-y-6">
+                {/* Enable Stock Tracking */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="stock_enabled"
+                    checked={formData.stock_enabled}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">
+                    Enable stock tracking for this product
+                  </label>
+                </div>
+
+                {formData.stock_enabled && (
+                  <div className="space-y-4 pl-6 border-l-2 border-indigo-200">
+                    {/* Stock Quantity */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Initial Stock Quantity
+                      </label>
+                      <input
+                        type="number"
+                        name="stock_quantity"
+                        value={formData.stock_quantity}
+                        onChange={handleChange}
+                        min="0"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="Enter initial stock quantity"
+                      />
+                    </div>
+
+                    {/* Low Stock Threshold */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Low Stock Alert Threshold
+                      </label>
+                      <input
+                        type="number"
+                        name="stock_low_threshold"
+                        value={formData.stock_low_threshold}
+                        onChange={handleChange}
+                        min="0"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="Alert when stock falls below this number"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        You'll be notified when stock falls below this level
+                      </p>
+                    </div>
+
+                    {/* Allow Backorder */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="allow_backorder"
+                        checked={formData.allow_backorder}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label className="ml-2 block text-sm text-gray-900">
+                        Allow backorders when out of stock
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 pl-6">
+                      Customers can still purchase when stock is 0
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 5:
         const enabledCycles = Object.entries(formData.billing_cycles).filter(([_, cycle]) => cycle.enabled);
         return (
           <div className="space-y-6">
@@ -668,6 +765,32 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                     <div>Emails: {formData.max_emails}</div>
                   </div>
                 </div>
+
+                {formData.stock_enabled && (
+                  <div>
+                    <h6 className="font-medium text-gray-700">Stock Management</h6>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Stock Tracking</span>
+                        <span className="font-medium text-green-600">Enabled</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Initial Stock</span>
+                        <span className="font-medium">{formData.stock_quantity || 0} units</span>
+                      </div>
+                      {formData.stock_low_threshold && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Low Stock Alert</span>
+                          <span className="font-medium">{formData.stock_low_threshold} units</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Allow Backorders</span>
+                        <span className="font-medium">{formData.allow_backorder ? 'Yes' : 'No'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -40,6 +40,12 @@ interface Product {
   is_featured?: boolean;
   sort_order?: number;
   created_at: string;
+  // Stock system fields
+  stock_quantity?: number;
+  stock_enabled?: boolean;
+  stock_low_threshold?: number;
+  stock_status?: 'in_stock' | 'low_stock' | 'out_of_stock';
+  allow_backorder?: boolean;
 }
 
 interface Stats {
@@ -559,6 +565,47 @@ export default function ProductsPage() {
                       <span className="text-sm text-gray-500">/yr</span>
                     </div>
                   </div>
+
+                  {/* Stock Information */}
+                  {product.stock_enabled && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-700">Stock:</span>
+                          <span className={`text-sm font-semibold ${
+                            product.stock_status === 'out_of_stock' 
+                              ? 'text-red-600' 
+                              : product.stock_status === 'low_stock' 
+                                ? 'text-yellow-600' 
+                                : 'text-green-600'
+                          }`}>
+                            {product.stock_quantity || 0}
+                          </span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            product.stock_status === 'out_of_stock' 
+                              ? 'bg-red-100 text-red-800' 
+                              : product.stock_status === 'low_stock' 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : 'bg-green-100 text-green-800'
+                          }`}>
+                            {product.stock_status === 'out_of_stock' 
+                              ? 'Out of Stock' 
+                              : product.stock_status === 'low_stock' 
+                                ? 'Low Stock' 
+                                : 'In Stock'}
+                          </span>
+                        </div>
+                        {product.allow_backorder && (
+                          <span className="text-xs text-blue-600 font-medium">Backorder OK</span>
+                        )}
+                      </div>
+                      {product.stock_low_threshold && product.stock_quantity !== undefined && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          Low stock alert at {product.stock_low_threshold} units
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Features Summary */}
                   <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-gray-600">

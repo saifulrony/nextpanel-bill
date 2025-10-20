@@ -134,10 +134,49 @@ export default function PaymentGatewaysPage() {
   const handleTest = async (id: string) => {
     try {
       setTestingGateway(id);
-      const response = await paymentGatewaysAPI.test(id, {
-        test_amount: 1.00,
-        test_currency: 'USD'
-      });
+      
+      // First check if the gateway is properly configured
+      const gateway = gateways.find(g => g.id === id);
+      if (!gateway) {
+        alert('Gateway not found');
+        return;
+      }
+      
+      // Check if gateway is in a testable state
+      if (gateway.status === 'inactive') {
+        alert('Gateway must be active before testing. Please activate the gateway first.');
+        return;
+      }
+      
+      console.log('Testing gateway:', id, 'with configuration:', gateway);
+      
+      let response;
+      try {
+        // Try with test parameters first
+        console.log('Attempting test with parameters:', { test_amount: 1.00, test_currency: 'USD' });
+        response = await paymentGatewaysAPI.test(id, {
+          test_amount: 1.00,
+          test_currency: 'USD'
+        });
+        console.log('Test response:', response.data);
+      } catch (paramError: any) {
+        console.log('Error with parameters:', paramError.response?.status, paramError.response?.data);
+        
+        // If 422 error with parameters, try without parameters
+        if (paramError.response?.status === 422) {
+          console.log('422 error with parameters, trying without parameters...');
+          try {
+            response = await paymentGatewaysAPI.test(id);
+            console.log('Test response without parameters:', response.data);
+          } catch (noParamError: any) {
+            console.log('Error without parameters:', noParamError.response?.status, noParamError.response?.data);
+            throw noParamError;
+          }
+        } else {
+          throw paramError;
+        }
+      }
+      
       if (response.data.success) {
         alert('Gateway test successful!');
         // Refresh the gateway list to show updated status
