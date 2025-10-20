@@ -764,7 +764,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                           <p className="text-sm text-gray-600 mb-3">{domain.description}</p>
                           
                           <div className="flex flex-wrap gap-1 mb-3">
-                            {domain.features.map((feature, index) => (
+                            {domain.features.map((feature: any, index: number) => (
                               <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
                                 {feature}
                               </span>
@@ -956,7 +956,7 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     subtitle?: string;
   };
 }) {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
@@ -1032,9 +1032,11 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     addItem({
       id: product.id,
       name: product.name,
+      description: product.description || product.name,
       price: product.price_monthly || product.price || 0,
       billing_cycle: product.billing_cycle || 'monthly',
-      category: product.category || 'hosting'
+      category: product.category || 'hosting',
+      type: 'product' as const
     });
     setAddedToCart(product.id);
     setTimeout(() => setAddedToCart(null), 2000);
@@ -1131,7 +1133,7 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
     subtitle?: string;
   };
 }) {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
@@ -1208,9 +1210,11 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
     addItem({
       id: product.id,
       name: product.name,
+      description: product.description || product.name,
       price: product.price_monthly || product.price || 0,
       billing_cycle: product.billing_cycle || 'monthly',
-      category: product.category || 'hosting'
+      category: product.category || 'hosting',
+      type: 'product' as const
     });
     setAddedToCart(product.id);
     setTimeout(() => setAddedToCart(null), 2000);
@@ -1452,7 +1456,7 @@ export function ContactFormComponent({ style }: { style?: React.CSSProperties })
 // Product Search Component
 export function ProductSearchComponent({ style }: { style?: React.CSSProperties }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { addItem } = useCart();
 
@@ -1485,9 +1489,11 @@ export function ProductSearchComponent({ style }: { style?: React.CSSProperties 
     addItem({
       id: product.id,
       name: product.name,
+      description: product.description || product.name,
       price: product.price_monthly || product.price || 0,
       billing_cycle: product.billing_cycle || 'monthly',
-      category: product.category || 'hosting'
+      category: product.category || 'hosting',
+      type: 'product' as const
     });
   };
 

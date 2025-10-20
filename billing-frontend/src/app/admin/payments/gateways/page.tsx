@@ -135,7 +135,6 @@ export default function PaymentGatewaysPage() {
     try {
       setTestingGateway(id);
       const response = await paymentGatewaysAPI.test(id, {
-        gateway_id: id,
         test_amount: 1.00,
         test_currency: 'USD'
       });

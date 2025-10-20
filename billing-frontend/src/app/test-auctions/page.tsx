@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export default function TestAuctions() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const testAPI = async () => {
@@ -15,7 +15,7 @@ export default function TestAuctions() {
       console.log('API Response:', result);
     } catch (error) {
       console.error('API Error:', error);
-      setData({ error: error.message });
+      setData({ error: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setLoading(false);
     }

@@ -34,6 +34,7 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
     backups: product.features?.backups || 'weekly',
     support: product.features?.support || '24/7 Email',
     uptime: product.features?.uptime || '99.9%',
+    is_active: product.is_active || true,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

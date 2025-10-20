@@ -109,7 +109,7 @@ function SortableComponent({
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onAddToContainer: (containerId: string, type: ComponentType) => void;
+  onAddToContainer: (type: ComponentType, containerId?: string, columnIndex?: number) => void;
   onColumnClick: (containerId: string, columnIndex: number) => void;
   onAddColumn: (containerId: string) => void;
   onRemoveColumn: (containerId: string) => void;
@@ -1522,7 +1522,7 @@ export function PageBuilderWithISR({
       }
     } catch (error) {
       console.error('Error saving page:', error);
-      alert(`Failed to save page: ${error.message}`);
+      alert(`Failed to save page: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSaving(false);
     }
@@ -1750,7 +1750,7 @@ export function PageBuilderWithISR({
           break;
         case 'social-icons':
           const platforms = component.props?.platforms || ['facebook', 'twitter', 'instagram'];
-          const iconHtml = platforms.map(platform => `      <a href="#" class="social-icon social-${platform}">${platform}</a>`).join('\n');
+          const iconHtml = platforms.map((platform: any) => `      <a href="#" class="social-icon social-${platform}">${platform}</a>`).join('\n');
           html += `    <div class="social-icons" style="text-align: ${component.props?.alignment || 'center'}; display: flex; gap: 1rem; justify-content: center;">\n${iconHtml}\n    </div>\n`;
           break;
         case 'showcase':

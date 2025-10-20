@@ -286,8 +286,7 @@ export default function ComponentRenderer({
                         component={child}
                         isSelected={isSelected && selectedComponent === child.id}
                         isHovered={isHovered}
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={() => {
                           onColumnClick?.(component.id, index);
                         }}
                         onMouseEnter={onMouseEnter}
@@ -753,7 +752,7 @@ export default function ComponentRenderer({
             }}
             className={`${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
           >
-            {socialPlatforms.map((platform, index) => (
+            {socialPlatforms.map((platform: any, index: number) => (
               <div
                 key={index}
                 style={{

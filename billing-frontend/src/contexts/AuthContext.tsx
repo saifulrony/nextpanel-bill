@@ -113,8 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Check user type before clearing data
+    const userType = localStorage.getItem('user_type');
+    
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user_type');
     
     // Also remove from cookies with multiple approaches to ensure they're cleared
     document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -123,7 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     document.cookie = 'refresh_token=; path=/; domain=' + window.location.hostname + '; max-age=0';
     
     setAuthState({ user: null, isAuthenticated: false, isLoading: false });
-    window.location.href = '/login';
+    
+    // Redirect based on user type
+    if (userType === 'customer') {
+      window.location.href = '/customer/login';
+    } else {
+      window.location.href = '/login';
+    }
   };
 
   const refreshUser = async () => {

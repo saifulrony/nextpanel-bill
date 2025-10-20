@@ -185,7 +185,7 @@ export default function StripePaymentForm({
         // Try to confirm the payment with Stripe
         const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
           payment_method: {
-            card: elements.getElement(CardElement)!,
+            card: elements?.getElement(CardElement)!,
             billing_details: {
               address: {
                 postal_code: postalCode,

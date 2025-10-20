@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -114,7 +114,7 @@ interface HeaderTemplate {
   features: string[];
 }
 
-export default function CustomizationPage() {
+function CustomizationPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
@@ -213,10 +213,10 @@ export default function CustomizationPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Redirecting to login...</p>
-        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // Header Templates Data
   const headerTemplates: HeaderTemplate[] = [
@@ -2268,6 +2268,14 @@ export default function ${page.name}Page() {
         <div dangerouslySetInnerHTML={{ __html: settings.customHTML }} />
       )}
     </div>
+  );
+}
+
+export default function CustomizationPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <CustomizationPageContent />
+    </Suspense>
   );
 }
 

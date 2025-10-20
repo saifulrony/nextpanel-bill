@@ -9,7 +9,7 @@ let cron: any = null;
 try {
   cron = require('node-cron');
 } catch (error) {
-  console.warn('node-cron not available:', error.message);
+  console.warn('node-cron not available:', error instanceof Error ? error.message : 'Unknown error');
 }
 
 const execAsync = promisify(exec);
@@ -30,7 +30,7 @@ export interface BackupJob {
 
 export class BackupService {
   private jobs: Map<string, BackupJob> = new Map();
-  private cronTasks: Map<string, cron.ScheduledTask> = new Map();
+  private cronTasks: Map<string, any> = new Map();
   private backupPath: string;
 
   constructor(backupPath: string = '/tmp/backups') {

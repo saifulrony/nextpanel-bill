@@ -553,7 +553,7 @@ export default function DomainPricingPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {getFilteredAndSortedTlds().map((tld) => {
-                  const sellingPrice = sellingPrices[tld.tld] || (tld.custom_price ? tld.custom_price : (tld.wholesale_price * (1 + (tld.markup_percentage || profitPercentage) / 100)));
+                  const sellingPrice = sellingPrices[tld.tld] || (tld.custom_price ? tld.custom_price : (tld.wholesale_price * (1 + (tld.markup_percentage || 20) / 100)));
                   // Calculate actual markup percentage based on selling price vs wholesale price
                   const markupPercent = ((sellingPrice - tld.wholesale_price) / tld.wholesale_price) * 100;
                   

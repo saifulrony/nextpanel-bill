@@ -604,20 +604,22 @@ export default function DashboardPage() {
         {(topCustomers && topCustomers.length > 0) ? (
           <>
             {/* Bar Chart */}
-            <div className="mb-6 h-64">
-              <div
-                xAxis={[{ data: topCustomers.slice(0, 5).map(c => c.customer_name || c.full_name || 'Unknown'), scaleType: 'band' }]}
-                series={[
-                  {
-                    data: topCustomers.slice(0, 5).map(c => c.total_orders || 0),
-                    label: 'Orders',
-                    color: '#3b82f6',
-                  },
-                ]}
-                width={600}
-                height={200}
-                margin={{ top: 20, right: 20, bottom: 40, left: 20 }}
-              />
+            <div className="mb-6 h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">Top Customers by Orders</h3>
+                <div className="space-y-2">
+                  {topCustomers.slice(0, 5).map((customer, index) => (
+                    <div key={index} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                      <span className="text-sm font-medium text-gray-900">
+                        {customer.customer_name || customer.full_name || 'Unknown'}
+                      </span>
+                      <span className="text-sm text-blue-600 font-semibold">
+                        {customer.total_orders || 0} orders
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Data Table */}

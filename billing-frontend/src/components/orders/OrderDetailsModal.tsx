@@ -703,7 +703,7 @@ NextPanel Team
                     {newTax > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">
-                          Tax {order.tax_rate > 0 && `(${order.tax_rate}%)`}:
+                          Tax {order.tax_rate && order.tax_rate > 0 && `(${order.tax_rate}%)`}:
                         </span>
                         <span className="font-medium text-gray-900">${newTax.toFixed(2)}</span>
                       </div>

@@ -37,8 +37,8 @@ export default function DomainCheckout({ isOpen, onClose, cartItems, onSuccess }
     if (user) {
       setBillingInfo(prev => ({
         ...prev,
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
+        firstName: user.full_name?.split(' ')[0] || '',
+        lastName: user.full_name?.split(' ').slice(1).join(' ') || '',
         email: user.email || ''
       }));
     }

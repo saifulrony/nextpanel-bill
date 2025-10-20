@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PageBuilderWithISR } from '@/components/page-builder/PageBuilderWithISR';
 import { Component } from '@/components/page-builder/types';
 
-export default function AdminPageBuilderPage() {
+function AdminPageBuilderPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [pageBuilderComponents, setPageBuilderComponents] = useState<Component[]>([]);
@@ -516,5 +516,13 @@ export default function AdminPageBuilderPage() {
       }}
       onClose={handleClose}
     />
+  );
+}
+
+export default function AdminPageBuilderPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <AdminPageBuilderPageContent />
+    </Suspense>
   );
 }

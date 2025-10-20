@@ -215,7 +215,14 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           onClick={() => setShowUserMenu(false)}
                         >
-                          Dashboard
+                          Admin Dashboard
+                        </a>
+                        <a
+                          href="/customer"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          Customer Portal
                         </a>
                         <a
                           href="/shop"

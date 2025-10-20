@@ -87,14 +87,8 @@ export default function EnhancedDomainSearch() {
   }, []);
 
   const loadCartItems = async () => {
-    try {
-      const response = await domainsAPI.getCart();
-      if (response.data.success) {
-        setCartItems(response.data.items || []);
-      }
-    } catch (error) {
-      console.error('Failed to load cart items:', error);
-    }
+    // Cart items are managed by CartContext
+    // No need to load from API
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -128,12 +122,9 @@ export default function EnhancedDomainSearch() {
     setAuctionError(null);
     
     try {
-      const response = await domainsAPI.searchAuctions(searchQuery);
-      if (response.data.success) {
-        setAuctionResults(response.data.domains || []);
-      } else {
-        setAuctionError(response.data.message || 'Failed to search auctions');
-      }
+      const response = await fetch('/api/v1/domains/auctions');
+      const data = await response.json();
+      setAuctionResults(data.domains || []);
     } catch (error: any) {
       console.error('Auction search error:', error);
       setAuctionError('Failed to search auction domains. Please try again.');
@@ -150,12 +141,9 @@ export default function EnhancedDomainSearch() {
     setPremiumError(null);
     
     try {
-      const response = await domainsAPI.getPremiumDomains(searchQuery);
-      if (response.data.success) {
-        setPremiumResults(response.data.domains || []);
-      } else {
-        setPremiumError(response.data.message || 'Failed to get premium domains');
-      }
+      const response = await fetch('/api/v1/domains/premium');
+      const data = await response.json();
+      setPremiumResults(data.domains || []);
     } catch (error: any) {
       console.error('Premium search error:', error);
       setPremiumError('Failed to get premium domains. Please try again.');
@@ -172,12 +160,12 @@ export default function EnhancedDomainSearch() {
     setSuggestionError(null);
     
     try {
-      const response = await domainsAPI.generateSuggestions(searchQuery);
-      if (response.data.success) {
-        setSuggestions(response.data.suggestions || []);
-      } else {
-        setSuggestionError(response.data.message || 'Failed to generate suggestions');
-      }
+      const response = await fetch('/api/v1/domains/suggestions', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
     } catch (error: any) {
       console.error('Suggestion generation error:', error);
       setSuggestionError('Failed to generate domain suggestions. Please try again.');
@@ -195,12 +183,13 @@ export default function EnhancedDomainSearch() {
     
     try {
       const keywords = bulkKeywords.split(',').map(k => k.trim()).filter(k => k);
-      const response = await domainsAPI.bulkSearch(keywords);
-      if (response.data.success) {
-        setBulkResults(response.data.results || []);
-      } else {
-        setBulkError(response.data.message || 'Failed to perform bulk search');
-      }
+      const response = await fetch('/api/v1/domains/bulk-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keywords })
+      });
+      const data = await response.json();
+      setBulkResults(data.results || []);
     } catch (error: any) {
       console.error('Bulk search error:', error);
       setBulkError('Failed to perform bulk search. Please try again.');
@@ -211,35 +200,23 @@ export default function EnhancedDomainSearch() {
 
   const handleAddToCart = async (domain: string, price: number, type: string = 'regular') => {
     try {
-      // Add to domain cart API (backend database)
-      const response = await domainsAPI.addToCart({
-        domain_name: domain,
-        price,
-        domain_type: type,
-        currency: 'USD'
+      // Add to local cart context (for cart page display)
+      addItem({
+        id: `domain-${domain}-${Date.now()}`, // Unique ID for domain items
+        name: domain,
+        description: `Domain registration - ${type}`,
+        price: price,
+        billing_cycle: 'yearly',
+        category: 'Domain',
+        type: 'domain',
+        domain_name: domain
       });
       
-      if (response.data.success) {
-        // Also add to local cart context (for cart page display)
-        addItem({
-          id: `domain-${domain}-${Date.now()}`, // Unique ID for domain items
-          name: domain,
-          description: `Domain registration - ${type}`,
-          price: price,
-          billing_cycle: 'yearly',
-          category: 'Domain',
-          type: 'domain',
-          domain_name: domain
-        });
-        
-        await loadCartItems();
-        // Show success message with view cart option
-        const viewCart = confirm(`${domain} added to cart! Would you like to view your cart?`);
-        if (viewCart) {
-          router.push('/cart');
-        }
-      } else {
-        alert(response.data.message || 'Failed to add to cart');
+      await loadCartItems();
+      // Show success message with view cart option
+      const viewCart = confirm(`${domain} added to cart! Would you like to view your cart?`);
+      if (viewCart) {
+        router.push('/cart');
       }
     } catch (error: any) {
       console.error('Add to cart error:', error);

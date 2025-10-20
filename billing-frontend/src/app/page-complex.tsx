@@ -488,7 +488,6 @@ export default function Home() {
           </div>
         </div>
         )}
-      </div>
 
       {/* Browse by Category Section */}
       <div className="mt-16 max-w-7xl mx-auto px-4">

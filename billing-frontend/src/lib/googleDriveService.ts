@@ -7,7 +7,7 @@ let google: any = null;
 try {
   google = require('googleapis').google;
 } catch (error) {
-  console.warn('Google APIs not available:', error.message);
+  console.warn('Google APIs not available:', error instanceof Error ? error.message : 'Unknown error');
 }
 
 export interface GoogleDriveConfig {
