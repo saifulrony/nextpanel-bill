@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ShoppingCartIcon, CheckIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ShoppingCartIcon, CheckIcon, MagnifyingGlassIcon, XMarkIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import { DynamicHomepage } from '@/components/page-builder/DynamicHomepage';
 import Header from '@/components/Header';
+import ChatBot from '@/components/ChatBot';
 import { domainsAPI } from '@/lib/api';
 import axios from 'axios';
 
@@ -57,8 +58,7 @@ export default function Home() {
   const [domainSearchResults, setDomainSearchResults] = useState<any[]>([]);
   const [showDomainResults, setShowDomainResults] = useState(false);
   const [domainSearchError, setDomainSearchError] = useState<string | null>(null);
-  // Note: Chatbot widget removed from homepage to support true modularity
-  // The chatbot functionality is now available at /support/chats when the plugin is installed
+  const [showChatBot, setShowChatBot] = useState(false);
 
   const popularTlds = [
     { extension: '.com', price: '$8.99/yr' },
@@ -67,6 +67,10 @@ export default function Home() {
     { extension: '.io', price: '$34.99/yr' },
     { extension: '.dev', price: '$14.99/yr' },
     { extension: '.app', price: '$17.99/yr' },
+    { extension: '.co', price: '$12.99/yr' },
+    { extension: '.me', price: '$15.99/yr' },
+    { extension: '.info', price: '$9.99/yr' },
+    { extension: '.biz', price: '$13.99/yr' },
   ];
 
   useEffect(() => {
@@ -98,6 +102,71 @@ export default function Home() {
       } catch (error) {
         console.error('Failed to load header design:', error);
       }
+    } else {
+      // Set default header design with user menu and cart for customers
+      setHeaderDesign({
+        selectedDesign: 'default',
+        deviceType: 'desktop',
+        timestamp: new Date().toISOString(),
+        elements: [
+          {
+            id: 'logo',
+            type: 'logo',
+            label: 'Logo',
+            visible: true,
+            position: 0,
+            settings: {
+              color: '#1f2937',
+              fontSize: 24,
+              fontWeight: 'bold'
+            }
+          },
+          {
+            id: 'navigation',
+            type: 'navigation',
+            label: 'Navigation',
+            visible: true,
+            position: 1,
+            settings: {
+              color: '#374151',
+              fontSize: 16
+            }
+          },
+          {
+            id: 'search',
+            type: 'search',
+            label: 'Search',
+            visible: true,
+            position: 2,
+            settings: {
+              color: '#6b7280',
+              fontSize: 14
+            }
+          },
+          {
+            id: 'cart',
+            type: 'cart',
+            label: 'Cart',
+            visible: true,
+            position: 3,
+            settings: {
+              color: '#374151',
+              fontSize: 16
+            }
+          },
+          {
+            id: 'user-menu',
+            type: 'user-menu',
+            label: 'User Menu',
+            visible: true,
+            position: 4,
+            settings: {
+              color: '#374151',
+              fontSize: 16
+            }
+          }
+        ]
+      });
     }
   }, []);
 
@@ -154,6 +223,11 @@ export default function Home() {
     };
   }, []);
 
+  // Force re-render when customer auth changes
+  useEffect(() => {
+    console.log('Customer auth state changed:', customerAuth);
+  }, [customerAuth]);
+
   // Combined authentication state - check both admin and customer auth
   const combinedAuth = {
     isAuthenticated: isAuthenticated || customerAuth.isAuthenticated,
@@ -166,6 +240,14 @@ export default function Home() {
     admin: { isAuthenticated, user: !!user },
     customer: customerAuth,
     combined: combinedAuth
+  });
+  
+  // Additional debug for Header
+  console.log('Header will receive:', {
+    customAuth: combinedAuth,
+    isAuthenticated: combinedAuth.isAuthenticated,
+    user: combinedAuth.user,
+    userType: combinedAuth.userType
   });
 
   // Debug info for development
@@ -538,9 +620,28 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Custom Header */}
       <Header 
+        key={`header-${combinedAuth.isAuthenticated}-${combinedAuth.user?.id || 'anonymous'}`}
         headerDesign={headerDesign} 
         customAuth={combinedAuth}
         customLogout={handleLogout}
+        settings={{
+          logo: logoUrl,
+          logoWidth: 120,
+          logoHeight: 40,
+          logoPosition: 'left',
+          logoPadding: 16,
+          logoOpacity: 1,
+          logoMaxWidth: '200px',
+          logoText: 'NextPanel',
+          logoColor: '#1f2937',
+          headerBackgroundColor: '#ffffff',
+          headerPadding: 16,
+          headerMarginTop: 0,
+          headerMarginBottom: 0,
+          headerMarginLeft: 0,
+          headerMarginRight: 0,
+          headerIsStatic: false
+        }}
       />
 
       {/* Debug info for development - remove in production */}
@@ -626,6 +727,13 @@ export default function Home() {
           >
             Clear All Auth
           </button>
+          <div className="text-xs text-gray-600 mt-2 p-2 bg-gray-100 rounded">
+            <strong>Current Auth Status:</strong><br/>
+            Authenticated: {combinedAuth.isAuthenticated ? 'Yes' : 'No'}<br/>
+            User: {combinedAuth.user?.name || combinedAuth.user?.email || 'None'}<br/>
+            Type: {combinedAuth.userType || 'None'}<br/>
+            Customer Auth: {customerAuth.isAuthenticated ? 'Yes' : 'No'}
+          </div>
         </div>
       )}
 
@@ -677,33 +785,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Popular TLDs */}
-              <div className="mt-6">
-                <p className="text-sm text-gray-600 mb-3 font-medium text-left">
-                  Popular Extensions:
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {popularTlds.map((tld) => (
-                    <button
-                      key={tld.extension}
-                      type="button"
-                      onClick={() => setSelectedTld(tld.extension)}
-                      className={`p-3 rounded-lg border-2 transition-all text-center ${
-                        selectedTld === tld.extension
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="font-bold text-gray-900">
-                        {tld.extension}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {tld.price}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </form>
           </div>
 
@@ -1146,6 +1227,20 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* ChatBot */}
+      <ChatBot isOpen={showChatBot} onClose={() => setShowChatBot(false)} />
+
+      {/* Floating Chat Button */}
+      {!showChatBot && (
+        <button
+          onClick={() => setShowChatBot(true)}
+          className="fixed bottom-4 right-4 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition-colors z-40"
+          title="Open AI Assistant"
+        >
+          <ChatBubbleLeftRightIcon className="h-6 w-6" />
+        </button>
+      )}
 
     </main>
   )

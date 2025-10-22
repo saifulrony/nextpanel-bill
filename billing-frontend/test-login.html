@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+</head>
+<body>
+    <h1>Login Test</h1>
+    <form id="loginForm">
+        <div>
+            <label>Email:</label>
+            <input type="email" id="email" value="customer@test.com" required>
+        </div>
+        <div>
+            <label>Password:</label>
+            <input type="password" id="password" value="Customer123!" required>
+        </div>
+        <button type="submit">Login</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                console.log('Testing login with:', { email, password: password.length + ' chars' });
+                
+                const response = await fetch('http://localhost:8001/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Login successful:', data);
+                    resultDiv.innerHTML = '<p style="color: green;">Login successful! Token: ' + data.access_token.substring(0, 50) + '...</p>';
+                } else {
+                    const error = await response.text();
+                    console.log('Login failed:', error);
+                    resultDiv.innerHTML = '<p style="color: red;">Login failed: ' + error + '</p>';
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                resultDiv.innerHTML = '<p style="color: red;">Network error: ' + error.message + '</p>';
+            }
+        });
+    </script>
+</body>
+</html>

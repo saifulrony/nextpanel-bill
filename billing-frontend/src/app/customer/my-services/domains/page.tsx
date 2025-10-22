@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { plansAPI } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
+import { customerDomainsAPI, domainsAPI } from '@/lib/api';
+import DomainManagementModal from '@/components/domains/DomainManagementModal';
 import {
   GlobeAltIcon,
   CheckCircleIcon,
+  CheckIcon,
   ExclamationTriangleIcon,
   ClockIcon,
   Cog6ToothIcon,
@@ -13,353 +16,586 @@ import {
   EyeIcon,
   PencilIcon,
   ShoppingCartIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-interface DomainService {
+interface Domain {
   id: string;
-  name: string;
-  description: string;
-  price_monthly: number;
-  price_yearly: number;
-  category: string;
-  subcategory?: string;
-  status: 'active' | 'expired' | 'expiring' | 'pending';
-  expiryDate: string;
-  autoRenew: boolean;
-  nameservers: string[];
-  dnsRecords: number;
-  sslStatus: 'active' | 'inactive' | 'pending';
-  purchased_at: string;
-  next_renewal: string;
+  domain_name: string;
+  registrar?: string;
+  registration_date?: string;
+  expiry_date?: string;
+  auto_renew: boolean;
+  nameservers?: string[];
+  status: 'active' | 'expired' | 'expiring' | 'pending' | 'transferred';
+  created_at: string;
+}
+
+interface DomainStats {
+  total_domains: number;
+  active_domains: number;
+  expiring_soon: number;
+  expired_domains: number;
+  auto_renew_enabled: number;
 }
 
 export default function MyDomainsPage() {
   const { user } = useAuth();
-  const [domainServices, setDomainServices] = useState<DomainService[]>([]);
+  const { addItem, items } = useCart();
+  const [domains, setDomains] = useState<Domain[]>([]);
+  const [domainStats, setDomainStats] = useState<DomainStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddDomain, setShowAddDomain] = useState(false);
+  const [showDomainSearch, setShowDomainSearch] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showExpiringOnly, setShowExpiringOnly] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
+  const [showDomainManagement, setShowDomainManagement] = useState(false);
+
+  // Domain search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTld, setSelectedTld] = useState('.com');
+  const [isSearching, setIsSearching] = useState(false);
+  const [domainSearchResults, setDomainSearchResults] = useState<any[]>([]);
+  const [showDomainResults, setShowDomainResults] = useState(false);
+  const [domainSearchError, setDomainSearchError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('results');
+
+  const popularTlds = [
+    { extension: '.com', price: '$8.99/yr' },
+    { extension: '.net', price: '$10.99/yr' },
+    { extension: '.org', price: '$11.99/yr' },
+    { extension: '.io', price: '$34.99/yr' },
+    { extension: '.dev', price: '$14.99/yr' },
+    { extension: '.app', price: '$17.99/yr' },
+    { extension: '.xyz', price: '$12.99/yr' },
+    { extension: '.store', price: '$15.99/yr' },
+    { extension: '.online', price: '$9.99/yr' },
+    { extension: '.tech', price: '$13.99/yr' },
+    { extension: '.co', price: '$12.99/yr' },
+    { extension: '.me', price: '$15.99/yr' },
+    { extension: '.pro', price: '$19.99/yr' },
+    { extension: '.biz', price: '$13.99/yr' },
+    { extension: '.info', price: '$9.99/yr' },
+    { extension: '.name', price: '$11.99/yr' },
+    { extension: '.us', price: '$8.99/yr' },
+    { extension: '.ca', price: '$12.99/yr' },
+    { extension: '.uk', price: '$9.99/yr' },
+    { extension: '.de', price: '$8.99/yr' },
+    { extension: '.fr', price: '$8.99/yr' },
+    { extension: '.es', price: '$8.99/yr' },
+    { extension: '.it', price: '$8.99/yr' },
+    { extension: '.nl', price: '$8.99/yr' },
+  ];
+
+  const loadDomains = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Fetching domains for user:', user.id);
+      const [domainsResponse, statsResponse] = await Promise.all([
+        customerDomainsAPI.list(),
+        customerDomainsAPI.getStats(),
+      ]);
+
+      console.log('Domains response:', domainsResponse);
+      console.log('Stats response:', statsResponse);
+
+      setDomains(domainsResponse.data || []);
+      setDomainStats(statsResponse.data || null);
+    } catch (err) {
+      console.error('Error fetching domains:', err);
+      setError('Failed to load domains');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadDomainServices = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch user's purchased domain services
-        const response = await plansAPI.list({ 
-          is_active: true,
-          category: 'domains',
-          user_id: user?.id 
-        });
-        
-        // Transform products to domain services with mock data for demonstration
-        const services = (response.data || []).map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          price_monthly: product.price_monthly,
-          price_yearly: product.price_yearly,
-          category: product.category,
-          subcategory: product.subcategory,
-          status: 'active' as const,
-          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year from now
-          autoRenew: true,
-          nameservers: ['ns1.example.com', 'ns2.example.com'],
-          dnsRecords: Math.floor(Math.random() * 10) + 1,
-          sslStatus: 'active' as const,
-          purchased_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
-          next_renewal: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        }));
-        
-        setDomainServices(services);
-        
-      } catch (err) {
-        console.error('Failed to load domain services:', err);
-        setError('Failed to load your domain services. Please try again later.');
-        setDomainServices([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user?.id) {
-      loadDomainServices();
-    }
+    loadDomains();
   }, [user?.id]);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-      case 'expiring':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />;
-      case 'expired':
-        return <ClockIcon className="h-5 w-5 text-red-500" />;
-      case 'pending':
-        return <ClockIcon className="h-5 w-5 text-blue-500" />;
-      default:
-        return <ClockIcon className="h-5 w-5 text-gray-500" />;
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    setDomainSearchError(null);
+    setDomainSearchResults([]);
+    setShowDomainResults(false);
+
+    try {
+      const response = await domainsAPI.search({
+        domain_name: searchQuery,
+        tlds: [selectedTld]
+      });
+      console.log('Domain search response:', response);
+      
+      if (response.data && response.data.results && response.data.results.length > 0) {
+        setDomainSearchResults(response.data.results);
+        setShowDomainResults(true);
+      } else {
+        setDomainSearchError('No domains found for your search');
+      }
+    } catch (err) {
+      console.error('Domain search error:', err);
+      setDomainSearchError('Failed to search domains. Please try again.');
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'expiring':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'expired':
-        return 'bg-red-100 text-red-800';
-      case 'pending':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleDomainSelect = async (domain: string, price: number) => {
+    try {
+      console.log('Registering domain:', domain, 'Price:', price);
+      const response = await customerDomainsAPI.register({
+        domain_name: domain,
+        years: 1,
+        auto_renew: true,
+        nameservers: ['ns1.example.com', 'ns2.example.com'],
+      });
+
+      console.log('Domain registration response:', response);
+      
+      if (response.success) {
+        // Refresh the domains list
+        const domainsResponse = await customerDomainsAPI.list();
+        setDomains(domainsResponse.data || []);
+        setShowDomainResults(false);
+        setSearchQuery('');
+        alert('Domain registered successfully!');
+      } else {
+        alert('Failed to register domain. Please try again.');
+      }
+    } catch (err) {
+      console.error('Domain registration error:', err);
+      alert('Failed to register domain. Please try again.');
     }
   };
 
-  const getSSLStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'inactive':
-        return 'bg-red-100 text-red-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleAddToCart = (domain: string, price: number) => {
+    addItem({
+      id: `domain-${domain}`,
+      name: `Domain: ${domain}`,
+      type: 'domain',
+      price: price,
+      description: `Domain registration for ${domain}`,
+      billing_cycle: 'yearly',
+      category: 'domains'
+    });
+  };
+
+  const handleUpdateAutoRenew = async (domainId: string, autoRenew: boolean) => {
+    try {
+      const response = await customerDomainsAPI.updateAutoRenew(domainId, autoRenew);
+      if (response.success) {
+        setDomains(domains.map(d => d.id === domainId ? { ...d, auto_renew: autoRenew } : d));
+      }
+    } catch (err) {
+      console.error('Error updating auto-renew:', err);
     }
   };
 
-  const getDaysUntilExpiry = (expiryDate: string) => {
-    const today = new Date();
-    const expiry = new Date(expiryDate);
-    const diffTime = expiry.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  const handleCloseDomainManagement = () => {
+    setShowDomainManagement(false);
+    setSelectedDomain(null);
   };
+
+  const handleDomainUpdated = (updatedDomain: Domain) => {
+    setDomains(domains.map(d => d.id === updatedDomain.id ? updatedDomain : d));
+  };
+
+  const filteredDomains = domains.filter(domain => {
+    if (selectedStatus !== 'all' && domain.status !== selectedStatus) {
+      return false;
+    }
+    if (showExpiringOnly && domain.status !== 'expiring') {
+      return false;
+    }
+    return true;
+  });
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h1 className="text-2xl font-bold text-gray-900">My Domain Services</h1>
-            <p className="mt-1 text-sm text-gray-500">Loading your domain services...</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h1 className="text-2xl font-bold text-gray-900">My Domain Services</h1>
-            <p className="mt-1 text-sm text-red-500">{error}</p>
-          </div>
-        </div>
+      <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+        {error}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white overflow-hidden shadow rounded-lg">
+      {/* Domain Search Section */}
+      <div className="bg-white shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Domain Services</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Manage your domain registrations, DNS settings, and SSL certificates.
-              </p>
-            </div>
-            <div className="flex space-x-3">
-              <a
-                href="/customer/services?category=domains"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          <form onSubmit={handleSearch} className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Enter your domain name..."
+                  className="block w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 transition-all"
+                />
+              </div>
+              <select
+                value={selectedTld}
+                onChange={(e) => setSelectedTld(e.target.value)}
+                className="px-4 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all min-w-[120px]"
               >
-                <ShoppingCartIcon className="h-4 w-4 mr-2" />
-                Buy More Domains
-              </a>
+                {popularTlds.map((tld) => (
+                  <option key={tld.extension} value={tld.extension}>
+                    {tld.extension}
+                  </option>
+                ))}
+              </select>
               <button
-                onClick={() => setShowAddDomain(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                type="submit"
+                disabled={isSearching || !searchQuery.trim()}
+                className="px-8 py-4 text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Register Domain
+                {isSearching ? 'Searching...' : 'Search'}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
 
-      {/* Domain Services List */}
-      <div className="space-y-4">
-        {domainServices.map((service) => {
-          const daysUntilExpiry = getDaysUntilExpiry(service.expiryDate);
-          return (
-            <div
-              key={service.id}
-              className="bg-white shadow rounded-lg overflow-hidden"
-            >
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center">
-                      <GlobeAltIcon className="h-6 w-6 text-indigo-500 mr-3" />
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {service.name}
-                        </h3>
-                        <p className="text-sm text-gray-500">{service.description}</p>
-                      </div>
-                      <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
-                        {getStatusIcon(service.status)}
-                        <span className="ml-1 capitalize">{service.status}</span>
-                      </span>
-                    </div>
-                    
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500">Expiry Date</dt>
-                        <dd className="mt-1 text-sm text-gray-900">
-                          {new Date(service.expiryDate).toLocaleDateString()}
-                        </dd>
-                        {service.status === 'expiring' && (
-                          <p className="text-xs text-yellow-600">
-                            Expires in {daysUntilExpiry} days
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500">Auto Renew</dt>
-                        <dd className="mt-1 text-sm text-gray-900">
-                          {service.autoRenew ? 'Enabled' : 'Disabled'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500">SSL Status</dt>
-                        <dd className="mt-1">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSSLStatusColor(service.sslStatus)}`}>
-                            {service.sslStatus}
-                          </span>
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500">DNS Records</dt>
-                        <dd className="mt-1 text-sm text-gray-900">
-                          {service.dnsRecords} records
-                        </dd>
-                      </div>
-                    </div>
+      {/* Tab Navigation - Only show when there are search results */}
+      {showDomainResults && domainSearchResults.length > 0 && (
+        <div className="mt-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                type="button"
+                onClick={() => setActiveTab('results')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeTab === 'results'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <span>Results</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('generator')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeTab === 'generator'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                </svg>
+                <span>Generator</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('auctions')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeTab === 'auctions'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18a3.75 3.75 0 0 0 .495-7.468 5.99 5.99 0 0 0-1.925 3.547 5.975 5.975 0 0 1-2.133-1.001A3.75 3.75 0 0 0 12 18Z" />
+                </svg>
+                <span>Auctions</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('premium')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeTab === 'premium'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                </svg>
+                <span>Premium</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('beast')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeTab === 'beast'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                </svg>
+                <span>Beast Mode</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('favorites')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeTab === 'favorites'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                </svg>
+                <span>Favorites (0)</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
 
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Nameservers:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {service.nameservers.map((nameserver, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                          >
-                            {nameserver}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+      {/* Domain Search Results Container */}
+      <div>
+        {domainSearchError && (
+          <div className="mt-6">
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+              <div className="flex">
+                <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                {domainSearchError}
+              </div>
+            </div>
+          </div>
+        )}
 
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500">Purchased</dt>
-                        <dd className="mt-1 text-sm text-gray-900">
-                          {new Date(service.purchased_at).toLocaleDateString()}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500">Next Renewal</dt>
-                        <dd className="mt-1 text-sm text-gray-900">
-                          {service.next_renewal}
-                        </dd>
-                      </div>
+        {activeTab === 'results' && showDomainResults && domainSearchResults.length > 0 && (
+          <div className="mt-6">
+            <div className="space-y-2">
+              {domainSearchResults.map((result) => (
+                <div key={result.domain} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-lg font-medium text-gray-900">{result.domain}</div>
+                    <div className="text-sm text-gray-500">
+                      {result.available ? 'Available' : 'Not Available'}
                     </div>
+                    {result.available && result.price && result.price > 0 && (
+                      <div className="text-sm font-semibold text-gray-900">
+                        ${result.price.toFixed(2)}/yr
+                      </div>
+                    )}
                   </div>
-
-                  <div className="ml-6 flex flex-col space-y-2">
-                    <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                      <EyeIcon className="h-4 w-4 mr-2" />
-                      View DNS
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleAddToCart(result.domain, result.price || 0)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                      title="Add to favorites"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                      </svg>
                     </button>
-                    <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                      <Cog6ToothIcon className="h-4 w-4 mr-2" />
-                      Settings
-                    </button>
-                    {service.status === 'expired' && (
-                      <button className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        <PencilIcon className="h-4 w-4 mr-2" />
-                        Renew
+                    {result.available && result.price && result.price > 0 ? (
+                      <button
+                        onClick={() => handleAddToCart(result.domain, result.price)}
+                        className="px-4 py-2 text-white rounded-lg text-sm bg-green-600 hover:bg-green-700"
+                      >
+                        Add to Cart
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleDomainSelect(result.domain, result.price || 0)}
+                        className="px-4 py-2 text-white rounded-lg text-sm bg-blue-600 hover:bg-blue-700"
+                      >
+                        Register Now
                       </button>
                     )}
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        )}
+
+        {/* Other tabs content */}
+        {activeTab === 'generator' && (
+          <div className="mt-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900">Domain Generator</h3>
+              <p className="mt-2 text-gray-500">Coming soon - Generate domain suggestions based on keywords</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'auctions' && (
+          <div className="mt-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900">Domain Auctions</h3>
+              <p className="mt-2 text-gray-500">Coming soon - Browse expiring and auction domains</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'premium' && (
+          <div className="mt-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900">Premium Domains</h3>
+              <p className="mt-2 text-gray-500">Coming soon - Browse premium domain names</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'beast' && (
+          <div className="mt-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900">Beast Mode</h3>
+              <p className="mt-2 text-gray-500">Coming soon - Advanced domain search with bulk operations</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'favorites' && (
+          <div className="mt-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900">Favorites</h3>
+              <p className="mt-2 text-gray-500">No favorite domains yet. Add domains to your favorites to see them here.</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Empty State */}
-      {domainServices.length === 0 && (
-        <div className="text-center py-12">
-          <GlobeAltIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No domain services</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            You don't have any domain services yet. Browse our domain products to get started.
-          </p>
-          <div className="mt-6">
-            <a
-              href="/customer/services?category=domains"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <ShoppingCartIcon className="h-4 w-4 mr-2" />
-              Browse Domain Products
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Add Domain Modal Placeholder */}
-      {showAddDomain && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Register New Domain</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                This feature will be available soon. You can register domains through our services page.
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowAddDomain(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+      {/* Filters */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-4 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <label htmlFor="status-filter" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  Status
+                </label>
+                <select
+                  id="status-filter"
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                 >
-                  Close
-                </button>
-                <a
-                  href="/customer/services?category=domains"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                >
-                  Browse Services
-                </a>
+                  <option value="all">All Domains</option>
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="expired">Expired</option>
+                  <option value="transferred">Transferred</option>
+                </select>
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="expiring-filter"
+                  type="checkbox"
+                  checked={showExpiringOnly}
+                  onChange={(e) => setShowExpiringOnly(e.target.checked)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                />
+                <label htmlFor="expiring-filter" className="ml-2 text-sm text-gray-700">
+                  Show expiring only
+                </label>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Domains List */}
+      {filteredDomains.length === 0 ? (
+        <div className="text-center py-12">
+          <GlobeAltIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No domains found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            You don't have any domains registered yet. Use the search above to get started.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white shadow overflow-hidden sm:rounded-md">
+          <ul className="divide-y divide-gray-200">
+            {filteredDomains.map((domain) => (
+              <li key={domain.id}>
+                <div className="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <GlobeAltIcon className="h-8 w-8 text-indigo-600" />
+                    </div>
+                    <div className="ml-4">
+                      <div className="flex items-center">
+                        <p className="text-sm font-medium text-indigo-600 truncate">
+                          {domain.domain_name}
+                        </p>
+                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          domain.status === 'active' ? 'bg-green-100 text-green-800' :
+                          domain.status === 'expired' ? 'bg-red-100 text-red-800' :
+                          domain.status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
+                          domain.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {domain.status}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center text-sm text-gray-500">
+                        <p>
+                          {domain.registrar && `Registrar: ${domain.registrar}`}
+                          {domain.expiry_date && ` • Expires: ${new Date(domain.expiry_date).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setSelectedDomain(domain);
+                        setShowDomainManagement(true);
+                      }}
+                      className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                    >
+                      Manage
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
+
+      {/* Domain Management Modal */}
+      <DomainManagementModal
+        domain={selectedDomain}
+        isOpen={showDomainManagement}
+        onClose={handleCloseDomainManagement}
+        onDomainUpdated={() => {
+          // Refresh domains list when domain is updated
+          if (user?.id) {
+            loadDomains();
+          }
+        }}
+      />
     </div>
   );
 }

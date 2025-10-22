@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
-from app.models import Order, OrderStatus, User
+from app.models import Order, OrderStatus, User, Domain, DomainStatus, License, Plan
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -46,6 +46,95 @@ async def generate_invoice_number(db: AsyncSession) -> str:
     
     # Format: INV-0008
     return f"INV-{next_number:04d}"
+
+
+async def provision_services_from_order(order: Order, db: AsyncSession):
+    """Provision services (domains, hosting) based on order items"""
+    try:
+        for item in order.items:
+            product_name = item.get('product_name', '').lower()
+            product_id = item.get('product_id', '')
+            
+            # Handle domain products - check for .com, .net, .org etc in product name
+            if ('.com' in product_name or '.net' in product_name or '.org' in product_name or 
+                '.info' in product_name or '.biz' in product_name or 
+                'domain' in product_name or product_id == 'domain'):
+                
+                # Use product name as domain name if it looks like a domain
+                if '.' in product_name:
+                    domain_name = product_name
+                else:
+                    domain_name = f'{product_name}-{order.id[:8]}.com'
+                
+                # Create domain record
+                domain = Domain(
+                    user_id=order.customer_id,
+                    domain_name=domain_name,
+                    registrar='ResellerClub',  # Default registrar
+                    registration_date=datetime.utcnow(),
+                    expiry_date=datetime.utcnow() + timedelta(days=365),  # 1 year
+                    auto_renew=True,
+                    status=DomainStatus.ACTIVE,
+                    nameservers=['ns1.example.com', 'ns2.example.com']
+                )
+                db.add(domain)
+                print(f"Created domain: {domain_name}")
+            
+            # Handle hosting products - create a license for any non-domain product
+            elif not ('.com' in product_name or '.net' in product_name or '.org' in product_name):
+                # Find the corresponding plan or create a default one
+                plan_result = await db.execute(
+                    select(Plan).where(Plan.name.ilike(f'%{product_name}%')).limit(1)
+                )
+                plan = plan_result.scalars().first()
+                
+                # If no plan found, create a default plan
+                if not plan:
+                    plan = Plan(
+                        name=product_name,
+                        description=f'Service: {product_name}',
+                        price_monthly=item.get('price', 0),
+                        price_yearly=item.get('price', 0) * 12,
+                        max_accounts=1,
+                        max_domains=1,
+                        max_databases=1,
+                        max_emails=1,
+                        is_active=True
+                    )
+                    db.add(plan)
+                    await db.flush()  # Get the plan ID
+                
+                # Generate license key
+                import secrets
+                license_key = f"NP-{secrets.token_hex(8).upper()}"
+                
+                # Create license record for hosting/service
+                license = License(
+                    user_id=order.customer_id,
+                    plan_id=plan.id,
+                    license_key=license_key,
+                    status='active',
+                    max_accounts=plan.max_accounts or 1,
+                    max_domains=plan.max_domains or 1,
+                    max_databases=plan.max_databases or 1,
+                    max_emails=plan.max_emails or 1,
+                    current_accounts=0,
+                    current_domains=0,
+                    current_databases=0,
+                    current_emails=0,
+                    activation_date=datetime.utcnow(),
+                    expiry_date=datetime.utcnow() + timedelta(days=365),  # 1 year
+                    auto_renew=True
+                )
+                db.add(license)
+                print(f"Created license for: {product_name}")
+        
+        await db.commit()
+        print(f"Successfully provisioned services for order {order.id}")
+        
+    except Exception as e:
+        print(f"Error provisioning services for order {order.id}: {e}")
+        # Don't raise the exception to avoid breaking the order creation
 
 
 # Schemas
@@ -155,17 +244,22 @@ async def get_order_stats(
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
     order_data: OrderCreateRequest,
+    user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new order"""
     from datetime import timedelta
     
-    # Verify customer exists
+    # Verify customer exists and matches authenticated user
     result = await db.execute(select(User).where(User.id == order_data.customer_id))
     customer = result.scalars().first()
     
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
+    
+    # Ensure the authenticated user is the same as the customer_id
+    if user_id != order_data.customer_id:
+        raise HTTPException(status_code=403, detail="You can only create orders for yourself")
     
     # Calculate due date based on billing period
     due_date = None
@@ -214,6 +308,9 @@ async def create_order(
     db.add(new_order)
     await db.commit()
     await db.refresh(new_order)
+    
+    # Provision services based on order items
+    await provision_services_from_order(new_order, db)
     
     # Return order with customer details
     return OrderResponse(

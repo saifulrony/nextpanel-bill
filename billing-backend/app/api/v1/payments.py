@@ -1,28 +1,74 @@
 """
-Payment and Billing API endpoints
+Payment Management API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-from typing import List, Optional
-from datetime import datetime
-from app.core.database import get_db
-from app.core.security import get_current_user_id
-from app.models import Payment, User, License, Plan, PaymentStatus
-from app.schemas import (
-    PaymentIntentRequest,
-    PaymentIntentResponse,
-    PaymentResponse,
-    PaymentConfirmRequest,
-    PaymentRefundRequest,
-    PaymentWebhookEvent
-)
-from app.services.payment_service import PaymentService
-from app.api.v1.events import broadcast_event
+from sqlalchemy import select
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta
+import stripe
 import logging
 
+from app.core.database import get_db
+from app.core.security import get_current_user_id
+from app.core.config import settings
+from app.models import Order, OrderStatus, User, Payment, PaymentStatus, PaymentGatewayType
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/payments", tags=["payments"])
+router = APIRouter()
+
+# Initialize Stripe
+if settings.STRIPE_SECRET_KEY:
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+# Schemas
+class PaymentIntentRequest(BaseModel):
+    order_id: str
+    amount: float
+    currency: str = "USD"
+    payment_method: Optional[str] = None
+    customer_email: Optional[str] = None
+    description: Optional[str] = None
+
+
+class PaymentIntentResponse(BaseModel):
+    client_secret: str
+    payment_intent_id: str
+    amount: int
+    currency: str
+    status: str
+
+
+class ManualChargeRequest(BaseModel):
+    order_id: str
+    amount: float
+    currency: str = "USD"
+    payment_method: str
+    description: Optional[str] = None
+    save_payment_method: bool = False
+
+
+class AutoChargeConfig(BaseModel):
+    order_id: str
+    enabled: bool
+    payment_method_id: Optional[str] = None
+    retry_attempts: int = 3
+    retry_interval_days: int = 3
+    next_charge_date: Optional[datetime] = None
+
+
+class PaymentHistoryResponse(BaseModel):
+    id: str
+    order_id: str
+    amount: float
+    currency: str
+    status: str
+    payment_method: str
+    gateway_transaction_id: Optional[str]
+    created_at: datetime
+    failure_reason: Optional[str] = None
 
 
 @router.post("/intent", response_model=PaymentIntentResponse)
@@ -31,345 +77,419 @@ async def create_payment_intent(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a payment intent for a plan purchase"""
-    # Get plan details
-    result = await db.execute(select(Plan).where(Plan.id == request.plan_id))
-    plan = result.scalars().first()
+    """Create a Stripe payment intent for manual charging"""
     
-    if not plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
     
-    # Calculate amount based on billing cycle
-    if request.billing_cycle == "yearly":
-        amount = plan.price_yearly
-    else:
-        amount = plan.price_monthly
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
-    # Create payment intent with Stripe
-    payment_service = PaymentService(db=db)
-    intent = await payment_service.create_payment_intent(
-        amount=amount,
-        currency=request.currency or "USD",
-        metadata={
-            "user_id": user_id,
-            "plan_id": request.plan_id,
-            "billing_cycle": request.billing_cycle
-        }
-    )
+    # Get order
+    result = await db.execute(select(Order).where(Order.id == request.order_id))
+    order = result.scalars().first()
     
-    # Create payment record
-    payment = Payment(
-        user_id=user_id,
-        stripe_payment_intent_id=intent.get("id"),
-        amount=amount,
-        currency=request.currency or "USD",
-        status=PaymentStatus.PENDING,
-        payment_method=request.payment_method,
-        description=f"{plan.name} - {request.billing_cycle}",
-        payment_metadata={
-            "plan_id": request.plan_id,
-            "billing_cycle": request.billing_cycle
-        }
-    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
     
-    db.add(payment)
-    await db.commit()
+    if order.status == OrderStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Order is already paid")
     
-    # Broadcast real-time event
-    await broadcast_event(user_id, "order_created", {
-        "payment_id": payment.id,
-        "amount": amount,
-        "plan_name": plan.name,
-        "billing_cycle": request.billing_cycle
-    })
-    
-    return PaymentIntentResponse(
-        client_secret=intent.get("client_secret"),
-        payment_id=payment.id,
-        amount=amount,
-        currency=request.currency or "USD"
-    )
+    try:
+        # Create Stripe payment intent
+        intent = stripe.PaymentIntent.create(
+            amount=int(request.amount * 100),  # Convert to cents
+            currency=request.currency.lower(),
+            metadata={
+                "order_id": request.order_id,
+                "invoice_number": order.invoice_number or order.order_number,
+                "admin_user_id": user_id
+            },
+            description=request.description or f"Payment for Order {order.invoice_number or order.order_number}",
+            customer_email=request.customer_email or order.customer.email if hasattr(order, 'customer') else None
+        )
+        
+        return PaymentIntentResponse(
+            client_secret=intent.client_secret,
+            payment_intent_id=intent.id,
+            amount=intent.amount,
+            currency=intent.currency,
+            status=intent.status
+        )
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error creating payment intent: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Payment processing error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error creating payment intent: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create payment intent")
 
 
-@router.post("/intent/general", response_model=PaymentIntentResponse)
-async def create_general_payment_intent(
-    request: dict,
-    user_id: str = "test_user",  # Temporary: bypass authentication for testing
-    db: AsyncSession = Depends(get_db)
-):
-    """Create a payment intent for general payments (orders, etc.)"""
-    amount = request.get("amount")
-    currency = request.get("currency", "USD")
-    metadata = request.get("metadata", {})
-    
-    if not amount:
-        raise HTTPException(status_code=400, detail="Amount is required")
-    
-    # Create payment intent with Stripe
-    payment_service = PaymentService(db=db)
-    intent = await payment_service.create_payment_intent(
-        amount=amount,
-        currency=currency,
-        metadata=metadata
-    )
-    
-    return PaymentIntentResponse(
-        client_secret=intent.get("client_secret"),
-        payment_id=None,  # No payment record created yet
-        amount=amount,
-        currency=currency
-    )
-
-
-@router.post("/{payment_id}/confirm", response_model=PaymentResponse)
-async def confirm_payment(
-    payment_id: str,
-    request: PaymentConfirmRequest,
+@router.post("/manual-charge")
+async def process_manual_charge(
+    request: ManualChargeRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """Confirm a payment"""
-    # Get payment
-    result = await db.execute(
-        select(Payment).where(
-            and_(
-                Payment.id == payment_id,
-                Payment.user_id == user_id
-            )
+    """Process a manual charge for an order"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get order
+    result = await db.execute(select(Order).where(Order.id == request.order_id))
+    order = result.scalars().first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if order.status == OrderStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Order is already paid")
+    
+    try:
+        # Create Stripe payment intent
+        intent = stripe.PaymentIntent.create(
+            amount=int(request.amount * 100),
+            currency=request.currency.lower(),
+            payment_method=request.payment_method,
+            confirm=True,
+            metadata={
+                "order_id": request.order_id,
+                "invoice_number": order.invoice_number or order.order_number,
+                "admin_user_id": user_id,
+                "manual_charge": "true"
+            },
+            description=request.description or f"Manual charge for Order {order.invoice_number or order.order_number}"
         )
-    )
-    payment = result.scalars().first()
-    
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    # Confirm payment with Stripe
-    payment_service = PaymentService(db=db)
-    confirmation = await payment_service.confirm_payment(
-        payment_intent_id=payment.stripe_payment_intent_id
-    )
-    
-    # Update payment status
-    if confirmation.get("status") == "succeeded":
-        payment.status = PaymentStatus.SUCCEEDED
         
-        # Broadcast real-time event for payment received
-        await broadcast_event(user_id, "payment_received", {
+        # Create payment record
+        payment = Payment(
+            order_id=request.order_id,
+            amount=request.amount,
+            currency=request.currency,
+            status=PaymentStatus.SUCCEEDED if intent.status == "succeeded" else PaymentStatus.PENDING,
+            payment_method=request.payment_method,
+            gateway_type=PaymentGatewayType.STRIPE,
+            gateway_transaction_id=intent.id,
+            gateway_response=intent.to_dict()
+        )
+        
+        db.add(payment)
+        
+        # Update order status if payment succeeded
+        if intent.status == "succeeded":
+            order.status = OrderStatus.COMPLETED
+            order.paid_at = datetime.utcnow()
+        
+        await db.commit()
+        await db.refresh(payment)
+        
+        return {
+            "success": True,
             "payment_id": payment.id,
-            "amount": float(payment.amount),
-            "currency": payment.currency
-        })
+            "status": intent.status,
+            "message": "Payment processed successfully" if intent.status == "succeeded" else "Payment is processing"
+        }
         
-        # TODO: Trigger license creation/activation here
-        
-    elif confirmation.get("status") == "failed":
-        payment.status = PaymentStatus.FAILED
+    except stripe.error.CardError as e:
+        logger.error(f"Card error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Card error: {e.user_message}")
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Payment processing error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error processing manual charge: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to process payment")
+
+
+@router.post("/auto-charge/{order_id}")
+async def configure_auto_charge(
+    order_id: str,
+    config: AutoChargeConfig,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Configure automatic charging for an order"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get order
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalars().first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Update order with auto-charge configuration
+    if not hasattr(order, 'auto_charge_config'):
+        # Add auto_charge_config field to order if it doesn't exist
+        order.auto_charge_config = {}
+    
+    order.auto_charge_config = {
+        "enabled": config.enabled,
+        "payment_method_id": config.payment_method_id,
+        "retry_attempts": config.retry_attempts,
+        "retry_interval_days": config.retry_interval_days,
+        "next_charge_date": config.next_charge_date.isoformat() if config.next_charge_date else None,
+        "configured_by": user_id,
+        "configured_at": datetime.utcnow().isoformat()
+    }
     
     await db.commit()
-    await db.refresh(payment)
-    
-    return payment
-
-
-@router.get("/", response_model=List[PaymentResponse])
-async def list_payments(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-    limit: int = 50,
-    offset: int = 0
-):
-    """List user's payment history"""
-    result = await db.execute(
-        select(Payment)
-        .where(Payment.user_id == user_id)
-        .order_by(Payment.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
-    payments = result.scalars().all()
-    return payments
-
-
-@router.get("/{payment_id}", response_model=PaymentResponse)
-async def get_payment(
-    payment_id: str,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get payment details"""
-    result = await db.execute(
-        select(Payment).where(
-            and_(
-                Payment.id == payment_id,
-                Payment.user_id == user_id
-            )
-        )
-    )
-    payment = result.scalars().first()
-    
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    return payment
-
-
-@router.post("/{payment_id}/refund", response_model=PaymentResponse)
-async def refund_payment(
-    payment_id: str,
-    request: PaymentRefundRequest,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """Request a refund for a payment"""
-    # Get payment
-    result = await db.execute(
-        select(Payment).where(
-            and_(
-                Payment.id == payment_id,
-                Payment.user_id == user_id
-            )
-        )
-    )
-    payment = result.scalars().first()
-    
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    if payment.status != PaymentStatus.SUCCEEDED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only refund succeeded payments"
-        )
-    
-    # Process refund with Stripe
-    payment_service = PaymentService(db=db)
-    refund = await payment_service.refund_payment(
-        payment_intent_id=payment.stripe_payment_intent_id,
-        amount=request.amount if request.amount else payment.amount,
-        reason=request.reason
-    )
-    
-    # Update payment status
-    payment.status = PaymentStatus.REFUNDED
-    
-    await db.commit()
-    await db.refresh(payment)
-    
-    return payment
-
-
-@router.post("/webhook", status_code=status.HTTP_200_OK)
-async def stripe_webhook(
-    event: PaymentWebhookEvent,
-    stripe_signature: Optional[str] = Header(None),
-    db: AsyncSession = Depends(get_db)
-):
-    """Handle Stripe webhook events"""
-    logger.info(f"Received Stripe webhook: {event.type}")
-    
-    payment_service = PaymentService(db=db)
-    
-    # Verify webhook signature
-    if stripe_signature:
-        is_valid = await payment_service.verify_webhook_signature(
-            payload=event.dict(),
-            signature=stripe_signature
-        )
-        
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid webhook signature"
-            )
-    
-    # Handle different event types
-    if event.type == "payment_intent.succeeded":
-        payment_intent_id = event.data.get("id")
-        
-        # Update payment status
-        result = await db.execute(
-            select(Payment).where(
-                Payment.stripe_payment_intent_id == payment_intent_id
-            )
-        )
-        payment = result.scalars().first()
-        
-        if payment:
-            payment.status = PaymentStatus.SUCCEEDED
-            await db.commit()
-            
-            # Broadcast real-time event
-            await broadcast_event(payment.user_id, "payment_received", {
-                "payment_id": payment.id,
-                "amount": float(payment.amount),
-                "currency": payment.currency
-            })
-            
-            logger.info(f"Payment succeeded: {payment.id}")
-    
-    elif event.type == "payment_intent.payment_failed":
-        payment_intent_id = event.data.get("id")
-        
-        # Update payment status
-        result = await db.execute(
-            select(Payment).where(
-                Payment.stripe_payment_intent_id == payment_intent_id
-            )
-        )
-        payment = result.scalars().first()
-        
-        if payment:
-            payment.status = PaymentStatus.FAILED
-            await db.commit()
-            
-            logger.info(f"Payment failed: {payment.id}")
-    
-    return {"status": "success"}
-
-
-@router.get("/stats/summary")
-async def get_payment_stats(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get user's payment statistics"""
-    from sqlalchemy import func
-    
-    # Total spent
-    result = await db.execute(
-        select(func.sum(Payment.amount))
-        .where(
-            and_(
-                Payment.user_id == user_id,
-                Payment.status == PaymentStatus.SUCCEEDED
-            )
-        )
-    )
-    total_spent = result.scalar() or 0.0
-    
-    # Payment count
-    result = await db.execute(
-        select(func.count(Payment.id))
-        .where(Payment.user_id == user_id)
-    )
-    total_payments = result.scalar() or 0
-    
-    # Successful payments
-    result = await db.execute(
-        select(func.count(Payment.id))
-        .where(
-            and_(
-                Payment.user_id == user_id,
-                Payment.status == PaymentStatus.SUCCEEDED
-            )
-        )
-    )
-    successful_payments = result.scalar() or 0
+    await db.refresh(order)
     
     return {
-        "total_spent": total_spent,
-        "total_payments": total_payments,
-        "successful_payments": successful_payments,
-        "failed_payments": total_payments - successful_payments
+        "success": True,
+        "message": "Auto-charge configuration updated",
+        "config": order.auto_charge_config
     }
 
+
+@router.get("/history/{order_id}", response_model=List[PaymentHistoryResponse])
+async def get_payment_history(
+    order_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get payment history for an order"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get order
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalars().first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Get payment history
+    result = await db.execute(
+        select(Payment).where(Payment.order_id == order_id).order_by(Payment.created_at.desc())
+    )
+    payments = result.scalars().all()
+    
+    return [
+        PaymentHistoryResponse(
+            id=payment.id,
+            order_id=payment.order_id,
+            amount=payment.amount,
+            currency=payment.currency,
+            status=payment.status.value,
+            payment_method=payment.payment_method,
+            gateway_transaction_id=payment.gateway_transaction_id,
+            created_at=payment.created_at,
+            failure_reason=payment.gateway_response.get("failure_reason") if payment.gateway_response else None
+        )
+        for payment in payments
+    ]
+
+
+@router.post("/retry/{payment_id}")
+async def retry_payment(
+    payment_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retry a failed payment"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get payment
+    result = await db.execute(select(Payment).where(Payment.id == payment_id))
+    payment = result.scalars().first()
+    
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    if payment.status != PaymentStatus.FAILED:
+        raise HTTPException(status_code=400, detail="Can only retry failed payments")
+    
+    try:
+        # Retry with Stripe
+        if payment.gateway_type == PaymentGatewayType.STRIPE and payment.gateway_transaction_id:
+            intent = stripe.PaymentIntent.retrieve(payment.gateway_transaction_id)
+            intent = stripe.PaymentIntent.confirm(intent.id)
+            
+            # Update payment status
+            payment.status = PaymentStatus.SUCCEEDED if intent.status == "succeeded" else PaymentStatus.PENDING
+            payment.gateway_response = intent.to_dict()
+            
+            # Update order status if payment succeeded
+            if intent.status == "succeeded":
+                result = await db.execute(select(Order).where(Order.id == payment.order_id))
+                order = result.scalars().first()
+                if order:
+                    order.status = OrderStatus.COMPLETED
+                    order.paid_at = datetime.utcnow()
+            
+            await db.commit()
+            
+            return {
+                "success": True,
+                "status": intent.status,
+                "message": "Payment retry successful" if intent.status == "succeeded" else "Payment is processing"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Cannot retry this payment type")
+            
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error retrying payment: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Payment retry failed: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error retrying payment: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retry payment")
+
+
+@router.get("/auto-charge/queue")
+async def get_auto_charge_queue(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get orders queued for automatic charging"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get orders with auto-charge enabled and due for charging
+    now = datetime.utcnow()
+    result = await db.execute(
+        select(Order).where(
+            Order.status == OrderStatus.PENDING,
+            Order.auto_charge_config["enabled"].astext == "true",
+            Order.auto_charge_config["next_charge_date"].astext <= now.isoformat()
+        )
+    )
+    orders = result.scalars().all()
+    
+    return {
+        "orders": [
+            {
+                "id": order.id,
+                "invoice_number": order.invoice_number,
+                "total": order.total,
+                "next_charge_date": order.auto_charge_config.get("next_charge_date"),
+                "retry_attempts": order.auto_charge_config.get("retry_attempts", 0)
+            }
+            for order in orders
+        ],
+        "count": len(orders)
+    }
+
+
+@router.post("/auto-charge/process")
+async def process_auto_charge_queue(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Process all orders in the auto-charge queue"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get orders queued for auto-charging
+    now = datetime.utcnow()
+    result = await db.execute(
+        select(Order).where(
+            Order.status == OrderStatus.PENDING,
+            Order.auto_charge_config["enabled"].astext == "true",
+            Order.auto_charge_config["next_charge_date"].astext <= now.isoformat()
+        )
+    )
+    orders = result.scalars().all()
+    
+    processed = 0
+    successful = 0
+    failed = 0
+    
+    for order in orders:
+        try:
+            config = order.auto_charge_config
+            payment_method_id = config.get("payment_method_id")
+            
+            if not payment_method_id:
+                logger.warning(f"No payment method configured for order {order.id}")
+                continue
+            
+            # Create payment intent
+            intent = stripe.PaymentIntent.create(
+                amount=int(order.total * 100),
+                currency="usd",
+                payment_method=payment_method_id,
+                confirm=True,
+                metadata={
+                    "order_id": order.id,
+                    "invoice_number": order.invoice_number or order.order_number,
+                    "auto_charge": "true"
+                }
+            )
+            
+            # Create payment record
+            payment = Payment(
+                order_id=order.id,
+                amount=order.total,
+                currency="USD",
+                status=PaymentStatus.SUCCEEDED if intent.status == "succeeded" else PaymentStatus.PENDING,
+                payment_method=payment_method_id,
+                gateway_type=PaymentGatewayType.STRIPE,
+                gateway_transaction_id=intent.id,
+                gateway_response=intent.to_dict()
+            )
+            
+            db.add(payment)
+            
+            # Update order status if payment succeeded
+            if intent.status == "succeeded":
+                order.status = OrderStatus.COMPLETED
+                order.paid_at = datetime.utcnow()
+                successful += 1
+            else:
+                # Schedule retry
+                retry_interval = config.get("retry_interval_days", 3)
+                next_charge_date = now + timedelta(days=retry_interval)
+                order.auto_charge_config["next_charge_date"] = next_charge_date.isoformat()
+                order.auto_charge_config["retry_attempts"] = config.get("retry_attempts", 0) + 1
+                failed += 1
+            
+            processed += 1
+            
+        except Exception as e:
+            logger.error(f"Error processing auto-charge for order {order.id}: {str(e)}")
+            failed += 1
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "processed": processed,
+        "successful": successful,
+        "failed": failed,
+        "message": f"Processed {processed} orders: {successful} successful, {failed} failed"
+    }

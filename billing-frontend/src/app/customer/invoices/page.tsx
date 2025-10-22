@@ -65,7 +65,7 @@ export default function InvoicesPage() {
   const convertOrderToInvoice = (order: Order): Invoice => {
     const items: InvoiceItem[] = order.items?.map((item: any, index: number) => ({
       id: item.id || index.toString(),
-      description: item.name || item.description || 'Service',
+      description: item.product_name || item.name || item.description || 'Service',
       quantity: item.quantity || 1,
       price: item.price || item.unit_price || 0,
       total: (item.price || item.unit_price || 0) * (item.quantity || 1)
@@ -90,12 +90,12 @@ export default function InvoicesPage() {
 
     return {
       id: order.id,
-      number: order.order_number,
+      number: order.invoice_number || order.order_number, // Use invoice_number first, like admin page
       date: order.created_at,
       dueDate: order.due_date,
       amount: order.total,
       status: getInvoiceStatus(order.status),
-      description: order.description || `Order ${order.order_number}`,
+      description: order.description || `Order ${order.invoice_number || order.order_number}`,
       items,
       subtotal: order.subtotal || order.total,
       tax: order.tax_amount || 0,
@@ -195,15 +195,28 @@ export default function InvoicesPage() {
     }
   };
 
-  const handlePayInvoice = (invoiceId: string) => {
-    // Simulate payment processing
-    setInvoices(prev => 
-      prev.map(inv => 
-        inv.id === invoiceId 
-          ? { ...inv, status: 'paid' as const }
-          : inv
-      )
-    );
+  const handlePayInvoice = async (invoiceId: string) => {
+    try {
+      // Find the invoice to get its details
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice) return;
+
+      // For now, simulate payment processing
+      // In a real implementation, this would integrate with a payment gateway
+      setInvoices(prev => 
+        prev.map(inv => 
+          inv.id === invoiceId 
+            ? { ...inv, status: 'paid' as const }
+            : inv
+        )
+      );
+
+      // Show success message
+      alert('Payment processed successfully!');
+    } catch (error) {
+      console.error('Payment failed:', error);
+      alert('Payment failed. Please try again.');
+    }
   };
 
   if (loading) {
@@ -307,10 +320,17 @@ export default function InvoicesPage() {
                       ${invoice.amount.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
-                        {getStatusIcon(invoice.status)}
-                        <span className="ml-1 capitalize">{invoice.status}</span>
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                          {getStatusIcon(invoice.status)}
+                          <span className="ml-1 capitalize">{invoice.status}</span>
+                        </span>
+                        {invoice.status !== 'paid' && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Payment Required
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center space-x-2">
@@ -327,7 +347,7 @@ export default function InvoicesPage() {
                         >
                           <ArrowDownTrayIcon className="h-4 w-4" />
                         </button>
-                        {invoice.status === 'pending' && (
+                        {invoice.status !== 'paid' && (
                           <button
                             onClick={() => handlePayInvoice(invoice.id)}
                             className="text-green-600 hover:text-green-900 flex items-center"
@@ -470,7 +490,7 @@ export default function InvoicesPage() {
                   <ArrowDownTrayIcon className="h-4 w-4 mr-2 inline" />
                   Download PDF
                 </button>
-                {selectedInvoice.status === 'pending' && (
+                {selectedInvoice.status !== 'paid' && (
                   <button
                     onClick={() => handlePayInvoice(selectedInvoice.id)}
                     className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"

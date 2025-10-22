@@ -75,6 +75,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255))
     company_name = Column(String(255))
+    phone = Column(String(50))
+    company = Column(String(255))
     stripe_customer_id = Column(String(255), unique=True)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -235,6 +237,7 @@ class Payment(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     license_id = Column(String(36), ForeignKey("licenses.id"))
+    order_id = Column(String(36), ForeignKey("orders.id"))  # Added for order payments
     gateway_id = Column(String(36), ForeignKey("payment_gateways.id"))
     stripe_payment_intent_id = Column(String(255), unique=True)
     gateway_transaction_id = Column(String(255))  # Gateway-specific transaction ID
@@ -242,15 +245,19 @@ class Payment(Base):
     currency = Column(String(3), default="USD")
     status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
     payment_method = Column(String(50))
+    payment_method_id = Column(String(255))  # Stripe payment method ID
+    gateway_type = Column(Enum(PaymentGatewayType))  # Added gateway type
     description = Column(Text)
     payment_metadata = Column(JSON)  # Renamed from 'metadata' (reserved in SQLAlchemy)
     gateway_response = Column(JSON)  # Store gateway response data
     failure_reason = Column(Text)  # Store failure details
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    processed_at = Column(DateTime(timezone=True))  # Added processed timestamp
     
     # Relationships
     user = relationship("User", back_populates="payments")
     license = relationship("License", back_populates="payments")
+    order = relationship("Order", back_populates="payments")  # Added order relationship
     gateway = relationship("PaymentGateway", back_populates="payments")
 
 
@@ -390,6 +397,10 @@ class Order(Base):
     
     # Due date for payment
     due_date = Column(DateTime(timezone=True))
+    paid_at = Column(DateTime(timezone=True))  # When order was paid
+    
+    # Auto-charge configuration
+    auto_charge_config = Column(JSON)  # Configuration for automatic charging
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -397,6 +408,7 @@ class Order(Base):
     
     # Relationships
     customer = relationship("User", back_populates="orders")
+    payments = relationship("Payment", back_populates="order")
 
 
 class TicketStatus(str, enum.Enum):

@@ -1,469 +1,432 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { chatAPI } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   ChatBubbleLeftRightIcon,
-  UserCircleIcon,
   ClockIcon,
+  UserIcon,
   CheckCircleIcon,
-  XCircleIcon,
-  PaperAirplaneIcon,
-  StarIcon,
-  FunnelIcon,
+  ExclamationTriangleIcon,
   MagnifyingGlassIcon,
+  FunnelIcon,
 } from '@heroicons/react/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
-interface ChatSession {
+interface Chat {
   id: string;
-  user_id?: string;
-  guest_email?: string;
-  guest_name?: string;
-  guest_phone?: string;
-  session_token?: string;
-  status: 'active' | 'closed' | 'archived';
-  assigned_to?: string;
-  subject?: string;
-  rating?: number;
-  created_at: string;
-  updated_at?: string;
-  closed_at?: string;
-  unread_count?: number;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  subject: string;
+  status: 'active' | 'waiting' | 'resolved' | 'closed';
+  lastMessage: string;
+  lastMessageTime: Date;
+  unreadCount: number;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assignedTo?: string;
+  createdAt: Date;
 }
 
-interface ChatMessage {
-  id: string;
-  session_id: string;
-  sender_type: 'user' | 'admin' | 'bot' | 'system';
-  sender_id?: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-  sender_name?: string;
-}
+export default function AdminChatsPage() {
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('lastMessage');
 
-const statusConfig = {
-  active: { color: 'bg-green-100 text-green-800', icon: CheckCircleIcon, label: 'Active' },
-  closed: { color: 'bg-gray-100 text-gray-800', icon: XCircleIcon, label: 'Closed' },
-  archived: { color: 'bg-gray-100 text-gray-600', icon: XCircleIcon, label: 'Archived' },
-};
-
-export default function LiveChatsPage() {
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [filteredSessions, setFilteredSessions] = useState<ChatSession[]>([]);
-  const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
-  
-  // Filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
-  const [showFilters, setShowFilters] = useState(false);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const refreshIntervalRef = useRef<NodeJS.Timeout>();
-
+  // Mock data - replace with real API calls
   useEffect(() => {
-    loadSessions();
-    loadStats();
-    
-    // Auto-refresh every 10 seconds for active chats
-    refreshIntervalRef.current = setInterval(() => {
-      if (selectedSession && selectedSession.status === 'active') {
-        loadMessages(selectedSession.id);
-      }
-      loadSessions();
-    }, 10000);
-    
-    return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-      }
-    };
+    const mockChats: Chat[] = [
+      {
+        id: '1',
+        customerId: 'customer-1',
+        customerName: 'John Doe',
+        customerEmail: 'john@example.com',
+        subject: 'Domain registration issue',
+        status: 'active',
+        lastMessage: 'Thank you for your help!',
+        lastMessageTime: new Date('2024-01-15T14:30:00'),
+        unreadCount: 0,
+        priority: 'high',
+        assignedTo: 'Sarah Johnson',
+        createdAt: new Date('2024-01-15T10:30:00'),
+      },
+      {
+        id: '2',
+        customerId: 'customer-2',
+        customerName: 'Jane Smith',
+        customerEmail: 'jane@example.com',
+        subject: 'Billing question',
+        status: 'waiting',
+        lastMessage: 'I need help with my invoice',
+        lastMessageTime: new Date('2024-01-15T13:45:00'),
+        unreadCount: 2,
+        priority: 'medium',
+        assignedTo: 'Mike Wilson',
+        createdAt: new Date('2024-01-15T11:20:00'),
+      },
+      {
+        id: '3',
+        customerId: 'customer-3',
+        customerName: 'Bob Johnson',
+        customerEmail: 'bob@example.com',
+        subject: 'Hosting migration',
+        status: 'resolved',
+        lastMessage: 'Migration completed successfully',
+        lastMessageTime: new Date('2024-01-14T16:20:00'),
+        unreadCount: 0,
+        priority: 'low',
+        assignedTo: 'Sarah Johnson',
+        createdAt: new Date('2024-01-14T09:15:00'),
+      },
+      {
+        id: '4',
+        customerId: 'customer-4',
+        customerName: 'Alice Brown',
+        customerEmail: 'alice@example.com',
+        subject: 'SSL certificate problem',
+        status: 'active',
+        lastMessage: 'The SSL is not working properly',
+        lastMessageTime: new Date('2024-01-15T15:10:00'),
+        unreadCount: 1,
+        priority: 'urgent',
+        assignedTo: 'Mike Wilson',
+        createdAt: new Date('2024-01-15T12:00:00'),
+      },
+    ];
+
+    setChats(mockChats);
+    setFilteredChats(mockChats);
+    setLoading(false);
   }, []);
 
+  // Filter and search functionality
   useEffect(() => {
-    applyFilters();
-  }, [sessions, searchTerm, statusFilter]);
+    let filtered = chats;
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const loadSessions = async () => {
-    try {
-      const response = await chatAPI.listSessions();
-      setSessions(response.data);
-    } catch (error) {
-      console.error('Failed to load chat sessions:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const response = await chatAPI.stats();
-      setStats(response.data);
-    } catch (error) {
-      console.error('Failed to load chat stats:', error);
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...sessions];
-    
     // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(session => 
-        session.guest_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        session.guest_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        session.subject?.toLowerCase().includes(searchTerm.toLowerCase())
+    if (searchQuery) {
+      filtered = filtered.filter(chat =>
+        chat.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        chat.customerEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        chat.subject.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     // Status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(session => session.status === statusFilter);
+      filtered = filtered.filter(chat => chat.status === statusFilter);
     }
-    
-    // Sort by unread and recent
+
+    // Priority filter
+    if (priorityFilter !== 'all') {
+      filtered = filtered.filter(chat => chat.priority === priorityFilter);
+    }
+
+    // Sort
     filtered.sort((a, b) => {
-      if ((a.unread_count || 0) > 0 && (b.unread_count || 0) === 0) return -1;
-      if ((a.unread_count || 0) === 0 && (b.unread_count || 0) > 0) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      switch (sortBy) {
+        case 'lastMessage':
+          return b.lastMessageTime.getTime() - a.lastMessageTime.getTime();
+        case 'created':
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        case 'customer':
+          return a.customerName.localeCompare(b.customerName);
+        case 'priority':
+          const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+          return priorityOrder[b.priority] - priorityOrder[a.priority];
+        default:
+          return 0;
+      }
     });
-    
-    setFilteredSessions(filtered);
-  };
 
-  const loadMessages = async (sessionId: string) => {
-    try {
-      const response = await chatAPI.getMessages(sessionId);
-      setMessages(response.data);
-    } catch (error) {
-      console.error('Failed to load messages:', error);
+    setFilteredChats(filtered);
+  }, [chats, searchQuery, statusFilter, priorityFilter, sortBy]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'waiting':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'resolved':
+        return 'bg-blue-100 text-blue-800';
+      case 'closed':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const selectSession = async (session: ChatSession) => {
-    setSelectedSession(session);
-    await loadMessages(session.id);
-  };
-
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedSession || !newMessage.trim()) return;
-    
-    try {
-      await chatAPI.sendMessage(selectedSession.id, { message: newMessage });
-      setNewMessage('');
-      await loadMessages(selectedSession.id);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      alert('Failed to send message');
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return 'bg-red-100 text-red-800';
+      case 'high':
+        return 'bg-orange-100 text-orange-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const closeSession = async (sessionId: string) => {
-    if (!confirm('Close this chat session?')) return;
-    
-    try {
-      await chatAPI.closeSession(sessionId);
-      await loadSessions();
-      setSelectedSession(null);
-    } catch (error) {
-      alert('Failed to close session');
-    }
+  const formatTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
   };
+
+  const totalUnread = chats.reduce((sum, chat) => sum + chat.unreadCount, 0);
+  const activeChats = chats.filter(chat => chat.status === 'active').length;
+  const waitingChats = chats.filter(chat => chat.status === 'waiting').length;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+        <div className="text-center py-8">
+          <p className="text-gray-500">Loading chats...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="px-4 py-8 sm:px-0">
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Live Chat Management</h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Manage customer chat sessions and respond in real-time
-            </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Support Chats</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Manage customer support conversations
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <div className="text-2xl font-bold text-gray-900">{totalUnread}</div>
+                <div className="text-sm text-gray-500">Unread messages</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 mb-8">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <dt className="text-sm font-medium text-gray-500 truncate">Total Sessions</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.total_sessions}</dd>
-            </div>
-          </div>
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <dt className="text-sm font-medium text-gray-500 truncate">Active Chats</dt>
-              <dd className="mt-1 text-3xl font-semibold text-green-600">{stats.active_sessions}</dd>
-            </div>
-          </div>
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <dt className="text-sm font-medium text-gray-500 truncate">Avg Rating</dt>
-              <dd className="mt-1 text-3xl font-semibold text-yellow-600">
-                {stats.average_rating > 0 ? stats.average_rating.toFixed(1) : 'N/A'}
-              </dd>
-            </div>
-          </div>
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <dt className="text-sm font-medium text-gray-500 truncate">Total Messages</dt>
-              <dd className="mt-1 text-3xl font-semibold text-indigo-600">{stats.total_messages}</dd>
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ChatBubbleLeftRightIcon className="h-6 w-6 text-green-500" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Active Chats</dt>
+                  <dd className="text-lg font-medium text-gray-900">{activeChats}</dd>
+                </dl>
+              </div>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Chat Interface */}
-      <div className="bg-white shadow sm:rounded-lg overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-3 h-[600px]">
-          {/* Chat Sessions List */}
-          <div className="col-span-1 border-r border-gray-200 flex flex-col">
-            <div className="p-4 border-b border-gray-200">
-              <div className="relative mb-3">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search chats..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ClockIcon className="h-6 w-6 text-yellow-500" />
               </div>
-              
-              {/* Status Filter Tabs */}
-              <div className="flex gap-2">
-                {[
-                  { key: 'active', label: 'Active' },
-                  { key: 'closed', label: 'Closed' },
-                  { key: 'all', label: 'All' },
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setStatusFilter(tab.key)}
-                    className={`flex-1 py-2 px-3 text-sm font-medium rounded-md ${
-                      statusFilter === tab.key
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Waiting</dt>
+                  <dd className="text-lg font-medium text-gray-900">{waitingChats}</dd>
+                </dl>
               </div>
-            </div>
-
-            {/* Sessions List */}
-            <div className="flex-1 overflow-y-auto">
-              {isLoading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                </div>
-              ) : filteredSessions.length === 0 ? (
-                <div className="text-center py-12 px-4">
-                  <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-500">No chat sessions found</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-200">
-                  {filteredSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      onClick={() => selectSession(session)}
-                      className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                        selectedSession?.id === session.id ? 'bg-indigo-50' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center">
-                          <UserCircleIcon className="h-8 w-8 text-gray-400 mr-2" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {session.guest_name || session.guest_email || 'Anonymous'}
-                            </p>
-                            {session.subject && (
-                              <p className="text-xs text-gray-500">{session.subject}</p>
-                            )}
-                          </div>
-                        </div>
-                        {(session.unread_count || 0) > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-500 text-white">
-                            {session.unread_count}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[session.status].color}`}>
-                          {statusConfig[session.status].label}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(session.created_at).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      {session.rating && (
-                        <div className="flex items-center mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <StarIconSolid
-                              key={i}
-                              className={`h-4 w-4 ${i < session.rating! ? 'text-yellow-400' : 'text-gray-300'}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
+        </div>
 
-          {/* Chat Messages Area */}
-          <div className="col-span-2 flex flex-col">
-            {selectedSession ? (
-              <>
-                {/* Chat Header */}
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <UserCircleIcon className="h-10 w-10 text-gray-400 mr-3" />
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {selectedSession.guest_name || selectedSession.guest_email || 'Anonymous User'}
-                        </h3>
-                        <div className="space-y-1">
-                          {selectedSession.guest_email && (
-                            <p className="text-sm text-gray-500">📧 {selectedSession.guest_email}</p>
-                          )}
-                          {selectedSession.guest_phone && (
-                            <p className="text-sm text-gray-500">📱 {selectedSession.guest_phone}</p>
-                          )}
-                          <p className="text-xs text-gray-400">
-                            Session started: {new Date(selectedSession.created_at).toLocaleString()}
-                          </p>
-                        </div>
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <CheckCircleIcon className="h-6 w-6 text-blue-500" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Chats</dt>
+                  <dd className="text-lg font-medium text-gray-900">{chats.length}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Search */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search chats..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="waiting">Waiting</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+
+            {/* Priority Filter */}
+            <div>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
+                <option value="all">All Priority</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            {/* Sort */}
+            <div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
+                <option value="lastMessage">Last Message</option>
+                <option value="created">Created Date</option>
+                <option value="customer">Customer Name</option>
+                <option value="priority">Priority</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Chats List */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul className="divide-y divide-gray-200">
+          {filteredChats.map((chat) => (
+            <li key={chat.id}>
+              <Link
+                href={`/admin/support/chats/${chat.id}`}
+                className="block hover:bg-gray-50 px-4 py-4 sm:px-6"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center min-w-0 flex-1">
+                    <div className="flex-shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center">
+                        <UserIcon className="h-6 w-6 text-white" />
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusConfig[selectedSession.status].color}`}>
-                        {statusConfig[selectedSession.status].label}
-                      </span>
-                      {selectedSession.status === 'active' && (
-                        <button
-                          onClick={() => closeSession(selectedSession.id)}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                          <XCircleIcon className="h-4 w-4 mr-2" />
-                          Close Chat
-                        </button>
-                      )}
+                    <div className="ml-4 min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm font-medium text-indigo-600 truncate">
+                            {chat.customerName}
+                          </p>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                              chat.status
+                            )}`}
+                          >
+                            {chat.status}
+                          </span>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(
+                              chat.priority
+                            )}`}
+                          >
+                            {chat.priority}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {chat.unreadCount > 0 && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              {chat.unreadCount} new
+                            </span>
+                          )}
+                          <p className="text-sm text-gray-500">{formatTime(chat.lastMessageTime)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-1">
+                        <p className="text-sm text-gray-900 truncate">{chat.subject}</p>
+                        <p className="text-sm text-gray-500 truncate">{chat.lastMessage}</p>
+                      </div>
+                      <div className="mt-1 flex items-center text-xs text-gray-500">
+                        <span>{chat.customerEmail}</span>
+                        {chat.assignedTo && (
+                          <>
+                            <span className="mx-2">•</span>
+                            <span>Assigned to {chat.assignedTo}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
 
-                {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-                  {messages.map((message) => {
-                    const isBot = message.sender_type === 'bot';
-                    const isAdmin = message.sender_type === 'admin';
-                    const isSystem = message.sender_type === 'system';
-                    const isUser = message.sender_type === 'user';
-
-                    if (isSystem) {
-                      return (
-                        <div key={message.id} className="flex justify-center">
-                          <span className="text-xs text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
-                            {message.message}
-                          </span>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex ${isBot || isAdmin ? 'justify-start' : 'justify-end'}`}
-                      >
-                        <div className={`max-w-sm lg:max-w-md xl:max-w-lg ${isBot || isAdmin ? 'order-1' : 'order-2'}`}>
-                          <div className={`rounded-lg p-3 ${
-                            isBot ? 'bg-purple-100 border border-purple-200' :
-                            isAdmin ? 'bg-indigo-100 border border-indigo-200' :
-                            'bg-white border border-gray-200 shadow-sm'
-                          }`}>
-                            <div className="flex items-center mb-1">
-                              {(isBot || isAdmin) && (
-                                <UserCircleIcon className={`h-4 w-4 mr-1 ${isBot ? 'text-purple-600' : 'text-indigo-600'}`} />
-                              )}
-                              <span className="text-xs font-medium text-gray-600">
-                                {message.sender_name || (isBot ? 'AI Bot' : isAdmin ? 'Support' : 'Customer')}
-                              </span>
-                              <span className="text-xs text-gray-400 ml-2">
-                                {new Date(message.created_at).toLocaleTimeString()}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-900 whitespace-pre-wrap">{message.message}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Message Input */}
-                {selectedSession.status === 'active' && (
-                  <form onSubmit={sendMessage} className="p-4 border-t border-gray-200 bg-white">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type your message..."
-                        className="appearance-none flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!newMessage.trim()}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                      >
-                        <PaperAirplaneIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                  <ChatBubbleLeftRightIcon className="mx-auto h-16 w-16 text-gray-400" />
-                  <h3 className="mt-4 text-lg font-medium text-gray-900">Select a chat to view</h3>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Choose a chat session from the list to view messages and respond
-                  </p>
-                </div>
-              </div>
-            )}
+        {filteredChats.length === 0 && (
+          <div className="text-center py-12">
+            <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No chats found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchQuery || statusFilter !== 'all' || priorityFilter !== 'all'
+                ? 'Try adjusting your filters.'
+                : 'No customer chats yet.'}
+            </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
-

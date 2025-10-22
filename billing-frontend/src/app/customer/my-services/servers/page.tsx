@@ -15,7 +15,7 @@ import {
   ShoppingCartIcon,
   CloudIcon,
   CpuChipIcon,
-  HardDriveIcon,
+  CircleStackIcon,
   WifiIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
@@ -263,7 +263,7 @@ export default function MyServersPage() {
                       {/* Storage */}
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="flex items-center">
-                          <HardDriveIcon className="h-5 w-5 text-indigo-500 mr-2" />
+                          <CircleStackIcon className="h-5 w-5 text-indigo-500 mr-2" />
                           <span className="text-sm font-medium text-gray-900">Storage</span>
                         </div>
                         <div className="mt-2">

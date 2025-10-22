@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { plansAPI } from '@/lib/api';
+import { customerSubscriptionsAPI } from '@/lib/api';
 import {
   ServerIcon,
   CheckCircleIcon,
@@ -19,15 +19,14 @@ import {
   GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 
-interface HostingService {
+interface HostingSubscription {
   id: string;
   name: string;
   description: string;
   price_monthly: number;
   price_yearly: number;
   category: string;
-  subcategory?: string;
-  status: 'active' | 'suspended' | 'expired' | 'pending';
+  status: 'active' | 'suspended' | 'expired' | 'pending' | 'expiring';
   max_accounts: number;
   max_domains: number;
   max_databases: number;
@@ -39,75 +38,72 @@ interface HostingService {
   nextpanel_url: string;
   nextpanel_username: string;
   purchased_at: string;
-  next_renewal: string;
+  expiry_date?: string;
+  auto_renew: boolean;
   features: any;
+  subscription_id?: string;
+  subscription_status?: string;
+  current_period_start?: string;
+  current_period_end?: string;
+}
+
+interface SubscriptionStats {
+  total_subscriptions: number;
+  active_subscriptions: number;
+  expiring_soon: number;
+  expired_subscriptions: number;
+  categories: Record<string, number>;
 }
 
 export default function MyHostingPage() {
   const { user } = useAuth();
-  const [hostingServices, setHostingServices] = useState<HostingService[]>([]);
+  const [hostingSubscriptions, setHostingSubscriptions] = useState<HostingSubscription[]>([]);
+  const [subscriptionStats, setSubscriptionStats] = useState<SubscriptionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddHosting, setShowAddHosting] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   useEffect(() => {
-    const loadHostingServices = async () => {
+    const loadHostingSubscriptions = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Fetch user's purchased hosting services
-        const response = await plansAPI.list({ 
-          is_active: true,
-          category: 'hosting',
-          user_id: user?.id 
-        });
+        // Fetch user's hosting subscriptions and stats
+        const [subscriptionsResponse, statsResponse] = await Promise.all([
+          customerSubscriptionsAPI.getHosting({
+            status: selectedStatus === 'all' ? undefined : selectedStatus
+          }),
+          customerSubscriptionsAPI.getStats()
+        ]);
         
-        // Transform products to hosting services with mock data for demonstration
-        const services = (response.data || []).map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          price_monthly: product.price_monthly,
-          price_yearly: product.price_yearly,
-          category: product.category,
-          subcategory: product.subcategory,
-          status: 'active' as const,
-          max_accounts: product.max_accounts || 1,
-          max_domains: product.max_domains || 1,
-          max_databases: product.max_databases || 1,
-          max_emails: product.max_emails || 1,
-          current_accounts: Math.floor(Math.random() * (product.max_accounts || 1)),
-          current_domains: Math.floor(Math.random() * (product.max_domains || 1)),
-          current_databases: Math.floor(Math.random() * (product.max_databases || 1)),
-          current_emails: Math.floor(Math.random() * (product.max_emails || 1)),
-          nextpanel_url: 'https://panel.example.com',
-          nextpanel_username: user?.email?.split('@')[0] || 'user',
-          purchased_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
-          next_renewal: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          features: product.features || {},
-        }));
-        
-        setHostingServices(services);
+        setHostingSubscriptions(subscriptionsResponse);
+        setSubscriptionStats(statsResponse);
         
       } catch (err) {
-        console.error('Failed to load hosting services:', err);
-        setError('Failed to load your hosting services. Please try again later.');
-        setHostingServices([]);
+        console.error('Failed to load hosting subscriptions:', err);
+        setError('Failed to load your hosting subscriptions. Please try again later.');
+        setHostingSubscriptions([]);
+        setSubscriptionStats(null);
       } finally {
         setLoading(false);
       }
     };
 
     if (user?.id) {
-      loadHostingServices();
+      loadHostingSubscriptions();
+    } else {
+      setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedStatus]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'active':
         return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+      case 'expiring':
+        return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />;
       case 'suspended':
         return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />;
       case 'expired':
@@ -123,6 +119,8 @@ export default function MyHostingPage() {
     switch (status) {
       case 'active':
         return 'bg-green-100 text-green-800';
+      case 'expiring':
+        return 'bg-yellow-100 text-yellow-800';
       case 'suspended':
         return 'bg-yellow-100 text-yellow-800';
       case 'expired':
@@ -143,6 +141,19 @@ export default function MyHostingPage() {
     if (percentage >= 90) return 'bg-red-500';
     if (percentage >= 70) return 'bg-yellow-500';
     return 'bg-green-500';
+  };
+
+  const getDaysUntilExpiry = (expiryDate: string) => {
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const isExpiringSoon = (expiryDate: string) => {
+    const days = getDaysUntilExpiry(expiryDate);
+    return days <= 30 && days > 0;
   };
 
   if (loading) {
@@ -185,6 +196,18 @@ export default function MyHostingPage() {
               <p className="mt-1 text-sm text-gray-500">
                 Manage your hosting accounts, websites, databases, and email services.
               </p>
+              {subscriptionStats && (
+                <div className="mt-3 flex space-x-6 text-sm text-gray-600">
+                  <span>{subscriptionStats.total_subscriptions} total subscriptions</span>
+                  <span className="text-green-600">{subscriptionStats.active_subscriptions} active</span>
+                  {subscriptionStats.expiring_soon > 0 && (
+                    <span className="text-yellow-600">{subscriptionStats.expiring_soon} expiring soon</span>
+                  )}
+                  {subscriptionStats.expired_subscriptions > 0 && (
+                    <span className="text-red-600">{subscriptionStats.expired_subscriptions} expired</span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex space-x-3">
               <a
@@ -206,17 +229,48 @@ export default function MyHostingPage() {
         </div>
       </div>
 
-      {/* Hosting Services List */}
+      {/* Filters */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-4 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+            <div className="flex items-center space-x-4">
+              <div>
+                <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700">
+                  Status
+                </label>
+                <select
+                  id="status-filter"
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                >
+                  <option value="all">All Subscriptions</option>
+                  <option value="active">Active</option>
+                  <option value="expiring">Expiring Soon</option>
+                  <option value="expired">Expired</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hosting Subscriptions List */}
       <div className="space-y-4">
-        {hostingServices.map((service) => {
-          const accountsUsage = getUsagePercentage(service.current_accounts, service.max_accounts);
-          const domainsUsage = getUsagePercentage(service.current_domains, service.max_domains);
-          const databasesUsage = getUsagePercentage(service.current_databases, service.max_databases);
-          const emailsUsage = getUsagePercentage(service.current_emails, service.max_emails);
+        {hostingSubscriptions.map((subscription) => {
+          const accountsUsage = getUsagePercentage(subscription.current_accounts, subscription.max_accounts);
+          const domainsUsage = getUsagePercentage(subscription.current_domains, subscription.max_domains);
+          const databasesUsage = getUsagePercentage(subscription.current_databases, subscription.max_databases);
+          const emailsUsage = getUsagePercentage(subscription.current_emails, subscription.max_emails);
+          
+          // Calculate expiry information
+          const daysUntilExpiry = subscription.expiry_date ? getDaysUntilExpiry(subscription.expiry_date) : 0;
+          const expiringSoon = subscription.expiry_date ? isExpiringSoon(subscription.expiry_date) : false;
           
           return (
             <div
-              key={service.id}
+              key={subscription.id}
               className="bg-white shadow rounded-lg overflow-hidden"
             >
               <div className="px-4 py-5 sm:p-6">
@@ -226,13 +280,13 @@ export default function MyHostingPage() {
                       <ServerIcon className="h-6 w-6 text-indigo-500 mr-3" />
                       <div>
                         <h3 className="text-lg font-medium text-gray-900">
-                          {service.name}
+                          {subscription.name}
                         </h3>
-                        <p className="text-sm text-gray-500">{service.description}</p>
+                        <p className="text-sm text-gray-500">{subscription.description}</p>
                       </div>
-                      <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
-                        {getStatusIcon(service.status)}
-                        <span className="ml-1 capitalize">{service.status}</span>
+                      <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(subscription.status)}`}>
+                        {getStatusIcon(subscription.status)}
+                        <span className="ml-1 capitalize">{subscription.status}</span>
                       </span>
                     </div>
                     
@@ -248,8 +302,8 @@ export default function MyHostingPage() {
                           </div>
                           <div className="mt-2">
                             <div className="flex justify-between text-sm text-gray-600">
-                              <span>{service.current_accounts}</span>
-                              <span>{service.max_accounts}</span>
+                              <span>{subscription.current_accounts}</span>
+                              <span>{subscription.max_accounts}</span>
                             </div>
                             <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
                               <div
@@ -269,8 +323,8 @@ export default function MyHostingPage() {
                           </div>
                           <div className="mt-2">
                             <div className="flex justify-between text-sm text-gray-600">
-                              <span>{service.current_domains}</span>
-                              <span>{service.max_domains}</span>
+                              <span>{subscription.current_domains}</span>
+                              <span>{subscription.max_domains}</span>
                             </div>
                             <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
                               <div
@@ -290,8 +344,8 @@ export default function MyHostingPage() {
                           </div>
                           <div className="mt-2">
                             <div className="flex justify-between text-sm text-gray-600">
-                              <span>{service.current_databases}</span>
-                              <span>{service.max_databases}</span>
+                              <span>{subscription.current_databases}</span>
+                              <span>{subscription.max_databases}</span>
                             </div>
                             <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
                               <div
@@ -311,8 +365,8 @@ export default function MyHostingPage() {
                           </div>
                           <div className="mt-2">
                             <div className="flex justify-between text-sm text-gray-600">
-                              <span>{service.current_emails}</span>
-                              <span>{service.max_emails}</span>
+                              <span>{subscription.current_emails}</span>
+                              <span>{subscription.max_emails}</span>
                             </div>
                             <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
                               <div
@@ -332,29 +386,51 @@ export default function MyHostingPage() {
                         <dt className="text-sm font-medium text-gray-500">NextPanel URL</dt>
                         <dd className="mt-1 text-sm text-gray-900">
                           <a 
-                            href={service.nextpanel_url} 
+                            href={subscription.nextpanel_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="text-indigo-600 hover:text-indigo-500"
                           >
-                            {service.nextpanel_url}
+                            {subscription.nextpanel_url}
                           </a>
                         </dd>
                       </div>
                       <div>
                         <dt className="text-sm font-medium text-gray-500">Username</dt>
-                        <dd className="mt-1 text-sm text-gray-900">{service.nextpanel_username}</dd>
+                        <dd className="mt-1 text-sm text-gray-900">{subscription.nextpanel_username}</dd>
                       </div>
                       <div>
                         <dt className="text-sm font-medium text-gray-500">Purchased</dt>
                         <dd className="mt-1 text-sm text-gray-900">
-                          {new Date(service.purchased_at).toLocaleDateString()}
+                          {new Date(subscription.purchased_at).toLocaleDateString()}
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-sm font-medium text-gray-500">Next Renewal</dt>
+                        <dt className="text-sm font-medium text-gray-500">
+                          {subscription.expiry_date ? 'Expiry Date' : 'Next Renewal'}
+                        </dt>
                         <dd className="mt-1 text-sm text-gray-900">
-                          {service.next_renewal}
+                          {subscription.expiry_date ? 
+                            new Date(subscription.expiry_date).toLocaleDateString() : 
+                            'N/A'
+                          }
+                          {expiringSoon && (
+                            <p className="text-xs text-yellow-600 mt-1">
+                              Expires in {daysUntilExpiry} days
+                            </p>
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Auto Renewal</dt>
+                        <dd className="mt-1 text-sm text-gray-900">
+                          {subscription.auto_renew ? 'Enabled' : 'Disabled'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Subscription Status</dt>
+                        <dd className="mt-1 text-sm text-gray-900">
+                          {subscription.subscription_status || 'N/A'}
                         </dd>
                       </div>
                     </div>
@@ -362,7 +438,7 @@ export default function MyHostingPage() {
 
                   <div className="ml-6 flex flex-col space-y-2">
                     <a
-                      href={service.nextpanel_url}
+                      href={subscription.nextpanel_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -374,10 +450,10 @@ export default function MyHostingPage() {
                       <Cog6ToothIcon className="h-4 w-4 mr-2" />
                       Settings
                     </button>
-                    {service.status === 'expired' && (
+                    {(subscription.status === 'expired' || subscription.status === 'expiring') && (
                       <button className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         <PencilIcon className="h-4 w-4 mr-2" />
-                        Renew
+                        {subscription.status === 'expired' ? 'Renew' : 'Extend'}
                       </button>
                     )}
                   </div>
@@ -389,12 +465,12 @@ export default function MyHostingPage() {
       </div>
 
       {/* Empty State */}
-      {hostingServices.length === 0 && (
+      {hostingSubscriptions.length === 0 && (
         <div className="text-center py-12">
           <ServerIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No hosting services</h3>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No hosting subscriptions</h3>
           <p className="mt-1 text-sm text-gray-500">
-            You don't have any hosting services yet. Browse our hosting plans to get started.
+            You don't have any hosting subscriptions yet. Browse our hosting plans to get started.
           </p>
           <div className="mt-6">
             <a

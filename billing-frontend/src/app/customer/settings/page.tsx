@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { customerProfileAPI } from '@/lib/api';
 import {
   UserIcon,
   BellIcon,
@@ -12,11 +13,12 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  
   const [settings, setSettings] = useState({
     profile: {
-      fullName: user?.full_name || '',
-      email: user?.email || '',
+      fullName: '',
+      email: '',
       phone: '',
       company: '',
     },
@@ -41,15 +43,91 @@ export default function SettingsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Redirect if not authenticated (but wait for auth check to complete)
+  useEffect(() => {
+    console.log('=== AUTH CHECK DEBUG ===');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('user:', user);
+    console.log('localStorage access_token:', localStorage.getItem('access_token'));
+    
+    // Only redirect if we're sure the user is not authenticated
+    // Don't redirect immediately on page load while auth is still loading
+    if (isAuthenticated === false && user === null) {
+      console.log('Not authenticated, redirecting to customer login');
+      // Redirect to customer login page if not authenticated
+      window.location.href = '/customer/login';
+    } else if (isAuthenticated) {
+      console.log('User is authenticated');
+    } else {
+      console.log('Auth state still loading...');
+    }
+    console.log('=== END AUTH CHECK DEBUG ===');
+  }, [isAuthenticated, user]);
+
+  // Load profile data on component mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!isAuthenticated || !user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('=== LOADING PROFILE DEBUG ===');
+        console.log('Auth state:', { isAuthenticated, user });
+        console.log('Loading profile for user:', user);
+        
+        const profileData = await customerProfileAPI.getProfile();
+        console.log('Profile data received from API:', profileData);
+        
+        const updatedSettings = {
+          fullName: profileData.full_name || '',
+          email: profileData.email || '',
+          phone: profileData.phone || '',
+          company: profileData.company || '',
+        };
+        console.log('Updated profile settings:', updatedSettings);
+        
+        setSettings(prev => ({
+          ...prev,
+          profile: updatedSettings,
+        }));
+        console.log('=== END LOADING PROFILE DEBUG ===');
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        console.error('Error details:', error.response?.data);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [isAuthenticated, user]);
 
   const handleSave = async (section: string) => {
     setSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      if (section === 'profile') {
+        await customerProfileAPI.updateProfile({
+          full_name: settings.profile.fullName,
+          email: settings.profile.email,
+          phone: settings.profile.phone,
+          company: settings.profile.company,
+        });
+      } else if (section === 'notifications' || section === 'security' || section === 'preferences') {
+        await customerProfileAPI.updateSettings(settings[section as keyof typeof settings]);
+      }
+      
       setSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    }, 1000);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      setSaving(false);
+      // You could add error state handling here
+    }
   };
 
   const handleInputChange = (section: string, field: string, value: any) => {
@@ -61,6 +139,45 @@ export default function SettingsPage() {
       },
     }));
   };
+
+  // Show loading screen while auth is being checked or profile is loading
+  if (loading || (isAuthenticated === undefined && user === undefined)) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+        <div className="text-center py-8">
+          <p className="text-gray-500">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading screen if not authenticated (while redirecting)
+  if (!isAuthenticated) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+        <div className="text-center py-8">
+          <p className="text-gray-500">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">

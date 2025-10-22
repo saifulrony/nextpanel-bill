@@ -32,9 +32,12 @@ export const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
+    // Both customers and admins use JWT tokens stored in 'access_token'
     const token = localStorage.getItem('access_token');
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`API Request to ${config.url}: Using JWT token`);
     }
   }
   return config;
@@ -55,9 +58,13 @@ api.interceptors.response.use(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          // Redirect to login if not already there
+          // Redirect to appropriate login based on current path
           if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
+            if (window.location.pathname.startsWith('/customer')) {
+              window.location.href = '/customer/login';
+            } else {
+              window.location.href = '/login';
+            }
           }
         }
       }
@@ -121,6 +128,24 @@ export const licensesAPI = {
 export const paymentsAPI = {
   createIntent: (data: any) =>
     api.post('/payments/intent', data),
+  
+  manualCharge: (data: any) =>
+    api.post('/payments/manual-charge', data),
+  
+  configureAutoCharge: (orderId: string, config: any) =>
+    api.post(`/payments/auto-charge/${orderId}`, config),
+  
+  getPaymentHistory: (orderId: string) =>
+    api.get(`/payments/history/${orderId}`),
+  
+  retryPayment: (paymentId: string) =>
+    api.post(`/payments/retry/${paymentId}`),
+  
+  getAutoChargeQueue: () =>
+    api.get('/payments/auto-charge/queue'),
+  
+  processAutoChargeQueue: () =>
+    api.post('/payments/auto-charge/process'),
   
   list: (params?: any) =>
     api.get('/payments', { params }),
@@ -549,6 +574,140 @@ export const domainPricingAPI = {
   
   bulkUpdatePricing: (data: any) =>
     api.post('/domain-pricing/pricing/tld-pricing/bulk', data),
+};
+
+// Customer Domains API
+export const customerDomainsAPI = {
+  // Get all domains for the current customer
+  list: async (params?: { status?: string; expiring_soon?: boolean }) => {
+    const response = await api.get('/customer/domains/', { params });
+    return response.data;
+  },
+
+  // Get domain details
+  get: async (domainId: string) => {
+    const response = await api.get(`/customer/domains/${domainId}`);
+    return response.data;
+  },
+
+  // Register a new domain
+  register: async (data: {
+    domain_name: string;
+    years?: number;
+    registrar?: string;
+    nameservers?: string[];
+    auto_renew?: boolean;
+  }) => {
+    const response = await api.post('/customer/domains/', data);
+    return response.data;
+  },
+
+  // Update auto-renewal setting
+  updateAutoRenew: async (domainId: string, autoRenew: boolean) => {
+    const response = await api.put(`/customer/domains/${domainId}/auto-renew`, null, {
+      params: { auto_renew: autoRenew }
+    });
+    return response.data;
+  },
+
+  // Update nameservers
+  updateNameservers: async (domainId: string, nameservers: string[]) => {
+    const response = await api.put(`/customer/domains/${domainId}/nameservers`, nameservers);
+    return response.data;
+  },
+
+  // Get domain statistics
+  getStats: async () => {
+    const response = await api.get('/customer/domains/stats/summary');
+    return response.data;
+  }
+};
+
+// Customer Subscriptions API
+export const customerSubscriptionsAPI = {
+  // Get hosting subscriptions
+  getHosting: async (params?: { status?: string }) => {
+    const response = await api.get('/customer/subscriptions/hosting', { params });
+    return response.data;
+  },
+
+  // Get subscription statistics
+  getStats: async () => {
+    const response = await api.get('/customer/subscriptions/stats/summary');
+    return response.data;
+  },
+
+  // Get license usage details
+  getUsage: async (licenseId: string) => {
+    const response = await api.get(`/customer/subscriptions/usage/${licenseId}`);
+    return response.data;
+  }
+};
+
+// Customer Billing API
+export const customerBillingAPI = {
+  // Get customer invoices
+  getInvoices: async (params?: { status?: string; due_only?: boolean }) => {
+    const response = await api.get('/customer/billing/invoices', { params });
+    return response.data;
+  },
+
+  // Get invoice details
+  getInvoice: async (invoiceId: string) => {
+    const response = await api.get(`/customer/billing/invoices/${invoiceId}`);
+    return response.data;
+  },
+
+  // Get payment methods
+  getPaymentMethods: async () => {
+    const response = await api.get('/customer/billing/payment-methods');
+    return response.data;
+  },
+
+  // Get billing summary
+  getBillingSummary: async () => {
+    const response = await api.get('/customer/billing/billing-summary');
+    return response.data;
+  },
+
+  // Pay invoice
+  payInvoice: async (invoiceId: string, paymentMethodId: string) => {
+    const response = await api.post(`/customer/billing/invoices/${invoiceId}/pay`, {
+      payment_method_id: paymentMethodId
+    });
+    return response.data;
+  }
+};
+
+export const customerProfileAPI = {
+  // Get customer profile
+  getProfile: async () => {
+    const response = await api.get('/customer/profile');
+    return response.data;
+  },
+
+  // Update customer profile
+  updateProfile: async (profileData: {
+    full_name?: string;
+    email?: string;
+    phone?: string;
+    company?: string;
+  }) => {
+    const response = await api.put('/customer/profile', profileData);
+    return response.data;
+  },
+
+  // Get customer settings
+  getSettings: async () => {
+    const response = await api.get('/customer/settings');
+    return response.data;
+  },
+
+  // Update customer settings
+  updateSettings: async (settings: any) => {
+    const response = await api.put('/customer/settings', settings);
+    return response.data;
+  },
 };
 
 export default api;

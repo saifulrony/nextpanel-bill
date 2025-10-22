@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Auth Token</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .token-display {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Set Authentication Token</h1>
+        <p>This page will set the authentication token in your browser's localStorage so you can access the customer pages.</p>
+        
+        <div class="token-display">
+            <strong>Token:</strong><br>
+            eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3YjY0NzQ2ZS1hY2JiLTQxMmMtYTBhZS05MTdlZDMyNTM5MGMiLCJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwiZXhwIjoxNzYxMTM1NDU3LCJ0eXBlIjoiYWNjZXNzIn0.yjJEyRu6ZhgBZGfs6xHEghGzku6HWOdjej4AbfLCyZQ
+        </div>
+        
+        <button onclick="setToken()">Set Authentication Token</button>
+        
+        <div id="result"></div>
+        
+        <h2>Next Steps:</h2>
+        <ol>
+            <li>Click the "Set Authentication Token" button above</li>
+            <li>Go to <a href="/customer/my-services/domains" target="_blank">/customer/my-services/domains</a></li>
+            <li>Go to <a href="/customer/my-services/hosting" target="_blank">/customer/my-services/hosting</a></li>
+            <li>Go to <a href="/customer/billing" target="_blank">/customer/billing</a></li>
+        </ol>
+        
+        <p><strong>Note:</strong> The pages will show empty states since there's no data in the database yet, but they should load properly without the continuous loading issue.</p>
+    </div>
+
+    <script>
+        function setToken() {
+            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3YjY0NzQ2ZS1hY2JiLTQxMmMtYTBhZS05MTdlZDMyNTM5MGMiLCJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwiZXhwIjoxNzYxMTM1NDU3LCJ0eXBlIjoiYWNjZXNzIn0.yjJEyRu6ZhgBZGfs6xHEghGzku6HWOdjej4AbfLCyZQ';
+            
+            try {
+                localStorage.setItem('access_token', token);
+                document.getElementById('result').innerHTML = '<div class="success">✅ Token set successfully! You can now access the customer pages.</div>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<div class="error">❌ Failed to set token: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>

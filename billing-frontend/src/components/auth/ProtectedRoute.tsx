@@ -23,7 +23,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         if (!token) {
           hasRedirected.current = true;
           setRedirecting(true);
-          router.replace('/login');
+          // Redirect to customer login for customer routes, general login for others
+          const isCustomerRoute = window.location.pathname.startsWith('/customer');
+          router.replace(isCustomerRoute ? '/customer/login' : '/login');
         }
       }
     }

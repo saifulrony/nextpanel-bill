@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 import bcrypt
+import base64
+import json
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.config import settings
@@ -92,6 +94,40 @@ async def get_current_user_id(
         )
     
     return user_id
+
+
+async def get_customer_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> str:
+    """Get current customer user ID from JWT token (same as admin auth)"""
+    token = credentials.credentials
+    print(f"=== CUSTOMER AUTH DEBUG ===")
+    print(f"Received token: {token[:50]}...")
+    print(f"Token length: {len(token)}")
+    
+    try:
+        # Use the same JWT decoding as admin authentication
+        payload = decode_token(token)
+        user_id: str = payload.get("sub")
+        
+        if user_id is None:
+            print("No user_id in JWT token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+        
+        print(f"JWT decode successful, user_id: {user_id}")
+        print(f"=== END CUSTOMER AUTH DEBUG ===")
+        return user_id
+        
+    except JWTError as jwt_error:
+        print(f"JWT decode failed: {jwt_error}")
+        print(f"=== END CUSTOMER AUTH DEBUG ===")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format",
+        )
 
 
 async def require_admin(

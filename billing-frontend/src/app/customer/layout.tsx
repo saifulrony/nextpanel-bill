@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -50,6 +51,7 @@ export default function CustomerLayout({
   children: React.ReactNode;
 }) {
   const { user, isAuthenticated, logout } = useAuth();
+  const { getItemCount } = useCart();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -67,42 +69,14 @@ export default function CustomerLayout({
     return () => clearTimeout(timer);
   }, []);
 
-  // Check customer authentication
+  // Use the standard authentication system
   useEffect(() => {
-    const checkCustomerAuth = () => {
-      const token = localStorage.getItem('token');
-      const userType = localStorage.getItem('user_type');
-      const userData = localStorage.getItem('user');
-      
-      if (token && userType === 'customer') {
-        try {
-          // Verify token is not expired
-          const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-          if (decoded.exp && Date.now() / 1000 > decoded.exp) {
-            // Token expired, clear it
-            localStorage.removeItem('token');
-            localStorage.removeItem('user_type');
-            localStorage.removeItem('user');
-            setCustomerAuth({ isAuthenticated: false, user: null });
-          } else {
-            // Token is valid
-            const user = userData ? JSON.parse(userData) : null;
-            setCustomerAuth({ isAuthenticated: true, user });
-          }
-        } catch (error) {
-          // Invalid token, clear it
-          localStorage.removeItem('token');
-          localStorage.removeItem('user_type');
-          localStorage.removeItem('user');
-          setCustomerAuth({ isAuthenticated: false, user: null });
-        }
-      } else {
-        setCustomerAuth({ isAuthenticated: false, user: null });
-      }
-    };
-
-    checkCustomerAuth();
-  }, [pathname]); // Re-run when pathname changes
+    // Set customer auth based on the main auth context
+    setCustomerAuth({
+      isAuthenticated: isAuthenticated,
+      user: user
+    });
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     // Don't redirect if we're on login or register pages
@@ -154,16 +128,8 @@ export default function CustomerLayout({
   };
 
   const handleCustomerLogout = () => {
-    // Clear customer authentication data
-    localStorage.removeItem('token');
-    localStorage.removeItem('user_type');
-    localStorage.removeItem('user');
-    
-    // Clear cookies
-    document.cookie = 'auth_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    
-    // Reset customer auth state
-    setCustomerAuth({ isAuthenticated: false, user: null });
+    // Use the standard logout function
+    logout();
     
     // Redirect to customer login
     router.push('/customer/login');
@@ -397,8 +363,23 @@ export default function CustomerLayout({
                 </h1>
               </div>
 
-              {/* User dropdown menu */}
-              <div className="relative" data-user-menu>
+              {/* Right side items */}
+              <div className="flex items-center space-x-4">
+                {/* Cart Icon */}
+                <Link
+                  href="/cart"
+                  className="relative p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <ShoppingCartIcon className="h-6 w-6" />
+                  {getItemCount() > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {getItemCount()}
+                    </span>
+                  )}
+                </Link>
+
+                {/* User dropdown menu */}
+                <div className="relative" data-user-menu>
                 <button
                   type="button"
                   className="flex items-center space-x-3 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -406,11 +387,11 @@ export default function CustomerLayout({
                 >
                   <div className="h-8 w-8 bg-indigo-600 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-white">
-                      {customerAuth.user?.name?.charAt(0).toUpperCase() || customerAuth.user?.email?.charAt(0).toUpperCase()}
+                      {customerAuth.user?.full_name?.charAt(0).toUpperCase() || customerAuth.user?.email?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="hidden sm:block text-left">
-                    <p className="text-sm font-medium text-gray-700">{customerAuth.user?.name || customerAuth.user?.email}</p>
+                    <p className="text-sm font-medium text-gray-700">{customerAuth.user?.full_name || customerAuth.user?.email}</p>
                     <p className="text-xs text-gray-500">Customer</p>
                   </div>
                   <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -454,6 +435,7 @@ export default function CustomerLayout({
                     </button>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           </header>

@@ -202,6 +202,15 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
       const authState = customAuth || { isAuthenticated, user };
       const logoutFunction = customLogout || logout;
       
+      // Debug logging
+      console.log('Header user-menu rendering:', {
+        customAuth,
+        authState,
+        isAuthenticated: authState.isAuthenticated,
+        user: authState.user,
+        userType: customAuth?.userType
+      });
+      
       return (
         <div className="relative">
           {authState.isAuthenticated && authState.user ? (

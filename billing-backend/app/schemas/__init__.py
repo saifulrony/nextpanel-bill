@@ -192,6 +192,14 @@ class DomainUpdateNameserversRequest(BaseModel):
     nameservers: List[str]
 
 
+class DomainCreateRequest(BaseModel):
+    domain_name: str
+    years: int = 1
+    registrar: Optional[str] = None
+    nameservers: Optional[List[str]] = None
+    auto_renew: bool = True
+
+
 class DomainResponse(BaseModel):
     id: str
     domain_name: str
@@ -199,6 +207,7 @@ class DomainResponse(BaseModel):
     registration_date: Optional[datetime] = None
     expiry_date: Optional[datetime] = None
     auto_renew: bool
+    nameservers: Optional[List[str]] = None
     status: str
     created_at: datetime
     

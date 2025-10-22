@@ -10,7 +10,7 @@ import socket
 
 from app.core.config import settings as config_settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages
+from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages, customer_domains, customer_subscriptions, customer_invoices, customer_profile
 from app.api.v1 import settings as settings_api
 from app.schemas import HealthResponse
 
@@ -187,6 +187,10 @@ app.include_router(settings_api.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
 app.include_router(orders.router, prefix="/api/v1/orders", tags=["orders"])
+app.include_router(customer_domains.router, prefix="/api/v1/customer/domains", tags=["customer-domains"])
+app.include_router(customer_subscriptions.router, prefix="/api/v1/customer/subscriptions", tags=["customer-subscriptions"])
+app.include_router(customer_invoices.router, prefix="/api/v1/customer/billing", tags=["customer-billing"])
+app.include_router(customer_profile.router, prefix="/api/v1/customer", tags=["customer-profile"])
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(nextpanel.router, prefix="/api/v1")
 app.include_router(customization.router, prefix="/api/v1")

@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
+import { customerDomainsAPI, customerSubscriptionsAPI, ordersAPI } from '@/lib/api';
 import {
   ShoppingCartIcon,
   CreditCardIcon,
@@ -16,7 +17,6 @@ import {
 interface CustomerStats {
   activeSubscriptions: number;
   totalDomains: number;
-  monthlySpend: number;
   nextBillingDate: string;
   pendingInvoices: number;
   supportTickets: number;
@@ -35,7 +35,6 @@ export default function CustomerDashboard() {
   const [stats, setStats] = useState<CustomerStats>({
     activeSubscriptions: 0,
     totalDomains: 0,
-    monthlySpend: 0,
     nextBillingDate: '',
     pendingInvoices: 0,
     supportTickets: 0,
@@ -44,50 +43,73 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading customer data
-    setTimeout(() => {
-      setStats({
-        activeSubscriptions: 3,
-        totalDomains: 5,
-        monthlySpend: 89.99,
-        nextBillingDate: '2024-02-15',
-        pendingInvoices: 1,
-        supportTickets: 2,
-      });
+    const loadCustomerData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch real data from APIs
+        const [domainsResponse, subscriptionsResponse, ordersResponse] = await Promise.all([
+          customerDomainsAPI.list().catch(() => ({ data: [] })),
+          customerSubscriptionsAPI.getHosting().catch(() => []),
+          ordersAPI.list().catch(() => ({ data: [] }))
+        ]);
 
-      setRecentActivity([
-        {
-          id: '1',
-          type: 'subscription',
-          description: 'Upgraded to Professional Hosting',
-          date: '2024-01-15',
-          status: 'success',
-        },
-        {
-          id: '2',
-          type: 'domain',
-          description: 'Registered new domain: mycompany.com',
-          date: '2024-01-12',
-          status: 'success',
-        },
-        {
-          id: '3',
-          type: 'payment',
-          description: 'Payment processed for invoice #INV-2024-001',
-          date: '2024-01-10',
-          status: 'success',
-        },
-        {
-          id: '4',
-          type: 'support',
-          description: 'Support ticket #12345 - Domain configuration',
-          date: '2024-01-08',
-          status: 'pending',
-        },
-      ]);
+        const domains = domainsResponse.data || [];
+        const subscriptions = subscriptionsResponse || [];
+        const orders = ordersResponse.data || [];
 
-      setLoading(false);
-    }, 1000);
+        // Calculate stats
+        const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active').length;
+        const totalDomains = domains.length;
+        
+        // Find next billing date from active subscriptions
+        const nextBillingDate = subscriptions
+          .filter(sub => sub.status === 'active' && sub.current_period_end)
+          .map(sub => sub.current_period_end)
+          .sort()
+          [0] || '';
+
+        // Count pending invoices (orders with status pending)
+        const pendingInvoices = orders.filter(order => order.status === 'pending').length;
+
+        setStats({
+          activeSubscriptions,
+          totalDomains,
+          nextBillingDate,
+          pendingInvoices,
+          supportTickets: 0, // TODO: Implement support tickets API
+        });
+
+        // Generate recent activity from orders
+        const recentActivity = orders
+          .slice(0, 5)
+          .map(order => ({
+            id: order.id,
+            type: 'payment' as const,
+            description: `Order ${order.invoice_number || order.order_number} - ${order.items?.[0]?.product_name || 'Service'}`,
+            date: order.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+            status: order.status === 'completed' ? 'success' as const : 'pending' as const,
+          }));
+
+        setRecentActivity(recentActivity);
+
+      } catch (error) {
+        console.error('Error loading customer data:', error);
+        // Set default values on error
+        setStats({
+          activeSubscriptions: 0,
+          totalDomains: 0,
+          nextBillingDate: '',
+          pendingInvoices: 0,
+          supportTickets: 0,
+        });
+        setRecentActivity([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCustomerData();
   }, []);
 
   if (loading) {
@@ -184,26 +206,6 @@ export default function CustomerDashboard() {
           </div>
         </div>
 
-        {/* Monthly Spend */}
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CreditCardIcon className="h-6 w-6 text-purple-500" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Monthly Spend
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    ${stats.monthlySpend}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Quick Actions */}

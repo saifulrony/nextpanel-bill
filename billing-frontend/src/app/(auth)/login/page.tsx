@@ -10,8 +10,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
-    email: 'admin@test.com',
-    password: 'Admin123!',
+    email: 'customer@test.com',
+    password: 'Customer123!',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -57,11 +57,15 @@ export default function LoginPage() {
 
     try {
       console.log('Calling login function...');
+      console.log('Email being sent:', formData.email);
+      console.log('Password length:', formData.password.length);
+      
       await login(formData.email, formData.password);
+      
       console.log('=== LOGIN SUCCESS ===');
-      console.log('Auth state updated, redirecting to admin dashboard');
-      // Redirect to admin dashboard after successful login
-      router.push('/admin/dashboard');
+      console.log('Auth state updated, redirecting to customer dashboard');
+      // Redirect to customer dashboard after successful login
+      router.push('/customer');
     } catch (error: any) {
       console.error('=== LOGIN ERROR ===');
       console.error('Error:', error);
