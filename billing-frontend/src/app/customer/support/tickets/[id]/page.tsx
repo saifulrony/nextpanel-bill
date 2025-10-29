@@ -21,9 +21,9 @@ interface TicketComment {
 }
 
 interface TicketPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function TicketPage({ params }: TicketPageProps) {
@@ -31,7 +31,7 @@ export default function TicketPage({ params }: TicketPageProps) {
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [ticket, setTicket] = useState({
-    id: params.id,
+    id: '',
     subject: 'Unable to access my domains',
     status: 'open',
     priority: 'high',
@@ -41,6 +41,18 @@ export default function TicketPage({ params }: TicketPageProps) {
     description: 'I am unable to access my domain management panel. When I try to log in, I get an error message saying "Access Denied". I have tried clearing my browser cache and using different browsers, but the issue persists.',
     attachments: ['screenshot1.png', 'error_log.txt'],
   });
+
+  // Handle async params
+  useEffect(() => {
+    const loadParams = async () => {
+      const resolvedParams = await params;
+      setTicket(prev => ({
+        ...prev,
+        id: resolvedParams.id,
+      }));
+    };
+    loadParams();
+  }, [params]);
 
   const [comments, setComments] = useState<TicketComment[]>([
     {

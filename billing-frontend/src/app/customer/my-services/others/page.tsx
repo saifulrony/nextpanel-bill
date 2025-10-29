@@ -54,8 +54,7 @@ export default function MyOthersPage() {
         
         // Fetch user's purchased other services (not domains, hosting, servers, or licenses)
         const response = await plansAPI.list({ 
-          is_active: true,
-          user_id: user?.id 
+          is_active: true
         });
         
         // Filter out domains, hosting, servers, and licenses

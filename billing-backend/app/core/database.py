@@ -59,4 +59,18 @@ async def init_db():
     """Initialize database tables"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+        # Add migration for order_id column if it doesn't exist
+        from sqlalchemy import text
+        try:
+            # Check if order_id column exists
+            result = await conn.execute(text("PRAGMA table_info(payments)"))
+            columns = [row[1] for row in result.fetchall()]
+            
+            if 'order_id' not in columns:
+                # Add order_id column to payments table
+                await conn.execute(text("ALTER TABLE payments ADD COLUMN order_id TEXT REFERENCES orders(id)"))
+                print("✅ Added order_id column to payments table")
+        except Exception as e:
+            print(f"⚠️ Migration warning: {e}")
 

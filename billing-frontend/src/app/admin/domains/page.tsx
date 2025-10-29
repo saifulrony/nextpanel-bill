@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { domainsAPI } from '@/lib/api';
+import { domainsAPI, customerDomainsAPI } from '@/lib/api';
 
 export default function DomainsPage() {
   const [domains, setDomains] = useState<any[]>([]);
+  const [customerDomains, setCustomerDomains] = useState<any[]>([]);
   const [searchDomain, setSearchDomain] = useState('');
   const [searchResult, setSearchResult] = useState<any>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingCustomerDomains, setIsLoadingCustomerDomains] = useState(true);
 
   useEffect(() => {
     loadDomains();
+    loadCustomerDomains();
   }, []);
 
   const loadDomains = async () => {
@@ -22,6 +25,17 @@ export default function DomainsPage() {
       console.error('Failed to load domains:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadCustomerDomains = async () => {
+    try {
+      const response = await customerDomainsAPI.list();
+      setCustomerDomains(response.data || []);
+    } catch (error) {
+      console.error('Failed to load customer domains:', error);
+    } finally {
+      setIsLoadingCustomerDomains(false);
     }
   };
 
@@ -192,6 +206,74 @@ export default function DomainsPage() {
                       </button>
                       <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">
                         Renew
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Customer Domains List */}
+      <div className="bg-white shadow sm:rounded-lg mt-8">
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+            All Customer Domains
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Domains ordered by all customers
+          </p>
+
+          {isLoadingCustomerDomains ? (
+            <p className="text-gray-500">Loading...</p>
+          ) : customerDomains.length === 0 ? (
+            <p className="text-gray-500">No customer domains yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {customerDomains.map((domain) => (
+                <div key={domain.id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium text-lg">{domain.domain_name}</h4>
+                      <p className="text-sm text-gray-500">
+                        Status: <span className={`font-medium ${
+                          domain.status === 'active' ? 'text-green-600' : 
+                          domain.status === 'expired' ? 'text-red-600' : 
+                          'text-gray-600'
+                        }`}>{domain.status}</span>
+                      </p>
+                      {domain.expiry_date && (
+                        <p className="text-sm text-gray-500">
+                          Expires: {new Date(domain.expiry_date).toLocaleDateString()}
+                        </p>
+                      )}
+                      {domain.customer_name && (
+                        <p className="text-sm text-gray-500">
+                          Customer: {domain.customer_name}
+                        </p>
+                      )}
+                      {domain.customer_email && (
+                        <p className="text-sm text-gray-500">
+                          Email: {domain.customer_email}
+                        </p>
+                      )}
+                      {domain.auto_renew && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">
+                          Auto-renew Enabled
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => window.location.href = `/admin/customers`}
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        View Customer
+                      </button>
+                      <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                        Manage
                       </button>
                     </div>
                   </div>

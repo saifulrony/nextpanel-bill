@@ -52,7 +52,7 @@ export function middleware(request: NextRequest) {
                   request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (!token) {
-      return NextResponse.redirect(new URL('/admin/login', request.url));
+      return NextResponse.redirect(new URL('/login', request.url));
     }
 
     try {
@@ -60,12 +60,12 @@ export function middleware(request: NextRequest) {
       
       // Check if token is expired
       if (decoded.exp && Date.now() / 1000 > decoded.exp) {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
+        return NextResponse.redirect(new URL('/login', request.url));
       }
       
       // Check if it's an admin token
       if (decoded.userType !== 'admin') {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
+        return NextResponse.redirect(new URL('/login', request.url));
       }
 
       const requestHeaders = new Headers(request.headers);
@@ -79,7 +79,7 @@ export function middleware(request: NextRequest) {
         },
       });
     } catch (error) {
-      return NextResponse.redirect(new URL('/admin/login', request.url));
+      return NextResponse.redirect(new URL('/login', request.url));
     }
   }
 

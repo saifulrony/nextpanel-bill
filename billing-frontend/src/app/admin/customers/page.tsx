@@ -107,11 +107,25 @@ export default function CustomersPage() {
       if (searchTerm) params.search = searchTerm;
       if (filterActive !== null) params.is_active = filterActive;
 
+      console.log('Fetching customers...');
+      console.log('API base URL:', api.defaults.baseURL);
       const response = await api.get('/customers', { params });
+      console.log('Customers response:', response.data);
       setCustomers(response.data);
       setAccessDenied(false);
     } catch (error: any) {
       console.error('Failed to fetch customers:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      
+      if (error.message === 'Network Error') {
+        alert('Network Error: Cannot connect to backend server. Please ensure the backend is running on port 8000.');
+      }
+      
       if (error.response?.status === 403) {
         setAccessDenied(true);
       }

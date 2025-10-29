@@ -10,8 +10,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
-    email: 'customer@test.com',
-    password: 'Customer123!',
+    email: 'admin@example.com',
+    password: 'admin123',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +52,7 @@ export default function LoginPage() {
 
     isSubmitting.current = true;
     setIsLoading(true);
-    console.log('=== LOGIN FORM SUBMITTED ===');
+    console.log('=== ADMIN LOGIN FORM SUBMITTED ===');
     console.log('Email:', formData.email);
 
     try {
@@ -62,12 +62,12 @@ export default function LoginPage() {
       
       await login(formData.email, formData.password);
       
-      console.log('=== LOGIN SUCCESS ===');
-      console.log('Auth state updated, redirecting to customer dashboard');
-      // Redirect to customer dashboard after successful login
-      router.push('/customer');
+      console.log('=== ADMIN LOGIN SUCCESS ===');
+      console.log('Auth state updated, redirecting to admin dashboard');
+      // Redirect to admin dashboard after successful login
+      router.push('/admin/dashboard');
     } catch (error: any) {
-      console.error('=== LOGIN ERROR ===');
+      console.error('=== ADMIN LOGIN ERROR ===');
       console.error('Error:', error);
       console.error('Error response:', error.response?.data);
       setGeneralError(
@@ -92,13 +92,10 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
+            Admin Login
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-              create a new account
-            </Link>
+            Sign in to access the admin dashboard
           </p>
         </div>
         

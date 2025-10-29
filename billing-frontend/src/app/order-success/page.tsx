@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +8,7 @@ import { useDefaultPages } from '@/contexts/DefaultPageContext';
 import { CheckCircleIcon, ArrowLeftIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
 import { DynamicPageRenderer } from '@/components/page-builder/DynamicPageRenderer';
 
-export default function OrderSuccessPage() {
+function OrderSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { items, getTotal, clearCart, getItemCount } = useCart();
@@ -103,14 +103,15 @@ export default function OrderSuccessPage() {
     
     // Order status
     const orderStatus = orderData?.status || 'confirmed';
-    const statusColor = {
+    const statusColors: Record<string, string> = {
       'confirmed': 'bg-green-100 text-green-800',
       'pending': 'bg-yellow-100 text-yellow-800',
       'processing': 'bg-blue-100 text-blue-800',
       'shipped': 'bg-purple-100 text-purple-800',
       'delivered': 'bg-green-100 text-green-800',
       'cancelled': 'bg-red-100 text-red-800'
-    }[orderStatus] || 'bg-gray-100 text-gray-800';
+    };
+    const statusColor = statusColors[orderStatus] || 'bg-gray-100 text-gray-800';
 
     // Show fallback message if no order data and no cart items
     if (!orderData && items.length === 0) {
@@ -460,4 +461,12 @@ export default function OrderSuccessPage() {
   }
 
   return <DefaultOrderSuccessPage />;
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OrderSuccessContent />
+    </Suspense>
+  );
 }

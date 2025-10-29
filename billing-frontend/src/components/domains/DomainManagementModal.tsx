@@ -207,11 +207,21 @@ export default function DomainManagementModal({
                       </label>
                       <div className="space-y-2">
                         {nameservers.map((ns, index) => (
-                          <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
-                            <span className="text-sm text-gray-900">{ns}</span>
+                          <div key={index} className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={ns}
+                              onChange={(e) => {
+                                const newNameservers = [...nameservers];
+                                newNameservers[index] = e.target.value;
+                                setNameservers(newNameservers);
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                              placeholder="e.g., ns1.example.com"
+                            />
                             <button
                               onClick={() => handleRemoveNameserver(index)}
-                              className="text-red-600 hover:text-red-800 text-sm"
+                              className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg text-sm font-medium"
                             >
                               Remove
                             </button>

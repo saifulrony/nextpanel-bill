@@ -134,7 +134,13 @@ async def install_addon(
         # Install plugin files (download from local/remote source)
         from app.core.plugin_installer import PluginInstaller
         installer = PluginInstaller()
-        install_result = await installer.install(addon.name, addon.version)
+        
+        # Ensure version is set
+        version = addon.version or "1.0.0"
+        logger.info(f"Installing plugin: {addon.name} v{version}")
+        
+        # Install synchronously (not async)
+        install_result = installer.install(addon.name, version)
         
         # Create installation record in database
         installation = AddonInstallation(
@@ -159,10 +165,19 @@ async def install_addon(
         return installation
         
     except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
         logger.error(f"Failed to install addon {addon.name}: {e}")
+        logger.error(f"Traceback: {error_traceback}")
+        
+        # Return detailed error for debugging
+        error_detail = f"Installation failed: {str(e)}"
+        if "Traceback" in str(e) or len(error_detail) < 500:
+            error_detail = error_traceback
+        
         raise HTTPException(
             status_code=500,
-            detail=f"Installation failed: {str(e)}"
+            detail=error_detail
         )
 
 

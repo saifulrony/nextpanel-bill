@@ -103,8 +103,9 @@ class PluginInstaller:
             
         except Exception as e:
             print(f"❌ Installation failed: {e}")
-            # Rollback on error
-            await self.uninstall(plugin_id, silent=True)
+            import traceback
+            traceback.print_exc()
+            # Don't rollback on error to avoid recursive errors
             raise Exception(f"Installation failed: {str(e)}")
             
         finally:
@@ -145,7 +146,13 @@ class PluginInstaller:
             if os.path.exists(backend_path):
                 if not silent:
                     print(f"🗑️  Removing backend files...")
-                shutil.rmtree(backend_path)
+                try:
+                    shutil.rmtree(backend_path)
+                except PermissionError as e:
+                    if not silent:
+                        print(f"  ⚠️  Permission error removing backend files: {e}")
+                        print(f"  ℹ️  Backend files may need manual cleanup: {backend_path}")
+                    # Continue with uninstallation even if backend cleanup fails
             
             # Step 4: Delete frontend route files
             if not silent:
@@ -275,16 +282,28 @@ class PluginInstaller:
             routes = metadata.get("frontend", {}).get("routes", [])
             
             for route in routes:
-                # e.g., route = "/support/chats"
-                # Install to /app/(dashboard)/support/chats/
+                # e.g., route = "/admin/support/chats"
+                # Install to /app/admin/support/chats/
                 route_path = route.lstrip('/')
                 dst = os.path.join(self.config.FRONTEND_APP_DIR, route_path)
+                
+                # Create the directory if it doesn't exist
+                os.makedirs(dst, exist_ok=True)
                 
                 # Copy page files
                 page_src = os.path.join(src, "pages")
                 if os.path.exists(page_src):
-                    shutil.copytree(page_src, dst, dirs_exist_ok=True)
+                    # Copy all files from pages directory to the route directory
+                    for item in os.listdir(page_src):
+                        src_item = os.path.join(page_src, item)
+                        dst_item = os.path.join(dst, item)
+                        if os.path.isdir(src_item):
+                            shutil.copytree(src_item, dst_item, dirs_exist_ok=True)
+                        else:
+                            shutil.copy2(src_item, dst_item)
                     print(f"  ✅ Frontend route installed: {route} → {dst}")
+                else:
+                    print(f"  ⚠️  No pages directory found in plugin frontend")
             
             # Also copy components to a shared location for reuse
             components_src = os.path.join(src, "components")
@@ -319,9 +338,13 @@ class PluginInstaller:
         
         # Execute SQL
         db_path = os.path.join(
-            os.path.dirname(self.config.BACKEND_ADDONS_DIR),
+            os.path.dirname(os.path.dirname(self.config.BACKEND_ADDONS_DIR)),
             "billing.db"
         )
+        
+        if not os.path.exists(db_path):
+            print(f"  ❌ Database not found: {db_path}")
+            raise FileNotFoundError(f"Database not found: {db_path}")
         
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -330,9 +353,14 @@ class PluginInstaller:
             # Split and execute each statement
             statements = [s.strip() for s in sql.split(';') if s.strip()]
             for statement in statements:
-                cursor.execute(statement)
+                if statement:
+                    cursor.execute(statement)
             conn.commit()
             print(f"  ✅ Executed migration: {os.path.basename(sql_file)}")
+        except Exception as e:
+            conn.rollback()
+            print(f"  ❌ Migration failed: {e}")
+            raise
         finally:
             conn.close()
     
@@ -392,20 +420,28 @@ class PluginInstaller:
         """
         # Get plugin metadata to know which routes to remove
         metadata = self._get_plugin_metadata(plugin_id)
-        if not metadata:
-            return
         
-        routes = metadata.get("frontend", {}).get("routes", [])
+        if metadata:
+            routes = metadata.get("frontend", {}).get("routes", [])
+        else:
+            # If no metadata available, try common routes based on plugin_id
+            print(f"  ⚠️  No metadata found for {plugin_id}, using fallback routes")
+            if plugin_id == "ai_chatbot":
+                routes = ["/admin/support/chats", "/customer/support/chats"]
+            else:
+                routes = []
         
         for route in routes:
-            # e.g., route = "/support/chats"
-            # Delete from /app/(dashboard)/support/chats/
+            # e.g., route = "/admin/support/chats"
+            # Delete from /app/admin/support/chats/
             route_path = route.lstrip('/')
             route_dir = os.path.join(self.config.FRONTEND_APP_DIR, route_path)
             
             if os.path.exists(route_dir):
                 shutil.rmtree(route_dir)
                 print(f"  ✅ Removed frontend route: {route}")
+            else:
+                print(f"  ⚠️  Route directory not found: {route_dir}")
         
         # Remove shared components
         components_dir = os.path.join(

@@ -16,7 +16,7 @@ from app.models import Order, OrderStatus, User, Payment, PaymentStatus, Payment
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/payments")
 
 # Initialize Stripe
 if settings.STRIPE_SECRET_KEY:
@@ -493,3 +493,147 @@ async def process_auto_charge_queue(
         "failed": failed,
         "message": f"Processed {processed} orders: {successful} successful, {failed} failed"
     }
+
+
+@router.get("/stats/summary")
+async def get_payment_stats_summary(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get payment statistics summary"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get all payments
+    result = await db.execute(select(Payment))
+    payments = result.scalars().all()
+    
+    # Calculate stats
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
+    
+    total_spent = sum(p.amount for p in payments if p.status == PaymentStatus.SUCCEEDED)
+    monthly_spent = sum(p.amount for p in payments if p.status == PaymentStatus.SUCCEEDED and p.created_at >= thirty_days_ago)
+    
+    successful_payments = sum(1 for p in payments if p.status == PaymentStatus.SUCCEEDED)
+    failed_payments = sum(1 for p in payments if p.status == PaymentStatus.FAILED)
+    pending_payments = sum(1 for p in payments if p.status == PaymentStatus.PENDING)
+    
+    return {
+        "total_spent": total_spent,
+        "monthly_spent": monthly_spent,
+        "successful_count": successful_payments,
+        "failed_count": failed_payments,
+        "pending_count": pending_payments,
+        "total_count": len(payments)
+    }
+
+
+@router.get("", response_model=List[PaymentHistoryResponse])
+async def list_payments(
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+    gateway_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    min_amount: Optional[float] = None,
+    max_amount: Optional[float] = None,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all payments with optional filtering"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Build query
+    query = select(Payment)
+    
+    # Apply filters
+    if status:
+        query = query.where(Payment.status == PaymentStatus[status.upper()])
+    if gateway_id:
+        query = query.where(Payment.gateway_transaction_id == gateway_id)
+    if min_amount:
+        query = query.where(Payment.amount >= min_amount)
+    if max_amount:
+        query = query.where(Payment.amount <= max_amount)
+    if date_from:
+        try:
+            date_from_obj = datetime.fromisoformat(date_from)
+            query = query.where(Payment.created_at >= date_from_obj)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            date_to_obj = datetime.fromisoformat(date_to)
+            query = query.where(Payment.created_at <= date_to_obj)
+        except ValueError:
+            pass
+    
+    # Apply pagination
+    query = query.offset(offset).limit(limit).order_by(Payment.created_at.desc())
+    
+    # Execute query
+    result = await db.execute(query)
+    payments = result.scalars().all()
+    
+    return [
+        PaymentHistoryResponse(
+            id=payment.id,
+            order_id=payment.order_id,
+            amount=payment.amount,
+            currency=payment.currency,
+            status=payment.status.value,
+            payment_method=payment.payment_method,
+            gateway_transaction_id=payment.gateway_transaction_id,
+            created_at=payment.created_at,
+            failure_reason=payment.gateway_response.get("failure_reason") if payment.gateway_response else None
+        )
+        for payment in payments
+    ]
+
+
+@router.get("/{payment_id}", response_model=PaymentHistoryResponse)
+async def get_payment(
+    payment_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get a specific payment by ID"""
+    
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get payment
+    result = await db.execute(select(Payment).where(Payment.id == payment_id))
+    payment = result.scalars().first()
+    
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    return PaymentHistoryResponse(
+        id=payment.id,
+        order_id=payment.order_id,
+        amount=payment.amount,
+        currency=payment.currency,
+        status=payment.status.value,
+        payment_method=payment.payment_method,
+        gateway_transaction_id=payment.gateway_transaction_id,
+        created_at=payment.created_at,
+        failure_reason=payment.gateway_response.get("failure_reason") if payment.gateway_response else None
+    )

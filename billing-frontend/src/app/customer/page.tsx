@@ -59,18 +59,18 @@ export default function CustomerDashboard() {
         const orders = ordersResponse.data || [];
 
         // Calculate stats
-        const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active').length;
+        const activeSubscriptions = subscriptions.filter((sub: any) => sub.status === 'active').length;
         const totalDomains = domains.length;
         
         // Find next billing date from active subscriptions
         const nextBillingDate = subscriptions
-          .filter(sub => sub.status === 'active' && sub.current_period_end)
-          .map(sub => sub.current_period_end)
+          .filter((sub: any) => sub.status === 'active' && sub.current_period_end)
+          .map((sub: any) => sub.current_period_end)
           .sort()
           [0] || '';
 
         // Count pending invoices (orders with status pending)
-        const pendingInvoices = orders.filter(order => order.status === 'pending').length;
+        const pendingInvoices = orders.filter((order: any) => order.status === 'pending').length;
 
         setStats({
           activeSubscriptions,
@@ -83,10 +83,10 @@ export default function CustomerDashboard() {
         // Generate recent activity from orders
         const recentActivity = orders
           .slice(0, 5)
-          .map(order => ({
+          .map((order: any) => ({
             id: order.id,
             type: 'payment' as const,
-            description: `Order ${order.invoice_number || order.order_number} - ${order.items?.[0]?.product_name || 'Service'}`,
+            description: `Order ${order.order_number} - ${order.items?.[0]?.product_name || 'Service'}`,
             date: order.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
             status: order.status === 'completed' ? 'success' as const : 'pending' as const,
           }));

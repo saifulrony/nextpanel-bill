@@ -106,8 +106,10 @@ export default function MyDomainsPage() {
       console.log('Domains response:', domainsResponse);
       console.log('Stats response:', statsResponse);
 
-      setDomains(domainsResponse.data || []);
-      setDomainStats(statsResponse.data || null);
+      // Ensure domainsResponse is an array
+      const domainsArray = Array.isArray(domainsResponse) ? domainsResponse : [];
+      setDomains(domainsArray);
+      setDomainStats(statsResponse || null);
     } catch (err) {
       console.error('Error fetching domains:', err);
       setError('Failed to load domains');
@@ -117,7 +119,9 @@ export default function MyDomainsPage() {
   };
 
   useEffect(() => {
-    loadDomains();
+    if (user?.id) {
+      loadDomains();
+    }
   }, [user?.id]);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -219,6 +223,7 @@ export default function MyDomainsPage() {
     }
     return true;
   });
+
 
   if (loading) {
     return (
@@ -564,6 +569,26 @@ export default function MyDomainsPage() {
                           {domain.expiry_date && ` • Expires: ${new Date(domain.expiry_date).toLocaleDateString()}`}
                         </p>
                       </div>
+                      {domain.nameservers && domain.nameservers.length > 0 && (
+                        <div className="mt-1">
+                          <p className="text-xs text-gray-500 mb-1">Nameservers:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {domain.nameservers.map((ns, index) => (
+                              <span
+                                key={index}
+                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200"
+                                onClick={() => {
+                                  setSelectedDomain(domain);
+                                  setShowDomainManagement(true);
+                                }}
+                                title="Click to edit nameservers"
+                              >
+                                {ns}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">

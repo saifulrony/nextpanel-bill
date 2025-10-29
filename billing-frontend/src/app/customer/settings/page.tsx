@@ -79,8 +79,14 @@ export default function SettingsPage() {
         console.log('Auth state:', { isAuthenticated, user });
         console.log('Loading profile for user:', user);
         
-        const profileData = await customerProfileAPI.getProfile();
+        // Load both profile and settings data
+        const [profileData, settingsData] = await Promise.all([
+          customerProfileAPI.getProfile(),
+          customerProfileAPI.getSettings()
+        ]);
+        
         console.log('Profile data received from API:', profileData);
+        console.log('Settings data received from API:', settingsData);
         
         const updatedSettings = {
           fullName: profileData.full_name || '',
@@ -93,11 +99,14 @@ export default function SettingsPage() {
         setSettings(prev => ({
           ...prev,
           profile: updatedSettings,
+          notifications: settingsData.notifications || prev.notifications,
+          security: settingsData.security || prev.security,
+          preferences: settingsData.preferences || prev.preferences,
         }));
         console.log('=== END LOADING PROFILE DEBUG ===');
       } catch (error) {
         console.error('Error loading profile:', error);
-        console.error('Error details:', error.response?.data);
+        console.error('Error details:', (error as any).response?.data);
       } finally {
         setLoading(false);
       }
@@ -209,7 +218,7 @@ export default function SettingsPage() {
                 type="text"
                 value={settings.profile.fullName}
                 onChange={(e) => handleInputChange('profile', 'fullName', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
             <div>
@@ -220,7 +229,7 @@ export default function SettingsPage() {
                 type="email"
                 value={settings.profile.email}
                 onChange={(e) => handleInputChange('profile', 'email', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
             <div>
@@ -231,7 +240,7 @@ export default function SettingsPage() {
                 type="tel"
                 value={settings.profile.phone}
                 onChange={(e) => handleInputChange('profile', 'phone', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
             <div>
@@ -242,7 +251,7 @@ export default function SettingsPage() {
                 type="text"
                 value={settings.profile.company}
                 onChange={(e) => handleInputChange('profile', 'company', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
           </div>
@@ -388,7 +397,7 @@ export default function SettingsPage() {
               <select
                 value={settings.security.sessionTimeout}
                 onChange={(e) => handleInputChange('security', 'sessionTimeout', parseInt(e.target.value))}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
                 <option value={15}>15 minutes</option>
                 <option value={30}>30 minutes</option>
@@ -427,7 +436,7 @@ export default function SettingsPage() {
               <select
                 value={settings.preferences.timezone}
                 onChange={(e) => handleInputChange('preferences', 'timezone', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
                 <option value="UTC">UTC</option>
                 <option value="America/New_York">Eastern Time</option>
@@ -446,7 +455,7 @@ export default function SettingsPage() {
               <select
                 value={settings.preferences.dateFormat}
                 onChange={(e) => handleInputChange('preferences', 'dateFormat', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
                 <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                 <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -460,7 +469,7 @@ export default function SettingsPage() {
               <select
                 value={settings.preferences.currency}
                 onChange={(e) => handleInputChange('preferences', 'currency', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -476,7 +485,7 @@ export default function SettingsPage() {
               <select
                 value={settings.preferences.language}
                 onChange={(e) => handleInputChange('preferences', 'language', e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
                 <option value="en">English</option>
                 <option value="es">Spanish</option>

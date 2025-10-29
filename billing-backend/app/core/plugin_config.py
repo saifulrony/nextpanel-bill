@@ -15,7 +15,7 @@ class PluginConfig:
     """
     
     # Change this to switch plugin source
-    SOURCE = os.getenv("PLUGIN_SOURCE", PluginSource.LOCAL)
+    SOURCE = os.getenv("PLUGIN_SOURCE", PluginSource.REMOTE)
     
     # Local plugin directory (for development)
     LOCAL_PLUGINS_DIR = os.path.abspath(
@@ -25,7 +25,7 @@ class PluginConfig:
     # Remote plugin server (for production)
     REMOTE_PLUGINS_URL = os.getenv(
         "PLUGIN_SERVER_URL", 
-        "https://dbuh.com/plugins"
+        "http://localhost:8080"
     )
     
     # Backend addons directory (where plugins get installed)
@@ -36,7 +36,7 @@ class PluginConfig:
     # Frontend addons directory (where frontend components go)
     # Installs directly into /app/ for Next.js hot-reload (TRUE modularity!)
     FRONTEND_APP_DIR = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../billing-frontend/src/app/(dashboard)")
+        os.path.join(os.path.dirname(__file__), "../../../billing-frontend/src/app")
     )
     
     # Plugin registry file

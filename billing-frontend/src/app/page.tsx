@@ -41,6 +41,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTld, setSelectedTld] = useState('.com');
   const [isSearching, setIsSearching] = useState(false);
+  const [domainTab, setDomainTab] = useState<'register' | 'transfer'>('register');
   const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const addingToCartRef = useRef<Set<string>>(new Set());
@@ -749,7 +750,41 @@ export default function Home() {
 
           {/* Domain Search Box */}
           <div className="mt-12 max-w-4xl mx-auto">
-            <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border border-gray-200">
+            {/* Tabs */}
+            <div className="flex justify-center mb-4 border-b-2 border-gray-300 bg-white rounded-t-2xl shadow-xl px-6 pb-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setDomainTab('register');
+                  setShowDomainResults(false);
+                  setDomainSearchResults([]);
+                }}
+                className={`px-10 py-4 text-base font-semibold border-b-4 transition-all ${
+                  domainTab === 'register'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                🔵 Register Domain
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDomainTab('transfer');
+                  setShowDomainResults(false);
+                  setDomainSearchResults([]);
+                }}
+                className={`px-10 py-4 text-base font-semibold border-b-4 transition-all ${
+                  domainTab === 'transfer'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                🔄 Transfer Domain
+              </button>
+            </div>
+            
+            <form onSubmit={handleSearch} className="bg-white rounded-b-2xl rounded-t-none shadow-2xl p-6 sm:p-8 border border-gray-200 border-t-0">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -761,7 +796,7 @@ export default function Home() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search for your domain name..."
+                    placeholder={domainTab === 'register' ? 'Enter domain name to register...' : 'Enter domain name to transfer...'}
                     className="block w-full pl-11 pr-3 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 transition-all"
                   />
                 </div>

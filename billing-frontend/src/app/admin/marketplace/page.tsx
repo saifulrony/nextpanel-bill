@@ -118,7 +118,15 @@ export default function MarketplacePage() {
       alert(`✅ "${addonName}" installed successfully!\n\n🔄 IMPORTANT: Restart Next.js dev server:\n\n1. Go to your terminal running "npm run dev"\n2. Press Ctrl+C to stop\n3. Run "npm run dev" again\n4. Wait 10 seconds for compilation\n5. Then refresh your browser\n\n📁 Files were added to /app/(dashboard)/ directory`);
     } catch (error: any) {
       console.error('Failed to install addon:', error);
-      alert(error.response?.data?.detail || 'Failed to install addon');
+      const errorMessage = error.response?.data?.detail || 'Failed to install addon';
+      
+      if (errorMessage.includes('already installed')) {
+        alert(`ℹ️ "${addonName}" is already installed!\n\n✅ The addon is already active in your system.`);
+        // Refresh the addon list to update the UI
+        await loadAddons();
+      } else {
+        alert(`❌ ${errorMessage}`);
+      }
     } finally {
       setInstalling(null);
     }
@@ -134,7 +142,15 @@ export default function MarketplacePage() {
       alert(`✅ "${addonName}" uninstalled successfully!\n\n🔄 IMPORTANT: Restart Next.js dev server:\n\n1. Go to your terminal running "npm run dev"\n2. Press Ctrl+C to stop\n3. Run "npm run dev" again\n4. Wait 5-10 seconds\n5. /support/chats will be 404 (truly gone!)\n\n📁 Files were removed from /app/(dashboard)/ directory`);
     } catch (error: any) {
       console.error('Failed to uninstall addon:', error);
-      alert(error.response?.data?.detail || 'Failed to uninstall addon');
+      const errorMessage = error.response?.data?.detail || 'Failed to uninstall addon';
+      
+      if (errorMessage.includes('not installed')) {
+        alert(`ℹ️ "${addonName}" is not installed!\n\n✅ The addon is not currently active in your system.`);
+        // Refresh the addon list to update the UI
+        await loadAddons();
+      } else {
+        alert(`❌ ${errorMessage}`);
+      }
     } finally {
       setInstalling(null);
     }

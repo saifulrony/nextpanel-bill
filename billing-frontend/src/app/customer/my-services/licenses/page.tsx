@@ -61,8 +61,7 @@ export default function MyLicensesPage() {
         // Fetch user's purchased license services
         const response = await plansAPI.list({ 
           is_active: true,
-          category: 'licenses',
-          user_id: user?.id 
+          category: 'licenses'
         });
         
         // Transform products to license services with mock data for demonstration

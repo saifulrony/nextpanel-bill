@@ -61,7 +61,6 @@ export default function MyServersPage() {
         const response = await plansAPI.list({ 
           is_active: true,
           category: 'servers',
-          user_id: user?.id 
         });
         
         // Transform products to server services with mock data for demonstration

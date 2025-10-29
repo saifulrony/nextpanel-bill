@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Check Test</title>
+</head>
+<body>
+    <h1>Module Check Test</h1>
+    <p>Testing if the chatbot module is properly hidden when not installed.</p>
+    
+    <h2>Test URLs:</h2>
+    <ul>
+        <li><a href="http://localhost:4000/admin/support/chats" target="_blank">Admin Support Chats</a></li>
+        <li><a href="http://localhost:4000/customer/support/chats/new" target="_blank">Customer New Chat</a></li>
+        <li><a href="http://localhost:4000/customer/support/chats/123" target="_blank">Customer Chat ID</a></li>
+    </ul>
+    
+    <h2>Expected Behavior:</h2>
+    <ul>
+        <li><strong>When chatbot module is NOT installed:</strong> All chat pages should redirect to 404</li>
+        <li><strong>When chatbot module IS installed:</strong> All chat pages should work normally</li>
+    </ul>
+    
+    <h2>Current Status:</h2>
+    <p>Chatbot module is currently: <strong>NOT INSTALLED</strong></p>
+    <p>All chat pages should redirect to 404.</p>
+    
+    <script>
+        // Test the marketplace API
+        async function testMarketplaceAPI() {
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/marketplace/installed');
+                const data = await response.json();
+                console.log('Installed modules:', data);
+                
+                const chatbotInstalled = data.some(module => module.addon.name === 'ai_chatbot');
+                document.getElementById('status').textContent = chatbotInstalled ? 'INSTALLED' : 'NOT INSTALLED';
+                document.getElementById('status').style.color = chatbotInstalled ? 'green' : 'red';
+            } catch (error) {
+                console.error('Error testing marketplace API:', error);
+            }
+        }
+        
+        testMarketplaceAPI();
+    </script>
+    
+    <p>Chatbot module status: <span id="status" style="font-weight: bold;">Loading...</span></p>
+</body>
+</html>

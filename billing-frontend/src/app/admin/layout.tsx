@@ -36,8 +36,10 @@ import {
   ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
+import { useInstalledModules } from '@/hooks/useInstalledModules';
 
-const navigation = [
+// Base navigation items (always available)
+const getBaseNavigation = () => [
   { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
   { name: 'Customers', href: '/admin/customers', icon: UserGroupIcon },
   { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
@@ -77,19 +79,39 @@ const navigation = [
       { name: 'Support Tickets', href: '/admin/analytics/tickets', icon: ChatBubbleLeftRightIcon },
     ]
   },
-  { 
-    name: 'Support', 
-    href: '/admin/support', 
-    icon: LifebuoyIcon,
-    children: [
-      { name: 'Tickets', href: '/admin/support', icon: ClipboardDocumentListIcon },
-      { name: 'Live Chats', href: '/admin/support/chats', icon: ChatBubbleLeftRightIcon },
-    ]
-  },
   { name: 'Marketplace', href: '/admin/marketplace', icon: PuzzlePieceIcon },
   { name: 'Customization', href: '/admin/customization', icon: PaintBrushIcon },
   { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
 ];
+
+// Function to build dynamic navigation based on installed modules
+const buildNavigation = (hasModule: (moduleName: string) => boolean) => {
+  const baseNavigation = getBaseNavigation();
+  
+  // Build support children based on installed modules
+  const supportChildren = [
+    { name: 'Tickets', href: '/admin/support', icon: ClipboardDocumentListIcon },
+  ];
+  
+  // Add Live Chats only if ai_chatbot module is installed
+  if (hasModule('ai_chatbot')) {
+    supportChildren.push({ name: 'Live Chats', href: '/admin/support/chats', icon: ChatBubbleLeftRightIcon });
+  }
+  
+  // Add Support section with dynamic children
+  const supportSection = {
+    name: 'Support',
+    href: '/admin/support',
+    icon: LifebuoyIcon,
+    children: supportChildren
+  };
+  
+  // Insert Support section before Marketplace
+  const marketplaceIndex = baseNavigation.findIndex(item => item.name === 'Marketplace');
+  baseNavigation.splice(marketplaceIndex, 0, supportSection);
+  
+  return baseNavigation;
+};
 
 export default function DashboardLayout({
   children,
@@ -97,7 +119,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { hasModule } = useInstalledModules();
   const { user, logout } = useAuth();
+  
+  // Build dynamic navigation based on installed modules
+  const navigation = buildNavigation(hasModule);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]); // All menus closed by default

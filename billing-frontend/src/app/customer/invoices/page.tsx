@@ -90,12 +90,12 @@ export default function InvoicesPage() {
 
     return {
       id: order.id,
-      number: order.invoice_number || order.order_number, // Use invoice_number first, like admin page
+      number: order.order_number, // Use order_number
       date: order.created_at,
       dueDate: order.due_date,
       amount: order.total,
       status: getInvoiceStatus(order.status),
-      description: order.description || `Order ${order.invoice_number || order.order_number}`,
+      description: order.description || `Order ${order.order_number}`,
       items,
       subtotal: order.subtotal || order.total,
       tax: order.tax_amount || 0,

@@ -62,7 +62,10 @@ async def provision_services_from_order(order: Order, db: AsyncSession):
                 
                 # Use product name as domain name if it looks like a domain
                 if '.' in product_name:
+                    # Clean up domain name - remove "Domain: " prefix if present
                     domain_name = product_name
+                    if domain_name.lower().startswith('domain:'):
+                        domain_name = domain_name.split(':', 1)[1].strip()
                 else:
                     domain_name = f'{product_name}-{order.id[:8]}.com'
                 

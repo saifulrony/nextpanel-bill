@@ -87,6 +87,7 @@ export default function TransactionsPage() {
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -122,15 +123,43 @@ export default function TransactionsPage() {
         if (!(params as any)[key]) delete (params as any)[key];
       });
 
+      console.log('Loading payments data...');
+      console.log('API base URL:', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001');
+      console.log('Request params:', params);
+      console.log('Full API URL:', paymentsAPI.list.defaults?.baseURL || 'Not set');
+      
       const [paymentsResponse, statsResponse] = await Promise.all([
-        paymentsAPI.list(params),
-        paymentsAPI.stats()
+        paymentsAPI.list(params).catch(err => {
+          console.error('Payments list error:', err);
+          throw err;
+        }),
+        paymentsAPI.stats().catch(err => {
+          console.error('Stats error:', err);
+          throw err;
+        })
       ]);
+      
+      console.log('Payments response:', paymentsResponse);
+      console.log('Stats response:', statsResponse);
       
       setPayments(paymentsResponse.data);
       setStats(statsResponse.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load data:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      
+      if (error.message === 'Network Error' || error.code === 'ERR_NETWORK') {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.10.203:8001';
+        setError(`Cannot connect to backend server at ${apiUrl}. Please ensure the backend is running on port 8001. Run: cd billing-backend && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001`);
+      } else {
+        setError(error.response?.data?.detail || error.message || 'Failed to load payments data');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -208,6 +237,36 @@ export default function TransactionsPage() {
           </div>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <XCircleIcon className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Error Loading Payments
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => {
+                    setError(null);
+                    loadData();
+                  }}
+                  className="text-sm font-medium text-red-800 hover:text-red-900"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Stats */}
       {stats && (

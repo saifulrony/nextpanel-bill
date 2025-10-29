@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { customerDomainsAPI, customerSubscriptionsAPI, plansAPI } from '@/lib/api';
 import {
   HomeIcon,
   ShoppingCartIcon,
@@ -59,6 +60,13 @@ export default function CustomerLayout({
   const [isLoading, setIsLoading] = useState(true);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const [customerAuth, setCustomerAuth] = useState<{ isAuthenticated: boolean; user: any }>({ isAuthenticated: false, user: null });
+  const [serviceCounts, setServiceCounts] = useState({
+    domains: 0,
+    hosting: 0,
+    servers: 0,
+    licenses: 0,
+    others: 0,
+  });
 
   useEffect(() => {
     // Add a small delay to prevent hydration mismatch
@@ -77,6 +85,49 @@ export default function CustomerLayout({
       user: user
     });
   }, [isAuthenticated, user]);
+
+  // Load service counts when user is authenticated
+  useEffect(() => {
+    const loadServiceCounts = async () => {
+      if (!customerAuth.isAuthenticated || !customerAuth.user?.id) return;
+      
+      try {
+        const [domainsResponse, hostingResponse, serversResponse, licensesResponse, othersResponse] = await Promise.all([
+          customerDomainsAPI.list().catch(() => []),
+          customerSubscriptionsAPI.getHosting().catch(() => []),
+          plansAPI.list({ category: 'servers', is_active: true }).catch(() => ({ data: [] })),
+          plansAPI.list({ category: 'licenses', is_active: true }).catch(() => ({ data: [] })),
+          plansAPI.list({ is_active: true }).catch(() => ({ data: [] })),
+        ]);
+
+        // Filter others to exclude domains, hosting, servers, and licenses
+        const allOthers = othersResponse.data || [];
+        const filteredOthers = allOthers.filter((item: any) => 
+          !['domains', 'hosting', 'servers', 'licenses'].includes(item.category?.toLowerCase())
+        );
+
+        console.log('Sidebar service counts:', {
+          domains: domainsResponse?.length || 0,
+          hosting: hostingResponse?.length || 0,
+          servers: serversResponse.data?.length || 0,
+          licenses: licensesResponse.data?.length || 0,
+          others: filteredOthers.length,
+        });
+
+        setServiceCounts({
+          domains: domainsResponse?.length || 0,
+          hosting: hostingResponse?.length || 0,
+          servers: serversResponse.data?.length || 0,
+          licenses: licensesResponse.data?.length || 0,
+          others: filteredOthers.length,
+        });
+      } catch (error) {
+        console.error('Failed to load service counts:', error);
+      }
+    };
+
+    loadServiceCounts();
+  }, [customerAuth.isAuthenticated, customerAuth.user?.id]);
 
   useEffect(() => {
     // Don't redirect if we're on login or register pages
@@ -125,6 +176,23 @@ export default function CustomerLayout({
 
   const isSubmenuActive = (submenu: any[]) => {
     return submenu.some(item => pathname === item.href);
+  };
+
+  const getServiceCount = (serviceName: string) => {
+    switch (serviceName.toLowerCase()) {
+      case 'domains':
+        return serviceCounts.domains;
+      case 'hosting':
+        return serviceCounts.hosting;
+      case 'servers':
+        return serviceCounts.servers;
+      case 'licenses':
+        return serviceCounts.licenses;
+      case 'others':
+        return serviceCounts.others;
+      default:
+        return 0;
+    }
   };
 
   const handleCustomerLogout = () => {
@@ -223,10 +291,17 @@ export default function CustomerLayout({
                                     isSubActive
                                       ? 'bg-indigo-100 text-indigo-900'
                                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                  } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                                  } group flex items-center justify-between px-2 py-2 text-sm font-medium rounded-md`}
                                 >
-                                  <subItem.icon className="mr-3 h-5 w-5" />
-                                  {subItem.name}
+                                  <div className="flex items-center">
+                                    <subItem.icon className="mr-3 h-5 w-5" />
+                                    {subItem.name}
+                                  </div>
+                                  {getServiceCount(subItem.name) > 0 && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                      {getServiceCount(subItem.name)}
+                                    </span>
+                                  )}
                                 </Link>
                               );
                             })}
@@ -305,10 +380,17 @@ export default function CustomerLayout({
                                       isSubActive
                                         ? 'bg-indigo-100 text-indigo-900'
                                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                                    } group flex items-center justify-between px-2 py-2 text-sm font-medium rounded-md`}
                                   >
-                                    <subItem.icon className="mr-3 h-5 w-5" />
-                                    {subItem.name}
+                                    <div className="flex items-center">
+                                      <subItem.icon className="mr-3 h-5 w-5" />
+                                      {subItem.name}
+                                    </div>
+                                    {getServiceCount(subItem.name) > 0 && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                        {getServiceCount(subItem.name)}
+                                      </span>
+                                    )}
                                   </Link>
                                 );
                               })}

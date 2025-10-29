@@ -144,27 +144,48 @@ async def get_customer_settings(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Return default settings for now (can be extended with a settings table)
-        return {
-            "notifications": {
-                "email_notifications": True,
-                "sms_notifications": False,
-                "marketing_emails": False,
-                "billing_alerts": True,
-                "security_alerts": True,
-            },
-            "security": {
-                "two_factor_auth": False,
-                "login_alerts": True,
-                "session_timeout": 30,
-            },
-            "preferences": {
-                "timezone": "UTC",
-                "date_format": "MM/DD/YYYY",
-                "currency": "USD",
-                "language": "en",
+        # Get user settings from database
+        from sqlalchemy import text
+        settings_result = await db.execute(
+            text("SELECT settings FROM user_settings WHERE user_id = :user_id"),
+            {"user_id": user_id}
+        )
+        settings_row = settings_result.fetchone()
+        
+        if settings_row:
+            # Return saved settings
+            import json
+            saved_settings = json.loads(settings_row[0])
+            # Ensure the settings are wrapped in the expected format
+            if "preferences" in saved_settings:
+                return saved_settings
+            else:
+                # If preferences are saved directly, wrap them
+                return {"preferences": saved_settings}
+        else:
+            # Return default settings if none exist
+            default_settings = {
+                "notifications": {
+                    "email_notifications": True,
+                    "sms_notifications": False,
+                    "marketing_emails": False,
+                    "billing_alerts": True,
+                    "security_alerts": True,
+                },
+                "security": {
+                    "two_factor_auth": False,
+                    "login_alerts": True,
+                    "session_timeout": 30,
+                },
+                "preferences": {
+                    "timezone": "UTC",
+                    "date_format": "MM/DD/YYYY",
+                    "currency": "USD",
+                    "language": "en",
+                }
             }
-        }
+            return default_settings
+            
     except Exception as e:
         print(f"Error fetching customer settings: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch settings")
@@ -177,13 +198,51 @@ async def update_customer_settings(
 ):
     """Update customer settings"""
     try:
-        # For now, just return success (can be extended with a settings table)
-        # In a real implementation, you would save these to a user_settings table
+        import json
+        import uuid
+        from datetime import datetime
+        
+        # Check if user settings already exist
+        from sqlalchemy import text
+        existing_result = await db.execute(
+            text("SELECT id FROM user_settings WHERE user_id = :user_id"),
+            {"user_id": user_id}
+        )
+        existing_row = existing_result.fetchone()
+        
+        settings_json = json.dumps(settings)
+        
+        if existing_row:
+            # Update existing settings
+            await db.execute(
+                text("UPDATE user_settings SET settings = :settings, updated_at = :updated_at WHERE user_id = :user_id"),
+                {
+                    "settings": settings_json,
+                    "updated_at": datetime.utcnow(),
+                    "user_id": user_id
+                }
+            )
+        else:
+            # Insert new settings
+            settings_id = str(uuid.uuid4())
+            await db.execute(
+                text("INSERT INTO user_settings (id, user_id, settings, created_at, updated_at) VALUES (:id, :user_id, :settings, :created_at, :updated_at)"),
+                {
+                    "id": settings_id,
+                    "user_id": user_id,
+                    "settings": settings_json,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                }
+            )
+        
+        await db.commit()
         
         return {
             "message": "Settings updated successfully",
             "settings": settings
         }
     except Exception as e:
+        await db.rollback()
         print(f"Error updating customer settings: {e}")
         raise HTTPException(status_code=500, detail="Failed to update settings")

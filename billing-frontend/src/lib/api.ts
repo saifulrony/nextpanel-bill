@@ -13,7 +13,10 @@ const getApiUrl = () => {
     const port = 8001; // Backend port
     
     // Use the same hostname as the frontend
-    return `http://${hostname}:${port}`;
+    // This will work for both localhost and network IPs
+    const apiUrl = `http://${hostname}:${port}`;
+    console.log('API URL:', apiUrl);
+    return apiUrl;
   }
   
   // Fallback for server-side rendering - use network IP if available
