@@ -95,12 +95,17 @@ async def create_subscription(
             raise HTTPException(status_code=404, detail="License not found")
     else:
         # Create new license
-        from app.api.v1.licenses import generate_license_key
+        # Generate secure license key
+        from app.core.license_security import license_security
+        license_key, encrypted_secret = license_security.generate_secure_license_key(
+            user_id, plan.id
+        )
         
         license = License(
             user_id=user_id,
             plan_id=plan.id,
-            license_key=generate_license_key(),
+            license_key=license_key,
+            encrypted_secret=encrypted_secret,
             status=LicenseStatus.ACTIVE,
             features=plan.features,
             max_accounts=plan.max_accounts,

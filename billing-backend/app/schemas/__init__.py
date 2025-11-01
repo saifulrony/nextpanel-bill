@@ -152,6 +152,9 @@ class LicenseResponse(BaseModel):
 class LicenseValidateRequest(BaseModel):
     license_key: str
     feature: str  # e.g., "create_database", "create_domain"
+    timestamp: Optional[int] = None  # Unix timestamp for request freshness
+    signature: Optional[str] = None  # HMAC signature for request authenticity
+    additional_data: Optional[Dict[str, Any]] = None  # Additional data for signature
 
 
 class LicenseValidateResponse(BaseModel):

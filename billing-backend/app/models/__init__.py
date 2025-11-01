@@ -117,13 +117,14 @@ class Plan(Base):
 
 
 class License(Base):
-    """NextPanel licenses"""
+    """NextPanel licenses with enhanced security"""
     __tablename__ = "licenses"
     
     id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     plan_id = Column(String(36), ForeignKey("plans.id"), nullable=False)
     license_key = Column(String(100), unique=True, index=True, nullable=False)
+    encrypted_secret = Column(Text)  # Encrypted license payload for validation
     status = Column(Enum(LicenseStatus), default=LicenseStatus.ACTIVE)
     features = Column(JSON)  # Flexible feature flags
     max_accounts = Column(Integer, default=1)
@@ -138,6 +139,17 @@ class License(Base):
     activation_date = Column(DateTime(timezone=True))
     expiry_date = Column(DateTime(timezone=True))
     auto_renew = Column(Boolean, default=True)
+    
+    # Security fields
+    hardware_fingerprint = Column(String(64))  # Primary hardware fingerprint
+    allowed_fingerprints = Column(JSON)  # List of allowed fingerprints
+    last_validation_at = Column(DateTime(timezone=True))
+    validation_count = Column(Integer, default=0)
+    failed_validation_count = Column(Integer, default=0)
+    last_validation_ip = Column(String(45))  # IPv6 max length
+    is_suspicious = Column(Boolean, default=False)  # Flagged for review
+    suspicious_reason = Column(Text)  # Why it was flagged
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -146,6 +158,7 @@ class License(Base):
     plan = relationship("Plan", back_populates="licenses")
     subscription = relationship("Subscription", back_populates="license", uselist=False)
     payments = relationship("Payment", back_populates="license")
+    validation_logs = relationship("LicenseValidationLog", back_populates="license")
 
 
 class Subscription(Base):
@@ -615,6 +628,25 @@ class SystemSetting(Base):
     
     # Relationships
     updated_by_user = relationship("User", foreign_keys=[updated_by])
+
+
+class LicenseValidationLog(Base):
+    """Audit log for license validations - tracks all validation attempts"""
+    __tablename__ = "license_validation_logs"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    license_id = Column(String(36), ForeignKey("licenses.id"), nullable=True, index=True)
+    license_key = Column(String(100), index=True, nullable=False)  # Keep key for audit even if license deleted
+    feature = Column(String(50), nullable=False)  # Feature being validated
+    success = Column(Boolean, default=False, index=True)
+    ip_address = Column(String(45), index=True)  # IPv6 max length
+    user_agent = Column(String(255))
+    message = Column(Text)  # Success or error message
+    request_signature = Column(String(128))  # Store signature for audit
+    validated_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Relationships
+    license = relationship("License", back_populates="validation_logs")
 
 
 # Import NextPanel models to ensure tables are created

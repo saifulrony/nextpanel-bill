@@ -1,28 +1,30 @@
 """
-License API endpoints
+License API endpoints with enhanced security
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
+from datetime import datetime
 from app.core.database import get_db
 from app.core.security import get_current_user_id
+from app.core.license_security import license_security
+from app.core.license_validation import license_validator
 from app.models import License, Plan, User
 from app.schemas import LicenseResponse, LicenseValidateRequest, LicenseValidateResponse
 import secrets
 import string
+import time
 
 router = APIRouter(prefix="/licenses", tags=["licenses"])
 
 
-def generate_license_key() -> str:
-    """Generate a unique license key"""
-    # Format: NP-XXXX-XXXX-XXXX
-    segments = []
-    for _ in range(3):
-        segment = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(4))
-        segments.append(segment)
-    return f"NP-{'-'.join(segments)}"
+def generate_license_key(user_id: str, plan_id: str) -> tuple[str, str]:
+    """
+    Generate a secure license key with cryptographic signature
+    Returns: (license_key, encrypted_secret)
+    """
+    return license_security.generate_secure_license_key(user_id, plan_id)
 
 
 @router.get("/", response_model=List[LicenseResponse])
@@ -59,48 +61,83 @@ async def get_license(
 
 @router.post("/validate", response_model=LicenseValidateResponse)
 async def validate_license(
-    request: LicenseValidateRequest,
+    request_body: LicenseValidateRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """Validate a license for a specific feature (used by NextPanel)"""
-    # Find license
-    result = await db.execute(select(License).where(License.license_key == request.license_key))
-    license = result.scalars().first()
+    """
+    Secure license validation with multiple security layers:
+    1. License key structure validation
+    2. HMAC request signature verification
+    3. Rate limiting
+    4. Anomaly detection
+    5. Database validation
+    6. Quota checking
     
-    if not license:
-        return LicenseValidateResponse(valid=False, error="Invalid license key")
+    Required request format (from NextPanel):
+    {
+        "license_key": "NP-XXXX-XXXX-XXXX-XXXX",
+        "feature": "create_database",
+        "timestamp": 1234567890,
+        "signature": "hmac_signature_here",
+        "additional_data": {}  // optional
+    }
+    """
+    # Extract signature and timestamp from request body or headers
+    # For backward compatibility, check both
+    timestamp = getattr(request_body, 'timestamp', None)
+    signature = getattr(request_body, 'signature', None)
+    additional_data = getattr(request_body, 'additional_data', None)
     
-    if license.status != "active":
-        return LicenseValidateResponse(valid=False, error=f"License is {license.status}")
+    if timestamp is None:
+        timestamp = int(time.time())
     
-    # Check quota based on feature
-    if request.feature == "create_database":
-        if license.current_databases >= license.max_databases:
+    # Generate fingerprint for this request
+    fingerprint = license_security.generate_hardware_fingerprint(http_request)
+    
+    # If signature provided, verify it
+    if signature:
+        signature_valid = license_security.verify_request_signature(
+            request_body.license_key,
+            timestamp,
+            fingerprint,
+            signature,
+            additional_data
+        )
+        if not signature_valid:
             return LicenseValidateResponse(
                 valid=False,
-                error="Database quota exceeded"
+                error="Invalid request signature or expired timestamp"
             )
-        remaining = license.max_databases - license.current_databases
-        return LicenseValidateResponse(valid=True, remaining_quota=remaining)
     
-    elif request.feature == "create_domain":
-        if license.current_domains >= license.max_domains:
-            return LicenseValidateResponse(
-                valid=False,
-                error="Domain quota exceeded"
-            )
-        remaining = license.max_domains - license.current_domains
-        return LicenseValidateResponse(valid=True, remaining_quota=remaining)
+    # Use comprehensive validator
+    is_valid, error_msg, license_data = await license_validator.validate_license_request(
+        request=http_request,
+        license_key=request_body.license_key,
+        feature=request_body.feature,
+        timestamp=timestamp,
+        signature=signature or "",
+        additional_data=additional_data,
+        db=db
+    )
     
-    elif request.feature == "create_email":
-        if license.current_emails >= license.max_emails:
-            return LicenseValidateResponse(
-                valid=False,
-                error="Email account quota exceeded"
-            )
-        remaining = license.max_emails - license.current_emails
-        return LicenseValidateResponse(valid=True, remaining_quota=remaining)
+    if not is_valid:
+        return LicenseValidateResponse(valid=False, error=error_msg or "Validation failed")
     
-    # Default: allow
-    return LicenseValidateResponse(valid=True)
+    # Update license stats
+    if license_data and license_data.get("license_id"):
+        license_id = license_data["license_id"]
+        result = await db.execute(select(License).where(License.id == license_id))
+        license = result.scalars().first()
+        
+        if license:
+            license.validation_count = (license.validation_count or 0) + 1
+            license.last_validation_at = datetime.utcnow()
+            license.last_validation_ip = http_request.client.host if http_request.client else None
+            await db.commit()
+    
+    return LicenseValidateResponse(
+        valid=True,
+        remaining_quota=license_data.get("remaining_quota", 0) if license_data else 0
+    )
 

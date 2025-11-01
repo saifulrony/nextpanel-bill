@@ -705,14 +705,18 @@ async def add_license_to_customer(
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
     
-    # Generate license key
-    license_key = f"NP-{secrets.token_hex(8).upper()}"
+    # Generate secure license key with cryptographic signature
+    from app.core.license_security import license_security
+    license_key, encrypted_secret = license_security.generate_secure_license_key(
+        customer_id, request.plan_id
+    )
     
     # Create license
     new_license = License(
         user_id=customer_id,
         plan_id=request.plan_id,
         license_key=license_key,
+        encrypted_secret=encrypted_secret,
         status=LicenseStatus.ACTIVE,
         max_accounts=plan.max_accounts,
         max_domains=plan.max_domains,

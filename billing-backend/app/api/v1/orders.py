@@ -107,15 +107,18 @@ async def provision_services_from_order(order: Order, db: AsyncSession):
                     db.add(plan)
                     await db.flush()  # Get the plan ID
                 
-                # Generate license key
-                import secrets
-                license_key = f"NP-{secrets.token_hex(8).upper()}"
+                # Generate secure license key with cryptographic signature
+                from app.core.license_security import license_security
+                license_key, encrypted_secret = license_security.generate_secure_license_key(
+                    order.customer_id, plan.id
+                )
                 
                 # Create license record for hosting/service
                 license = License(
                     user_id=order.customer_id,
                     plan_id=plan.id,
                     license_key=license_key,
+                    encrypted_secret=encrypted_secret,
                     status='active',
                     max_accounts=plan.max_accounts or 1,
                     max_domains=plan.max_domains or 1,
