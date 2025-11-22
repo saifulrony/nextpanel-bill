@@ -33,8 +33,11 @@ export function StripeProvider({ children }: StripeProviderProps) {
         
         setPublishableKey(config.publishable_key);
         setIsConfigured(config.is_configured);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch Stripe configuration:', error);
+        if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+          console.warn('Backend not reachable. Stripe configuration unavailable.');
+        }
         setPublishableKey(null);
         setIsConfigured(false);
       } finally {

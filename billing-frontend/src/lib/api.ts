@@ -2,12 +2,7 @@ import axios from 'axios';
 
 // Dynamically determine API URL based on how the frontend is accessed
 const getApiUrl = () => {
-  // If explicitly set in env, use that
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  
-  // Otherwise, detect from window location
+  // For client-side code, always detect from window location (ignore env if set incorrectly)
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const port = 8001; // Backend port
@@ -15,12 +10,17 @@ const getApiUrl = () => {
     // Use the same hostname as the frontend
     // This will work for both localhost and network IPs
     const apiUrl = `http://${hostname}:${port}`;
-    console.log('API URL:', apiUrl);
+    console.log('API URL (detected from hostname):', apiUrl);
     return apiUrl;
   }
   
-  // Fallback for server-side rendering - use network IP if available
-  return 'http://192.168.10.203:8001';
+  // For server-side rendering, check env first, then fallback to localhost
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('192.168.10.203')) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  
+  // Fallback for server-side rendering - use localhost
+  return 'http://localhost:8001';
 };
 
 const API_URL = getApiUrl();
@@ -30,6 +30,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 second timeout instead of default 5 seconds
 });
 
 // Add auth token to requests
@@ -93,7 +94,7 @@ export const authAPI = {
 
 // Plans/Products API
 export const plansAPI = {
-  list: (params?: { category?: string; is_active?: boolean }) =>
+  list: (params?: { category?: string; is_active?: boolean; is_featured?: boolean }) =>
     api.get('/plans', { params }),
   
   get: (id: string) =>

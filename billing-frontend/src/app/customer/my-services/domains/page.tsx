@@ -192,7 +192,7 @@ export default function MyDomainsPage() {
       billing_cycle: 'yearly',
       category: 'domains'
     });
-  };
+  }; 
 
   const handleUpdateAutoRenew = async (domainId: string, autoRenew: boolean) => {
     try {

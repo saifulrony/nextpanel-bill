@@ -2,7 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://192.168.10.203:8001',
+    // NEXT_PUBLIC_API_URL is now dynamically detected in src/lib/api.ts
+    // Only set it here if you want to override the dynamic detection
+    // NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
   // Enable hot reloading and fast refresh
   experimental: {

@@ -155,7 +155,8 @@ export default function TransactionsPage() {
       });
       
       if (error.message === 'Network Error' || error.code === 'ERR_NETWORK') {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.10.203:8001';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+          (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
         setError(`Cannot connect to backend server at ${apiUrl}. Please ensure the backend is running on port 8001. Run: cd billing-backend && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001`);
       } else {
         setError(error.response?.data?.detail || error.message || 'Failed to load payments data');

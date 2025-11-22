@@ -8,8 +8,7 @@ import { ShoppingCartIcon, CheckIcon, MagnifyingGlassIcon, XMarkIcon, ChatBubble
 import { DynamicHomepage } from '@/components/page-builder/DynamicHomepage';
 import Header from '@/components/Header';
 import ChatBot from '@/components/ChatBot';
-import { domainsAPI } from '@/lib/api';
-import axios from 'axios';
+import { domainsAPI, plansAPI } from '@/lib/api';
 
 interface FeaturedProduct {
   id: string;
@@ -289,7 +288,7 @@ export default function Home() {
       console.log('Checking for custom homepage at:', `${apiUrl}/api/v1/pages/homepage`);
       
       const response = await fetch(`${apiUrl}/api/v1/pages/homepage`, {
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: AbortSignal.timeout(30000) // 30 second timeout to match API client
       });
       
       console.log('Homepage response status:', response.status);
@@ -302,8 +301,9 @@ export default function Home() {
         console.log('No custom homepage found');
         setHasCustomHomepage(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking for custom homepage:', error);
+      // Silently fail - this is not critical
       setHasCustomHomepage(false);
     } finally {
       setCheckingHomepage(false);
@@ -313,16 +313,13 @@ export default function Home() {
   const loadFeaturedProducts = async () => {
     try {
       setLoadingProducts(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
-      const response = await axios.get(`${apiUrl}/api/v1/plans`, {
-        params: { is_active: true, is_featured: true },
-        timeout: 5000 // 5 second timeout
-      });
+      // Use centralized API client instead of direct axios calls
+      const response = await plansAPI.list({ is_active: true, is_featured: true });
       
       // Check if API returned empty data
-      if (response.data && response.data.length === 0) {
+      const products = response.data || [];
+      if (products.length === 0) {
         console.log('API returned empty products, using demo data...');
         const demoProducts: FeaturedProduct[] = [
           {
@@ -394,10 +391,13 @@ export default function Home() {
         ];
         setFeaturedProducts(demoProducts);
       } else {
-        setFeaturedProducts(response.data);
+        setFeaturedProducts(products);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load featured products:', error);
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+        console.warn('Backend not reachable. Using demo products.');
+      }
       // Use demo products as fallback
       const demoProducts: FeaturedProduct[] = [
         {
@@ -475,23 +475,17 @@ export default function Home() {
 
   const loadCategoryProducts = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
+      // Use centralized API client instead of direct axios calls
       // Load all active products
-      const productsResponse = await axios.get(`${apiUrl}/api/v1/plans`, {
-        params: { is_active: true },
-        timeout: 5000
-      });
+      const productsResponse = await plansAPI.list({ is_active: true });
       
       // Load categories
-      const categoriesResponse = await axios.get(`${apiUrl}/api/v1/plans/categories`, {
-        timeout: 5000
-      });
+      const categoriesResponse = await plansAPI.categories();
       
       // Group products by category
       const grouped: Record<string, FeaturedProduct[]> = {};
-      productsResponse.data.forEach((product: FeaturedProduct) => {
+      const products = productsResponse.data || [];
+      products.forEach((product: FeaturedProduct) => {
         const category = product.features?.category || 'other';
         if (!grouped[category]) {
           grouped[category] = [];
@@ -500,9 +494,12 @@ export default function Home() {
       });
       
       setCategoryProducts(grouped);
-      setCategories(categoriesResponse.data.categories || []);
-    } catch (error) {
+      setCategories(categoriesResponse.data?.categories || []);
+    } catch (error: any) {
       console.error('Failed to load category products:', error);
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+        console.warn('Backend not reachable. Category products will not be loaded.');
+      }
     }
   };
 
