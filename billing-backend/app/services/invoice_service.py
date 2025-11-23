@@ -95,102 +95,491 @@ class InvoiceService:
         return len(overdue_invoices)
     
     async def generate_pdf(self, invoice: Any, user: Any, company_info: Optional[Dict] = None) -> bytes:
-        """Generate professional PDF invoice"""
+        """Generate PDF from modal component HTML"""
+        # Try to import weasyprint first
         try:
-            from reportlab.lib.pagesizes import letter, A4
+            from weasyprint import HTML
+            from weasyprint.text.fonts import FontConfiguration
+            weasyprint_available = True
+        except ImportError:
+            weasyprint_available = False
+            logger.info("weasyprint not available, will use reportlab fallback")
+        
+        if weasyprint_available:
+            try:
+                # Get invoice data with safe date handling
+                invoice_date = invoice.invoice_date if hasattr(invoice, 'invoice_date') and invoice.invoice_date else (invoice.created_at if hasattr(invoice, 'created_at') and invoice.created_at else datetime.utcnow())
+                if not isinstance(invoice_date, datetime):
+                    if isinstance(invoice_date, str):
+                        try:
+                            invoice_date = datetime.strptime(invoice_date, '%Y-%m-%d %H:%M:%S')
+                        except ValueError:
+                            try:
+                                invoice_date = datetime.strptime(invoice_date, '%Y-%m-%d')
+                            except ValueError:
+                                invoice_date = datetime.utcnow()
+                    else:
+                        invoice_date = datetime.utcnow()
+                
+                due_date = invoice.due_date if hasattr(invoice, 'due_date') and invoice.due_date else (invoice_date + timedelta(days=30))
+                if not isinstance(due_date, datetime):
+                    if isinstance(due_date, str):
+                        try:
+                            due_date = datetime.strptime(due_date, '%Y-%m-%d %H:%M:%S')
+                        except ValueError:
+                            try:
+                                due_date = datetime.strptime(due_date, '%Y-%m-%d')
+                            except ValueError:
+                                due_date = invoice_date + timedelta(days=30)
+                    else:
+                        due_date = invoice_date + timedelta(days=30)
+                
+                invoice_number = invoice.invoice_number if hasattr(invoice, 'invoice_number') and invoice.invoice_number else f"ORD-{str(invoice.id)[:8]}"
+                
+                # Status formatting with safe handling
+                if hasattr(invoice, 'status'):
+                    if hasattr(invoice.status, 'value'):
+                        status = str(invoice.status.value).lower()
+                    else:
+                        status = str(invoice.status).lower()
+                else:
+                    status = 'pending'
+                status_text = status.capitalize()
+                status_bg_color = '#dcfce7' if status == 'paid' else '#fef3c7' if status == 'pending' else '#fee2e2'
+                status_text_color = '#166534' if status == 'paid' else '#92400e' if status == 'pending' else '#991b1b'
+                
+                # Customer info with safe handling
+                customer_name = 'Customer'
+                if user:
+                    if hasattr(user, 'full_name') and user.full_name:
+                        customer_name = user.full_name
+                    elif hasattr(user, 'email') and user.email:
+                        customer_name = user.email.split('@')[0]
+                
+                customer_email = 'customer@example.com'
+                if user and hasattr(user, 'email') and user.email:
+                    customer_email = user.email
+                
+                # Payment method
+                payment_method = ''
+                if hasattr(invoice, 'payment_method') and invoice.payment_method:
+                    payment_method = f'<p>Payment Method: {invoice.payment_method}</p>'
+                
+                # Get invoice totals with safe defaults
+                subtotal = float(getattr(invoice, 'subtotal', 0) or 0)
+                tax = float(getattr(invoice, 'tax', 0) or 0)
+                total = float(getattr(invoice, 'total', 0) or 0)
+                
+                # If total is 0, calculate from items
+                if total == 0 and subtotal == 0:
+                    items_total = sum(
+                        (item.get('unit_price') or item.get('price') or item.get('amount', 0)) * (item.get('quantity', 1))
+                        for item in (invoice.items or [])
+                    )
+                    subtotal = items_total
+                    total = subtotal + tax
+                
+                # Build items table rows
+                items_rows = ''
+                for item in (invoice.items or []):
+                    if isinstance(item, dict):
+                        unit_price = float(item.get('unit_price') or item.get('price') or item.get('amount', 0))
+                        quantity = int(item.get('quantity', 1))
+                        total_item = unit_price * quantity
+                        description = item.get('description', item.get('product_name', 'Item'))
+                    else:
+                        # Handle object attributes
+                        unit_price = float(getattr(item, 'unit_price', getattr(item, 'price', getattr(item, 'amount', 0))) or 0)
+                        quantity = int(getattr(item, 'quantity', 1) or 1)
+                        total_item = unit_price * quantity
+                        description = getattr(item, 'description', getattr(item, 'product_name', 'Item'))
+                    
+                    items_rows += f'''
+                <tr>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{description}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{quantity}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${unit_price:.2f}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${total_item:.2f}</td>
+                </tr>
+                '''
+                
+                # Create HTML matching the modal component exactly
+                html_content = f'''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {{
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }}
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: white;
+      padding: 20px;
+    }}
+    .invoice-container {{
+      max-width: 1200px;
+      margin: 0 auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }}
+    .invoice-header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }}
+    .invoice-title {{
+      font-size: 18px;
+      font-weight: 500;
+      color: #111827;
+    }}
+    .invoice-content {{
+      margin-top: 20px;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }}
+    .bill-to h4, .invoice-details h4 {{
+      font-size: 14px;
+      font-weight: 500;
+      color: #111827;
+      margin-bottom: 8px;
+    }}
+    .bill-to p, .invoice-details p {{
+      font-size: 12px;
+      color: #4b5563;
+      margin-bottom: 4px;
+    }}
+    .status-badge {{
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+      background-color: {status_bg_color};
+      color: {status_text_color};
+    }}
+    .table-container {{
+      overflow: hidden;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+    }}
+    thead {{
+      background-color: #f9fafb;
+    }}
+    th {{
+      padding: 12px 24px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }}
+    tbody tr {{
+      border-top: 1px solid #e5e7eb;
+    }}
+    tbody td {{
+      padding: 16px 24px;
+      font-size: 14px;
+      color: #111827;
+    }}
+    tfoot {{
+      background-color: #f9fafb;
+    }}
+    tfoot tr {{
+      border-top: 1px solid #e5e7eb;
+    }}
+    tfoot td {{
+      padding: 16px 24px;
+      font-size: 14px;
+      color: #111827;
+    }}
+    tfoot td:first-child {{
+      text-align: right;
+      font-weight: 500;
+    }}
+    tfoot tr:last-child td {{
+      font-weight: 600;
+    }}
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <div class="invoice-header">
+      <h3 class="invoice-title">Invoice {invoice_number}</h3>
+    </div>
+    
+    <div class="invoice-content">
+      <div class="grid">
+        <div class="bill-to">
+          <h4>Bill To:</h4>
+          <div>
+            <p>{customer_name}</p>
+            <p>{customer_email}</p>
+            <p>Address not available</p>
+          </div>
+        </div>
+        <div class="invoice-details">
+          <h4>Invoice Details:</h4>
+          <div>
+            <p>Date: {invoice_date.strftime("%m/%d/%Y") if hasattr(invoice_date, 'strftime') else str(invoice_date)[:10]}</p>
+            <p>Due: {due_date.strftime("%m/%d/%Y") if hasattr(due_date, 'strftime') else str(due_date)[:10]}</p>
+            <p>Status: <span class="status-badge">{status_text}</span></p>
+            {payment_method}
+          </div>
+        </div>
+      </div>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items_rows}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3">Subtotal:</td>
+              <td>${subtotal:.2f}</td>
+            </tr>
+            <tr>
+              <td colspan="3">Tax:</td>
+              <td>${tax:.2f}</td>
+            </tr>
+            <tr>
+              <td colspan="3">Total:</td>
+              <td>${total:.2f}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+            '''
+                
+                # Convert HTML to PDF using WeasyPrint
+                font_config = FontConfiguration()
+                html_doc = HTML(string=html_content)
+                pdf_bytes = html_doc.write_pdf(font_config=font_config)
+                
+                logger.info(f"Generated PDF from modal component HTML for invoice {invoice_number}")
+                return pdf_bytes
+            except Exception as e:
+                logger.error(f"Error generating PDF with weasyprint: {e}", exc_info=True)
+                logger.info("Falling back to reportlab PDF generation")
+                # Fallback to reportlab on error
+                try:
+                    return await self._generate_pdf_fallback(invoice, user, company_info)
+                except Exception as fallback_error:
+                    logger.error(f"Fallback PDF generation also failed: {fallback_error}", exc_info=True)
+                    logger.error(f"Fallback error type: {type(fallback_error).__name__}", exc_info=True)
+                    raise Exception(f"PDF generation failed: {str(e)}. Fallback also failed: {str(fallback_error)}")
+        else:
+            # weasyprint not available, use fallback
+            logger.info("Using reportlab fallback for PDF generation")
+            try:
+                return await self._generate_pdf_fallback(invoice, user, company_info)
+            except Exception as e:
+                logger.error(f"Critical error in PDF generation fallback: {e}", exc_info=True)
+                raise Exception(f"PDF generation failed: {str(e)}")
+    
+    async def _generate_pdf_fallback(self, invoice: Any, user: Any, company_info: Optional[Dict] = None) -> bytes:
+        """Fallback PDF generation using reportlab"""
+        try:
+            from reportlab.lib.pagesizes import letter
             from reportlab.lib import colors
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import inch
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-            from reportlab.lib.enums import TA_RIGHT, TA_CENTER
-            
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.enums import TA_RIGHT
+        except ImportError as e:
+            logger.error(f"reportlab not available: {e}")
+            raise Exception("PDF generation libraries not available. Please install reportlab.")
+        
+        try:
             buffer = BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72,
-                                  topMargin=72, bottomMargin=18)
+            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36,
+                                  topMargin=36, bottomMargin=36)
             
             elements = []
             styles = getSampleStyleSheet()
             
-            # Company header
-            company_name = company_info.get('name', 'Your Company') if company_info else 'NextPanel Billing'
+            # Handle date conversion
+            if hasattr(invoice, 'invoice_date') and invoice.invoice_date:
+                invoice_date = invoice.invoice_date
+            elif hasattr(invoice, 'created_at') and invoice.created_at:
+                invoice_date = invoice.created_at
+            else:
+                invoice_date = datetime.utcnow()
+            
+            # Ensure invoice_date is a datetime object
+            if isinstance(invoice_date, str):
+                try:
+                    from dateutil import parser
+                    invoice_date = parser.parse(invoice_date)
+                except ImportError:
+                    # Fallback to datetime.strptime for common formats
+                    from datetime import datetime
+                    try:
+                        invoice_date = datetime.strptime(invoice_date, '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        try:
+                            invoice_date = datetime.strptime(invoice_date, '%Y-%m-%d')
+                        except ValueError:
+                            invoice_date = datetime.utcnow()
+            
+            due_date = invoice.due_date if hasattr(invoice, 'due_date') and invoice.due_date else (invoice_date + timedelta(days=30))
+            if isinstance(due_date, str):
+                try:
+                    from dateutil import parser
+                    due_date = parser.parse(due_date)
+                except ImportError:
+                    # Fallback to datetime.strptime for common formats
+                    from datetime import datetime
+                    try:
+                        due_date = datetime.strptime(due_date, '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        try:
+                            due_date = datetime.strptime(due_date, '%Y-%m-%d')
+                        except ValueError:
+                            due_date = invoice_date + timedelta(days=30)
+            
+            invoice_number = invoice.invoice_number if hasattr(invoice, 'invoice_number') and invoice.invoice_number else f"ORD-{str(invoice.id)[:8]}"
+            
             title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=24,
-                textColor=colors.HexColor('#1a56db'),
-                spaceAfter=30
-            )
-            elements.append(Paragraph(company_name, title_style))
-            
-            # Company info
-            if company_info:
-                company_details = f"""
-                {company_info.get('address', '')}<br/>
-                {company_info.get('city', '')}, {company_info.get('state', '')} {company_info.get('zip', '')}<br/>
-                Phone: {company_info.get('phone', '')}<br/>
-                Email: {company_info.get('email', '')}
-                """
-                elements.append(Paragraph(company_details, styles['Normal']))
-            
-            elements.append(Spacer(1, 0.3*inch))
-            
-            # Invoice title
-            invoice_title = ParagraphStyle(
                 'InvoiceTitle',
                 parent=styles['Heading2'],
-                fontSize=20,
-                textColor=colors.HexColor('#374151')
+                fontSize=18,
+                textColor=colors.HexColor('#111827'),
+                fontName='Helvetica',
+                spaceAfter=16
             )
-            elements.append(Paragraph('INVOICE', invoice_title))
+            elements.append(Paragraph(f'Invoice {invoice_number}', title_style))
             elements.append(Spacer(1, 0.2*inch))
             
-            # Invoice details table
-            invoice_date = invoice.invoice_date or invoice.created_at
-            due_date = invoice.due_date or (invoice_date + timedelta(days=30))
+            # Two-column layout
+            bill_to_style = ParagraphStyle(
+                'BillToHeader',
+                parent=styles['Normal'],
+                fontSize=14,
+                textColor=colors.HexColor('#111827'),
+                fontName='Helvetica-Bold',
+                spaceAfter=8
+            )
+            bill_to_content_style = ParagraphStyle(
+                'BillToContent',
+                parent=styles['Normal'],
+                fontSize=12,
+                textColor=colors.HexColor('#4b5563'),
+                fontName='Helvetica',
+                spaceAfter=4
+            )
             
-            invoice_info = [
-                ['Invoice Number:', invoice.invoice_number],
-                ['Invoice Date:', invoice_date.strftime('%B %d, %Y')],
-                ['Due Date:', due_date.strftime('%B %d, %Y')],
-                ['Status:', invoice.status.upper()],
+            # Customer info with safe handling
+            customer_name = 'Customer'
+            if user:
+                if hasattr(user, 'full_name') and user.full_name:
+                    customer_name = user.full_name
+                elif hasattr(user, 'email') and user.email:
+                    customer_name = user.email.split('@')[0]
+            
+            customer_email = 'customer@example.com'
+            if user and hasattr(user, 'email') and user.email:
+                customer_email = user.email
+            
+            bill_to_data = [
+                [Paragraph('Bill To:', bill_to_style), ''],
+                [Paragraph(customer_name, bill_to_content_style), ''],
+                [Paragraph(customer_email, bill_to_content_style), ''],
+                [Paragraph('Address not available', bill_to_content_style), ''],
             ]
             
-            if invoice.customer_po_number:
-                invoice_info.append(['PO Number:', invoice.customer_po_number])
-            
-            invoice_table = Table(invoice_info, colWidths=[2*inch, 3*inch])
-            invoice_table.setStyle(TableStyle([
-                ('FONT', (0, 0), (-1, -1), 'Helvetica', 10),
-                ('FONT', (0, 0), (0, -1), 'Helvetica-Bold', 10),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            elements.append(invoice_table)
-            elements.append(Spacer(1, 0.3*inch))
-            
-            # Bill to section
-            bill_to_style = ParagraphStyle(
-                'BillTo',
-                parent=styles['Heading3'],
-                fontSize=12,
-                textColor=colors.HexColor('#374151')
+            invoice_details_style = ParagraphStyle(
+                'InvoiceDetailsHeader',
+                parent=styles['Normal'],
+                fontSize=14,
+                textColor=colors.HexColor('#111827'),
+                fontName='Helvetica-Bold',
+                spaceAfter=8
             )
-            elements.append(Paragraph('Bill To:', bill_to_style))
-            elements.append(Spacer(1, 0.1*inch))
+            invoice_details_content_style = ParagraphStyle(
+                'InvoiceDetailsContent',
+                parent=styles['Normal'],
+                fontSize=12,
+                textColor=colors.HexColor('#4b5563'),
+                fontName='Helvetica',
+                spaceAfter=4
+            )
             
-            customer_info = f"""
-            <b>{user.full_name}</b><br/>
-            {user.company_name or ''}<br/>
-            {user.email}
-            """
-            elements.append(Paragraph(customer_info, styles['Normal']))
+            status = str(invoice.status).lower() if hasattr(invoice.status, 'value') else str(invoice.status).lower()
+            status_text = status.capitalize()
+            
+            # Format dates safely
+            try:
+                date_str = invoice_date.strftime("%m/%d/%Y") if hasattr(invoice_date, 'strftime') else str(invoice_date)[:10]
+            except:
+                date_str = str(invoice_date)[:10] if invoice_date else "N/A"
+            
+            try:
+                due_str = due_date.strftime("%m/%d/%Y") if hasattr(due_date, 'strftime') else str(due_date)[:10]
+            except:
+                due_str = str(due_date)[:10] if due_date else "N/A"
+            
+            invoice_details_data = [
+                [Paragraph('Invoice Details:', invoice_details_style), ''],
+                [Paragraph(f'Date: {date_str}', invoice_details_content_style), ''],
+                [Paragraph(f'Due: {due_str}', invoice_details_content_style), ''],
+                [Paragraph(f'Status: {status_text}', invoice_details_content_style), ''],
+            ]
+            
+            if hasattr(invoice, 'payment_method') and invoice.payment_method:
+                invoice_details_data.append([Paragraph(f'Payment Method: {invoice.payment_method}', invoice_details_content_style), ''])
+            
+            two_col_table = Table([
+                [
+                    Table(bill_to_data, colWidths=[3*inch]),
+                    Table(invoice_details_data, colWidths=[3*inch])
+                ]
+            ], colWidths=[3.5*inch, 3.5*inch])
+            two_col_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            elements.append(two_col_table)
             elements.append(Spacer(1, 0.3*inch))
             
-            # Line items table
-            items_data = [['Description', 'Qty', 'Unit Price', 'Amount']]
+            items_data = [['Description', 'Qty', 'Price', 'Total']]
             for item in (invoice.items or []):
-                unit_price = item.get('unit_price') or item.get('amount', 0)
+                unit_price = item.get('unit_price') or item.get('price') or item.get('amount', 0)
                 quantity = item.get('quantity', 1)
                 total = unit_price * quantity
                 items_data.append([
@@ -200,85 +589,67 @@ class InvoiceService:
                     f"${total:.2f}"
                 ])
             
+            items_data.append(['', '', '', ''])
+            items_data.append([
+                Paragraph(f'<para alignment="right">Subtotal:</para>', styles['Normal']),
+                '',
+                '',
+                f"${invoice.subtotal:.2f}"
+            ])
+            items_data.append([
+                Paragraph(f'<para alignment="right">Tax:</para>', styles['Normal']),
+                '',
+                '',
+                f"${invoice.tax:.2f}"
+            ])
+            items_data.append([
+                Paragraph(f'<para alignment="right"><b>Total:</b></para>', styles['Normal']),
+                '',
+                '',
+                Paragraph(f'<b>${invoice.total:.2f}</b>', styles['Normal'])
+            ])
+            
             items_table = Table(items_data, colWidths=[3.5*inch, 0.8*inch, 1.2*inch, 1.2*inch])
             items_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-                ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 11),
-                ('FONT', (0, 1), (-1, -1), 'Helvetica', 10),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f9fafb')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#6b7280')),
+                ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONT', (0, 1), (-1, -4), 'Helvetica', 10),
+                ('FONTSIZE', (0, 1), (-1, -4), 10),
+                ('TEXTCOLOR', (0, 1), (-1, -4), colors.HexColor('#111827')),
+                ('TOPPADDING', (0, 0), (-1, 0), 12),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('TOPPADDING', (0, 1), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e5e7eb')),
+                ('TOPPADDING', (0, 1), (-1, -4), 16),
+                ('BOTTOMPADDING', (0, 1), (-1, -4), 16),
+                ('GRID', (0, 0), (-1, -4), 1, colors.HexColor('#e5e7eb')),
+                ('BACKGROUND', (0, -3), (-1, -1), colors.HexColor('#f9fafb')),
+                ('FONT', (0, -3), (-1, -2), 'Helvetica', 10),
+                ('FONTSIZE', (0, -3), (-1, -2), 10),
+                ('TEXTCOLOR', (0, -3), (-1, -2), colors.HexColor('#111827')),
+                ('FONT', (0, -1), (-1, -1), 'Helvetica-Bold', 10),
+                ('FONTSIZE', (0, -1), (-1, -1), 10),
+                ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#111827')),
+                ('ALIGN', (0, -3), (-1, -1), 'RIGHT'),
+                ('ALIGN', (3, -3), (-1, -1), 'LEFT'),
+                ('TOPPADDING', (0, -3), (-1, -1), 16),
+                ('BOTTOMPADDING', (0, -3), (-1, -1), 16),
+                ('GRID', (0, -3), (-1, -1), 1, colors.HexColor('#e5e7eb')),
             ]))
             elements.append(items_table)
-            elements.append(Spacer(1, 0.2*inch))
             
-            # Totals
-            totals_data = [
-                ['Subtotal:', f"${invoice.subtotal:.2f}"],
-            ]
-            
-            if invoice.discount_amount > 0:
-                discount_label = f'Discount ({invoice.discount_percent}%):' if invoice.discount_percent else 'Discount:'
-                totals_data.append([discount_label, f"-${invoice.discount_amount:.2f}"])
-            
-            if invoice.tax > 0:
-                tax_label = f'Tax ({invoice.tax_rate}%):' if invoice.tax_rate else 'Tax:'
-                totals_data.append([tax_label, f"${invoice.tax:.2f}"])
-            
-            totals_data.append(['Total:', f"${invoice.total:.2f}"])
-            
-            if invoice.amount_paid > 0:
-                totals_data.append(['Amount Paid:', f"-${invoice.amount_paid:.2f}"])
-                totals_data.append(['Amount Due:', f"${invoice.amount_due:.2f}"])
-            
-            totals_table = Table(totals_data, colWidths=[5.3*inch, 1.4*inch])
-            totals_table.setStyle(TableStyle([
-                ('FONT', (0, 0), (-1, -2), 'Helvetica', 10),
-                ('FONT', (0, -1), (-1, -1), 'Helvetica-Bold', 12),
-                ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor('#374151')),
-            ]))
-            elements.append(totals_table)
-            
-            # Notes and terms
-            if invoice.notes or invoice.terms:
-                elements.append(Spacer(1, 0.4*inch))
-                
-                if invoice.notes:
-                    elements.append(Paragraph('<b>Notes:</b>', styles['Normal']))
-                    elements.append(Spacer(1, 0.1*inch))
-                    elements.append(Paragraph(invoice.notes, styles['Normal']))
-                    elements.append(Spacer(1, 0.2*inch))
-                
-                if invoice.terms:
-                    elements.append(Paragraph('<b>Terms and Conditions:</b>', styles['Normal']))
-                    elements.append(Spacer(1, 0.1*inch))
-                    elements.append(Paragraph(invoice.terms, styles['Normal']))
-            
-            # Payment instructions
-            if invoice.payment_instructions:
-                elements.append(Spacer(1, 0.3*inch))
-                elements.append(Paragraph('<b>Payment Instructions:</b>', styles['Normal']))
-                elements.append(Spacer(1, 0.1*inch))
-                elements.append(Paragraph(invoice.payment_instructions, styles['Normal']))
-            
-            # Build PDF
             doc.build(elements)
             pdf_content = buffer.getvalue()
             buffer.close()
             
-            logger.info(f"Generated professional PDF for invoice {invoice.invoice_number}")
-            return pdf_content
+            if not pdf_content or len(pdf_content) == 0:
+                raise Exception("PDF generation returned empty content")
             
-        except ImportError:
-            logger.warning("reportlab not installed, generating simple text PDF")
-            # Fallback to simple text-based PDF
-            return await self._generate_simple_pdf(invoice, user)
+            logger.info(f"Generated PDF using reportlab fallback, size: {len(pdf_content)} bytes")
+            return pdf_content
+        except Exception as e:
+            logger.error(f"Error in PDF fallback generation: {e}", exc_info=True)
+            raise
     
     async def _generate_simple_pdf(self, invoice: Any, user: Any) -> bytes:
         """Generate simple text-based invoice (fallback)"""
@@ -324,10 +695,6 @@ class InvoiceService:
         ─────────────────────────────────────────────────────────
         TOTAL:                                       ${invoice.total:.2f}
         """
-        
-        if invoice.amount_paid > 0:
-            pdf_content += f"\nAmount Paid:                                 -${invoice.amount_paid:.2f}"
-            pdf_content += f"\nAmount Due:                                   ${invoice.amount_due:.2f}"
         
         if invoice.notes:
             pdf_content += f"\n\n─────────────────────────────────────────────────────────\nNotes:\n{invoice.notes}"

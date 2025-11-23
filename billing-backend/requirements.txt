@@ -27,6 +27,7 @@ requests==2.32.3
 
 # PDF generation
 reportlab==4.0.7
+weasyprint==60.2
 
 # Network interface detection
 netifaces==0.11.0

@@ -23,20 +23,28 @@ export function StripeProvider({ children }: StripeProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
   
-  // Fetch Stripe configuration from backend
+  // Fetch Stripe configuration from backend (non-blocking)
   useEffect(() => {
     const fetchStripeConfig = async () => {
       try {
         setIsLoading(true);
-        const response = await paymentGatewaysAPI.getStripeConfig();
-        const config = response.data;
+        // Use a shorter timeout for Stripe config (5 seconds)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Stripe config timeout')), 5000)
+        );
         
+        const response = await Promise.race([
+          paymentGatewaysAPI.getStripeConfig(),
+          timeoutPromise
+        ]) as any;
+        
+        const config = response.data;
         setPublishableKey(config.publishable_key);
         setIsConfigured(config.is_configured);
       } catch (error: any) {
-        console.error('Failed to fetch Stripe configuration:', error);
-        if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
-          console.warn('Backend not reachable. Stripe configuration unavailable.');
+        // Silently fail - Stripe is optional
+        if (error.message !== 'Stripe config timeout') {
+          console.warn('Stripe configuration unavailable:', error.message || 'Backend not reachable');
         }
         setPublishableKey(null);
         setIsConfigured(false);
@@ -45,7 +53,16 @@ export function StripeProvider({ children }: StripeProviderProps) {
       }
     };
 
-    fetchStripeConfig();
+    // Only fetch on pages that might need Stripe (not login/register)
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      if (pathname !== '/customer/login' && pathname !== '/customer/register' && pathname !== '/login' && pathname !== '/register') {
+        fetchStripeConfig();
+      } else {
+        // Skip on login pages
+        setIsLoading(false);
+      }
+    }
   }, []);
   
   // Memoize stripePromise to prevent infinite re-renders

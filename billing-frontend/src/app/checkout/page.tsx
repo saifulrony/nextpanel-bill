@@ -129,8 +129,20 @@ export default function CheckoutPage() {
     );
   }
 
+  // Show loading state while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Don't render anything if not authenticated (will redirect)
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return null;
   }
 
@@ -164,10 +176,25 @@ export default function CheckoutPage() {
       setIsProcessing(true);
       
       try {
-        // Check if user is authenticated
-        if (!isAuthenticated || !user) {
+        // Wait for auth to finish loading
+        if (authLoading) {
+          alert('Please wait while we verify your authentication...');
+          setIsProcessing(false);
+          return;
+        }
+        
+        // Check if user is authenticated and has required data
+        if (!isAuthenticated || !user || !user.id) {
           alert('Please log in to complete your order');
-          router.push('/login');
+          router.push('/customer/login');
+          setIsProcessing(false);
+          return;
+        }
+        
+        // Validate cart has items
+        if (!items || items.length === 0) {
+          alert('Your cart is empty. Please add items before checkout.');
+          setIsProcessing(false);
           return;
         }
 
@@ -205,10 +232,22 @@ export default function CheckoutPage() {
         };
 
         console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
+        console.log('User ID:', user.id);
+        console.log('User object:', user);
         
         // Create the order
-        const result = await ordersAPI.create(orderData);
-        console.log('Order created successfully:', result);
+        let result;
+        try {
+          result = await ordersAPI.create(orderData);
+          console.log('Order created successfully:', result);
+        } catch (error: any) {
+          console.error('Order creation error:', error);
+          console.error('Error response:', error.response?.data);
+          const errorMessage = error.response?.data?.detail || error.message || 'Failed to create order. Please try again.';
+          alert(errorMessage);
+          setIsProcessing(false);
+          return;
+        }
         
         // Store order data for success page
         if (result.data) {
@@ -280,31 +319,80 @@ export default function CheckoutPage() {
                 </button>
 
                 {/* User Menu */}
-                <div className="relative">
+                <div className="relative" data-user-menu>
                   <button
+                    type="button"
+                    className="flex items-center space-x-3 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
-                    <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center">
+                    <div className="h-8 w-8 bg-indigo-600 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium text-white">
-                        {user?.email?.charAt(0).toUpperCase() || 'U'}
+                        {user?.full_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}
                       </span>
                     </div>
+                    <div className="hidden sm:block text-left">
+                      <p className="text-sm font-medium text-gray-700">{user?.full_name || user?.email}</p>
+                      <p className="text-xs text-gray-500">Customer</p>
+                    </div>
+                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </button>
 
+                  {/* Dropdown menu */}
                   {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                      <div className="px-4 py-2 text-sm text-gray-700 border-b">
-                        <p className="font-medium text-gray-900">{user?.email || 'User'}</p>
-                      </div>
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
+                      <a
+                        href="/customer/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Dashboard
+                      </a>
+                      <a
+                        href="/customer/my-services"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Services
+                      </a>
+                      <a
+                        href="/customer/invoices"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Invoices
+                      </a>
+                      <a
+                        href="/customer/billing"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Billing
+                      </a>
+                      <a
+                        href="/customer/support"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Support
+                      </a>
+                      <a
+                        href="/customer/settings"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Settings
+                      </a>
+                      <div className="border-t border-gray-200 my-1"></div>
                       <button
                         onClick={() => {
-                          logout();
                           setShowUserMenu(false);
+                          logout();
                         }}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                       >
-                        Sign out
+                        Logout
                       </button>
                     </div>
                   )}

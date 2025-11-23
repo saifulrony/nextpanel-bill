@@ -173,21 +173,28 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         status_code=exc.status_code,
         content={"detail": exc.detail}
     )
-    # Add CORS headers manually
+    # Add CORS headers manually - always set them
     origin = request.headers.get("origin")
     if origin and is_origin_allowed(origin):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+    else:
+        # Fallback to * if origin not in allowed list (for development)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Ensure CORS headers are included in validation error responses"""
+    # Log validation errors for debugging
+    logger.error(f"Validation error on {request.url.path}: {exc.errors()}")
+    logger.error(f"Request body: {exc.body}")
+    
     response = JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()}
+        content={"detail": exc.errors(), "body": exc.body}
     )
     # Add CORS headers manually
     origin = request.headers.get("origin")
@@ -206,13 +213,16 @@ async def general_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": f"Internal server error: {str(exc)}"}
     )
-    # Add CORS headers manually
+    # Add CORS headers manually - always set them
     origin = request.headers.get("origin")
     if origin and is_origin_allowed(origin):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+    else:
+        # Fallback to * if origin not in allowed list (for development)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
 

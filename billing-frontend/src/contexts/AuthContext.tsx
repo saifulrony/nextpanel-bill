@@ -35,6 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Skip auth check on login/register pages to prevent blocking
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      if (pathname === '/customer/login' || pathname === '/customer/register' || pathname === '/login' || pathname === '/register') {
+        console.log('Skipping auth check on login/register page');
+        setAuthState({ user: null, isAuthenticated: false, isLoading: false });
+        return;
+      }
+    }
     checkAuth();
   }, []);
 
@@ -53,9 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Checking authentication...');
       
-      // Add timeout to prevent hanging
+      // Add shorter timeout to prevent hanging (2 seconds instead of 5)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+        setTimeout(() => reject(new Error('Auth check timeout')), 2000)
       );
       
       const response = await Promise.race([
@@ -72,10 +81,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error('Auth check failed:', error);
       console.error('Error details:', error.response?.data || error.message);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'refresh_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      // Don't clear tokens on timeout - just mark as not authenticated
+      if (error.message !== 'Auth check timeout') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'refresh_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      }
       setAuthState({ user: null, isAuthenticated: false, isLoading: false });
     }
   };

@@ -28,7 +28,18 @@ import {
 const customerNavigation = [
   { name: 'Dashboard', href: '/customer/dashboard', icon: HomeIcon },
   { name: 'Services', href: '/customer/services', icon: ShoppingCartIcon },
-  { name: 'My Services', href: '/customer/my-services', icon: CubeIcon },
+  { 
+    name: 'My Services', 
+    href: '/customer/my-services', 
+    icon: CubeIcon,
+    submenu: [
+      { name: 'Domains', href: '/customer/my-services/domains', icon: GlobeAltIcon },
+      { name: 'Hosting', href: '/customer/my-services/hosting', icon: ServerIcon },
+      { name: 'Servers', href: '/customer/my-services/servers', icon: ServerIcon },
+      { name: 'Licenses', href: '/customer/my-services/licenses', icon: KeyIcon },
+      { name: 'Others', href: '/customer/my-services/others', icon: CubeIcon },
+    ]
+  },
   { name: 'Billing', href: '/customer/billing', icon: CreditCardIcon },
   { name: 'Invoices', href: '/customer/invoices', icon: DocumentTextIcon },
   { name: 'Support', href: '/customer/support', icon: LifebuoyIcon },
@@ -124,11 +135,15 @@ export default function CustomerLayout({
       return;
     }
     
-    // Add a small delay to allow authentication check to complete
-    if (!isLoading && !customerAuth.isAuthenticated) {
+    // Only redirect if we're sure the auth check is complete and user is not authenticated
+    // Add a delay to prevent premature redirects
+    if (!isLoading && customerAuth.isAuthenticated === false) {
       const timer = setTimeout(() => {
-        router.push('/customer/login');
-      }, 100);
+        // Double check auth state before redirecting
+        if (!customerAuth.isAuthenticated) {
+          router.push('/customer/login');
+        }
+      }, 500);
       
       return () => clearTimeout(timer);
     }
@@ -167,6 +182,21 @@ export default function CustomerLayout({
     return submenu.some(item => pathname === item.href);
   };
 
+  // Auto-expand submenu if current path matches a submenu item
+  useEffect(() => {
+    if (pathname && pathname.startsWith('/customer/')) {
+      customerNavigation.forEach((item) => {
+        if (item.submenu && isSubmenuActive(item.submenu)) {
+          setExpandedMenus(prev => {
+            const newSet = new Set(prev);
+            newSet.add(item.name);
+            return newSet;
+          });
+        }
+      });
+    }
+  }, [pathname]);
+
   const getServiceCount = (serviceName: string) => {
     switch (serviceName.toLowerCase()) {
       case 'domains':
@@ -190,16 +220,7 @@ export default function CustomerLayout({
     logout();
   };
 
-  // Show loading spinner
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
-  // Show login/register pages without sidebar
+  // Show login/register pages without sidebar immediately (don't wait for auth check)
   if (pathname === '/customer/login' || pathname === '/customer/register') {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -208,8 +229,17 @@ export default function CustomerLayout({
     );
   }
 
-  // Show loading spinner for unauthenticated users on other pages
-  if (!customerAuth.isAuthenticated) {
+  // Show loading spinner while checking auth (only for protected pages)
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  // Show loading spinner for unauthenticated users on other pages (but only after loading is complete)
+  if (!isLoading && !customerAuth.isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>

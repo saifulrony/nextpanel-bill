@@ -30,7 +30,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 second timeout instead of default 5 seconds
+  timeout: 10000, // 10 second timeout - faster failure for better UX
 });
 
 // Add auth token to requests
@@ -47,10 +47,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Add response interceptor to handle auth errors
+// Add response interceptor to handle auth errors and blob errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    // If error response is a blob (from PDF endpoints), try to parse it as JSON
+    if (error.config?.responseType === 'blob' && error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const jsonError = JSON.parse(text);
+        // Replace the blob with the parsed JSON for easier error handling
+        error.response.data = jsonError;
+      } catch {
+        // If parsing fails, keep the blob but add a helpful message
+        error.response.data = { detail: 'PDF generation failed. Please check backend logs.' };
+      }
+    }
+    
     // Handle 401 (unauthorized) and 403 (forbidden) errors
     if (error.response?.status === 401 || error.response?.status === 403) {
       // Check if it's an authentication error

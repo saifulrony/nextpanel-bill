@@ -107,6 +107,67 @@ export default function InvoicesPage() {
     };
   };
 
+  const handleDownloadPDF = async (invoiceId: string, invoiceNumber: string) => {
+    try {
+      console.log('Downloading PDF for invoice:', invoiceId);
+      const response = await ordersAPI.downloadPDF(invoiceId);
+      
+      console.log('PDF response received:', response);
+      
+      // Check if response.data exists
+      if (!response.data) {
+        throw new Error('No PDF data received from server');
+      }
+      
+      // Create a blob from the response
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${invoiceNumber || invoiceId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (error: any) {
+      console.error('Failed to download PDF:', error);
+      
+      // Handle blob error responses - try to parse as JSON if it's an error
+      let errorMessage = 'Unknown error';
+      if (error.response) {
+        if (error.response.data instanceof Blob) {
+          // Try to read the blob as text (it might be JSON error)
+          try {
+            const text = await error.response.data.text();
+            const jsonError = JSON.parse(text);
+            errorMessage = jsonError.detail || jsonError.message || 'PDF generation failed';
+          } catch {
+            errorMessage = 'PDF generation failed. Please check backend logs.';
+          }
+        } else if (error.response.data?.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      console.error('Error details:', errorMessage);
+      alert(`Failed to download PDF: ${errorMessage}. Please try again.`);
+    }
+  };
+
   useEffect(() => {
     const loadInvoices = async () => {
       try {
@@ -342,6 +403,7 @@ export default function InvoicesPage() {
                           <EyeIcon className="h-4 w-4" />
                         </button>
                         <button
+                          onClick={() => handleDownloadPDF(invoice.id, invoice.number)}
                           className="text-gray-600 hover:text-gray-900"
                           title="Download PDF"
                         >
@@ -369,137 +431,153 @@ export default function InvoicesPage() {
       {/* Invoice Detail Modal */}
       {selectedInvoice && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Invoice {selectedInvoice.number}
-                </h3>
-                <button
-                  onClick={() => setSelectedInvoice(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white flex flex-col" style={{ maxHeight: '90vh' }}>
+            <div className="flex justify-between items-center mb-4 border-b pb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Invoice {selectedInvoice.number}
+              </h3>
+              <button
+                onClick={() => setSelectedInvoice(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="sr-only">Close</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-hidden min-h-0">
+              <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Bill To:</h4>
+                      <div className="text-sm text-gray-600">
+                        <p>{selectedInvoice.customer_name || 'Customer'}</p>
+                        <p>{selectedInvoice.customer_email || 'customer@example.com'}</p>
+                        <p>Address not available</p>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Invoice Details:</h4>
+                      <div className="text-sm text-gray-600">
+                        <p>Date: {new Date(selectedInvoice.date).toLocaleDateString()}</p>
+                        <p>Due: {new Date(selectedInvoice.dueDate).toLocaleDateString()}</p>
+                        <p>Status: <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedInvoice.status)}`}>
+                          {getStatusIcon(selectedInvoice.status)}
+                          <span className="ml-1 capitalize">{selectedInvoice.status}</span>
+                        </span></p>
+                        {selectedInvoice.payment_method && (
+                          <p>Payment Method: {selectedInvoice.payment_method}</p>
+                        )}
+                        {selectedInvoice.payment_status && (
+                          <p>Payment Status: {selectedInvoice.payment_status}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Bill To:</h4>
-                  <div className="text-sm text-gray-600">
-                    <p>{selectedInvoice.customer_name || 'Customer'}</p>
-                    <p>{selectedInvoice.customer_email || 'customer@example.com'}</p>
-                    <p>Address not available</p>
+                  <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-300">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Qty
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Price
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedInvoice.items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {item.description}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {item.quantity}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              ${item.price.toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              ${item.total.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50">
+                        <tr>
+                          <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                            Subtotal:
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${selectedInvoice.subtotal.toFixed(2)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                            Tax:
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${selectedInvoice.tax.toFixed(2)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                            Total:
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ${selectedInvoice.total.toFixed(2)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Invoice Details:</h4>
-                  <div className="text-sm text-gray-600">
-                    <p>Date: {new Date(selectedInvoice.date).toLocaleDateString()}</p>
-                    <p>Due: {new Date(selectedInvoice.dueDate).toLocaleDateString()}</p>
-                    <p>Status: <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedInvoice.status)}`}>
-                      {getStatusIcon(selectedInvoice.status)}
-                      <span className="ml-1 capitalize">{selectedInvoice.status}</span>
-                    </span></p>
-                    {selectedInvoice.payment_method && (
-                      <p>Payment Method: {selectedInvoice.payment_method}</p>
-                    )}
-                    {selectedInvoice.payment_status && (
-                      <p>Payment Status: {selectedInvoice.payment_status}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                <table className="min-w-full divide-y divide-gray-300">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Qty
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {selectedInvoice.items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.description}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.quantity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${item.price.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${item.total.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-50">
-                    <tr>
-                      <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                        Subtotal:
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${selectedInvoice.subtotal.toFixed(2)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                        Tax:
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${selectedInvoice.tax.toFixed(2)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                        Total:
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${selectedInvoice.total.toFixed(2)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setSelectedInvoice(null)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
-                >
-                  Close
-                </button>
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                  <ArrowDownTrayIcon className="h-4 w-4 mr-2 inline" />
-                  Download PDF
-                </button>
-                {selectedInvoice.status !== 'paid' && (
-                  <button
-                    onClick={() => handlePayInvoice(selectedInvoice.id)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                  >
-                    <CreditCardIcon className="h-4 w-4 mr-2 inline" />
-                    Pay Now
-                  </button>
-                )}
-              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end space-x-3 bg-gray-50 -mx-5 -mb-5 px-5 py-4">
+              <button
+                onClick={() => setSelectedInvoice(null)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedInvoice) {
+                    handleDownloadPDF(selectedInvoice.id, selectedInvoice.number);
+                  }
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+                Download PDF
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedInvoice && selectedInvoice.status !== 'paid') {
+                    handlePayInvoice(selectedInvoice.id);
+                  }
+                }}
+                disabled={selectedInvoice.status === 'paid'}
+                className={`px-4 py-2 rounded-md flex items-center ${
+                  selectedInvoice.status === 'paid'
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                <CreditCardIcon className="h-4 w-4 mr-2" />
+                Pay Now
+              </button>
             </div>
           </div>
         </div>

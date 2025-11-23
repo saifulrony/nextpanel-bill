@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List, Optional
 from datetime import datetime, timedelta
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
@@ -13,6 +14,7 @@ from app.models import Order, OrderStatus, User, Domain, DomainStatus, License, 
 from pydantic import BaseModel, Field
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 async def generate_invoice_number(db: AsyncSession) -> str:
@@ -764,6 +766,20 @@ async def void_order(
     return {"message": "Order voided", "order_id": order.id}
 
 
+@router.options("/{order_id}/pdf")
+async def download_order_pdf_options(order_id: str):
+    """Handle OPTIONS preflight request for PDF download"""
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
 @router.get("/{order_id}/pdf")
 async def download_order_pdf(
     order_id: str,
@@ -790,36 +806,102 @@ async def download_order_pdf(
     if not user.is_admin and order.customer_id != user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # For now, return a simple text response
-    # In production, you would generate a PDF using a library like reportlab or weasyprint
+    # Generate PDF using invoice service
     from fastapi.responses import Response
+    from app.services.invoice_service import InvoiceService
+    from app.models import InvoiceStatus
+    from datetime import datetime, timedelta
     
-    pdf_content = f"""
-    ORDER INVOICE
-    =============
+    # Convert order to invoice format for PDF generation
+    # Create a minimal invoice-like object that InvoiceService can use
+    class OrderInvoice:
+        def __init__(self, order):
+            self.id = order.id
+            self.invoice_number = order.invoice_number or order.order_number or f"ORD-{order.id[:8]}"
+            self.user_id = order.customer_id
+            self.status = InvoiceStatus.OPEN if order.status.value == 'pending' else InvoiceStatus.PAID
+            self.subtotal = order.subtotal
+            self.tax = order.tax
+            self.total = order.total
+            self.discount_amount = 0
+            self.discount_percent = 0
+            self.tax_rate = 0
+            self.amount_paid = order.total if order.status.value == 'completed' else 0
+            self.amount_due = order.total if order.status.value != 'completed' else 0
+            self.customer_po_number = None
+            self.notes = None
+            self.terms = None
+            self.payment_instructions = None
+            self.invoice_date = order.created_at
+            self.created_at = order.created_at
+            self.due_date = order.due_date or (order.created_at + timedelta(days=30) if isinstance(order.created_at, datetime) else datetime.utcnow() + timedelta(days=30))
+            self.billing_address = order.billing_info.get('billing_address', {}) if order.billing_info else {}
+            # Convert order items to invoice items format
+            self.items = []
+            for item in (order.items or []):
+                self.items.append({
+                    'description': item.get('product_name', item.get('description', 'Item')),
+                    'quantity': item.get('quantity', 1),
+                    'unit_price': item.get('price', 0),
+                    'amount': item.get('price', 0) * item.get('quantity', 1)
+                })
     
-    Order ID: {order.id}
-    Date: {order.created_at}
+    order_invoice = OrderInvoice(order)
     
-    Items:
-    """
+    # Generate PDF
+    invoice_service = InvoiceService()
     
-    for item in order.items:
-        pdf_content += f"- {item.get('description', 'Item')}: ${item.get('price', 0)}\n"
+    # Company info for PDF header
+    company_info = {
+        'name': 'NextPanel Billing',
+        'address': '123 Business Street',
+        'city': 'Tech City',
+        'state': 'TC',
+        'zip': '12345',
+        'phone': '+1 (555) 123-4567',
+        'email': 'billing@nextpanel.com'
+    }
     
-    pdf_content += f"""
-    Subtotal: ${order.subtotal}
-    Tax: ${order.tax}
-    Total: ${order.total}
-    """
-    
-    return Response(
-        content=pdf_content,
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": f"attachment; filename=order-{order.id}.txt"
-        }
-    )
+    try:
+        logger.info(f"Generating PDF for order {order_id}, invoice {order_invoice.invoice_number}")
+        logger.info(f"User info: id={user.id}, email={getattr(user, 'email', 'N/A')}, full_name={getattr(user, 'full_name', 'N/A')}")
+        logger.info(f"Order info: id={order.id}, customer_id={order.customer_id}, items_count={len(order.items or [])}")
+        
+        pdf_content = await invoice_service.generate_pdf(order_invoice, user, company_info)
+        
+        if not pdf_content or len(pdf_content) == 0:
+            logger.error("PDF generation returned empty content")
+            raise HTTPException(status_code=500, detail="PDF generation returned empty content")
+        
+        logger.info(f"PDF generated successfully, size: {len(pdf_content)} bytes")
+        
+        # Add CORS headers explicitly for PDF response
+        # Note: CORS middleware should handle this, but we set explicit headers for blob responses
+        response = Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=invoice-{order_invoice.invoice_number}.pdf",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Expose-Headers": "Content-Disposition, Content-Type",
+            }
+        )
+        return response
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is (they'll be handled by the exception handler)
+        raise
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}", exc_info=True)
+        logger.error(f"Error type: {type(e).__name__}", exc_info=True)
+        # Return proper error response instead of fallback text
+        # The exception handler in main.py will add CORS headers
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate PDF: {str(e)}"
+        )
 
 
 @router.post("/{order_id}/send")
