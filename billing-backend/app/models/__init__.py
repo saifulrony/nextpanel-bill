@@ -78,6 +78,7 @@ class User(Base):
     phone = Column(String(50))
     company = Column(String(255))
     stripe_customer_id = Column(String(255), unique=True)
+    account_balance = Column(Float, default=0.0)  # Account balance for pre-loaded funds
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

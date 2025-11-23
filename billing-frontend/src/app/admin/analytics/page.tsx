@@ -3,7 +3,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
-import { RevenueWaveChart, OrdersWaveChart } from '@/components/analytics/RevenueChart';
+import dynamic from 'next/dynamic';
+
+// Dynamically import charts to prevent @mui/x-charts conflicts
+const RevenueColumnChart = dynamic(
+  () => import('@/components/analytics/RevenueChart').then(mod => ({ default: mod.RevenueColumnChart })),
+  { ssr: false }
+);
+
+const OrdersColumnChart = dynamic(
+  () => import('@/components/analytics/RevenueChart').then(mod => ({ default: mod.OrdersColumnChart })),
+  { ssr: false }
+);
 import {
   ArrowUpIcon,
   ArrowDownIcon,
@@ -338,68 +349,42 @@ export default function AnalyticsPage() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Trend */}
+        {/* Revenue Trend Column Chart */}
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Revenue Trend
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              ({timePeriod === 'today' ? 'Today' : timePeriod === 'yesterday' ? 'Yesterday' : 
-                timePeriod === 'week' ? 'Last 7 Days' : timePeriod === 'month' ? 'Last 30 Days' : 
-                timePeriod === 'year' ? 'Last 12 Months' : 'Custom Period'})
-            </span>
-          </h3>
-          <div className="space-y-3">
-            {chartData.map((item, index) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{item.name}</span>
-                <div className="flex items-center space-x-3">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-purple-600 h-2 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${Math.min((item.revenue / Math.max(...chartData.map(d => d.revenue))) * 100, 100)}%` 
-                      }}
-                    ></div>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900 w-16 text-right">
-                    ${item.revenue}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          {!isLoading && chartData && Array.isArray(chartData) && chartData.length > 0 ? (
+            <div suppressHydrationWarning>
+              <RevenueColumnChart
+                data={chartData}
+                title={`Revenue Trend (${timePeriod === 'today' ? 'Today' : timePeriod === 'yesterday' ? 'Yesterday' : 
+                  timePeriod === 'week' ? 'Last 7 Days' : timePeriod === 'month' ? 'Last 30 Days' : 
+                  timePeriod === 'year' ? 'Last 12 Months' : 'Custom Period'})`}
+                height={350}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              {isLoading ? 'Loading chart data...' : 'No data available'}
+            </div>
+          )}
         </div>
 
-        {/* Orders Trend */}
+        {/* Orders Trend Column Chart */}
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Orders Trend
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              ({timePeriod === 'today' ? 'Today' : timePeriod === 'yesterday' ? 'Yesterday' : 
-                timePeriod === 'week' ? 'Last 7 Days' : timePeriod === 'month' ? 'Last 30 Days' : 
-                timePeriod === 'year' ? 'Last 12 Months' : 'Custom Period'})
-            </span>
-          </h3>
-          <div className="space-y-3">
-            {chartData.map((item, index) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{item.name}</span>
-                <div className="flex items-center space-x-3">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${Math.min((item.orders / Math.max(...chartData.map(d => d.orders))) * 100, 100)}%` 
-                      }}
-                    ></div>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900 w-12 text-right">
-                    {item.orders}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          {!isLoading && chartData && Array.isArray(chartData) && chartData.length > 0 ? (
+            <div suppressHydrationWarning>
+              <OrdersColumnChart
+                data={chartData}
+                title={`Orders Trend (${timePeriod === 'today' ? 'Today' : timePeriod === 'yesterday' ? 'Yesterday' : 
+                  timePeriod === 'week' ? 'Last 7 Days' : timePeriod === 'month' ? 'Last 30 Days' : 
+                  timePeriod === 'year' ? 'Last 12 Months' : 'Custom Period'})`}
+                height={350}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              {isLoading ? 'Loading chart data...' : 'No data available'}
+            </div>
+          )}
         </div>
       </div>
 

@@ -26,13 +26,22 @@ export default function AdminProtectedRoute({ children }: { children: React.Reac
       // Check if user is admin
       const isAdmin = (user as any)?.is_admin === true;
       
+      console.log('AdminProtectedRoute - User check:', {
+        isAuthenticated,
+        isLoading,
+        user: user ? { id: user.id, email: user.email, is_admin: (user as any)?.is_admin } : null,
+        isAdmin
+      });
+      
       if (isAdmin) {
         setShouldRender(true);
         hasRedirected.current = false;
-      } else if (!hasRedirected.current) {
+        setRedirecting(false);
+      } else if (!hasRedirected.current && user) {
         // User is authenticated but not admin - redirect to customer dashboard
         hasRedirected.current = true;
         setRedirecting(true);
+        console.log('User is not admin, redirecting to customer dashboard. User object:', user);
         router.replace('/customer/dashboard');
       }
     }

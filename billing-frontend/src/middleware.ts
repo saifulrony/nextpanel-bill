@@ -46,41 +46,21 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Check if user is trying to access admin routes
+  // Admin routes are protected by client-side AdminProtectedRoute component
+  // We don't block them here to allow the client-side auth check to work properly
+  // The AdminProtectedRoute will redirect non-admin users to /customer/dashboard
   if (pathname.startsWith('/admin')) {
-    const token = request.cookies.get('auth_token')?.value || 
+    // Just check if there's a token - let client-side handle admin verification
+    const token = request.cookies.get('access_token')?.value || 
                   request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (!token) {
+      // No token - redirect to login
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    try {
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-      
-      // Check if token is expired
-      if (decoded.exp && Date.now() / 1000 > decoded.exp) {
-        return NextResponse.redirect(new URL('/login', request.url));
-      }
-      
-      // Check if it's an admin token
-      if (decoded.userType !== 'admin') {
-        return NextResponse.redirect(new URL('/login', request.url));
-      }
-
-      const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('x-user-id', decoded.userId);
-      requestHeaders.set('x-user-email', decoded.email);
-      requestHeaders.set('x-user-type', decoded.userType);
-
-      return NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      });
-    } catch (error) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+    // Token exists - let client-side AdminProtectedRoute handle admin verification
+    return NextResponse.next();
   }
 
   return NextResponse.next();

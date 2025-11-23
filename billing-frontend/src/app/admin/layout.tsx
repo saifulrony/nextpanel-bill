@@ -317,27 +317,8 @@ export default function DashboardLayout({
     return <AdminProtectedRoute>{children}</AdminProtectedRoute>;
   }
 
-  // Check if user is admin
-  const isAdmin = (user as any)?.is_admin === true;
-
-  // If user is not admin, redirect to customer dashboard
-  useEffect(() => {
-    if (!isLoading && user && !isAdmin) {
-      router.replace('/customer/dashboard');
-    }
-  }, [isLoading, user, isAdmin, router]);
-
-  // Show loading while checking or redirecting
-  if (!isLoading && user && !isAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
+  // Admin protection is handled by AdminProtectedRoute component
+  // No need for additional checks here
 
   return (
     <AdminProtectedRoute>

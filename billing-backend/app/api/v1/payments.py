@@ -283,20 +283,37 @@ async def get_payment_history(
     )
     payments = result.scalars().all()
     
-    return [
-        PaymentHistoryResponse(
-            id=payment.id,
-            order_id=payment.order_id,
-            amount=payment.amount,
-            currency=payment.currency,
-            status=payment.status.value,
-            payment_method=payment.payment_method,
-            gateway_transaction_id=payment.gateway_transaction_id,
-            created_at=payment.created_at,
-            failure_reason=payment.gateway_response.get("failure_reason") if payment.gateway_response else None
+    result_list = []
+    for payment in payments:
+        # Safely extract failure_reason from gateway_response
+        failure_reason = None
+        if payment.gateway_response:
+            try:
+                # gateway_response is a JSON column, might be dict or string
+                if isinstance(payment.gateway_response, dict):
+                    failure_reason = payment.gateway_response.get("failure_reason")
+                elif isinstance(payment.gateway_response, str):
+                    gateway_data = json.loads(payment.gateway_response)
+                    failure_reason = gateway_data.get("failure_reason") if isinstance(gateway_data, dict) else None
+            except (AttributeError, TypeError, json.JSONDecodeError) as e:
+                logger.warning(f"Error parsing gateway_response for payment {payment.id}: {e}")
+                failure_reason = None
+        
+        result_list.append(
+            PaymentHistoryResponse(
+                id=payment.id,
+                order_id=payment.order_id,
+                amount=payment.amount,
+                currency=payment.currency,
+                status=payment.status.value,
+                payment_method=payment.payment_method,
+                gateway_transaction_id=payment.gateway_transaction_id,
+                created_at=payment.created_at,
+                failure_reason=failure_reason
+            )
         )
-        for payment in payments
-    ]
+    
+    return result_list
 
 
 @router.post("/retry/{payment_id}")
@@ -588,20 +605,37 @@ async def list_payments(
     result = await db.execute(query)
     payments = result.scalars().all()
     
-    return [
-        PaymentHistoryResponse(
-            id=payment.id,
-            order_id=payment.order_id,
-            amount=payment.amount,
-            currency=payment.currency,
-            status=payment.status.value,
-            payment_method=payment.payment_method,
-            gateway_transaction_id=payment.gateway_transaction_id,
-            created_at=payment.created_at,
-            failure_reason=payment.gateway_response.get("failure_reason") if payment.gateway_response else None
+    result_list = []
+    for payment in payments:
+        # Safely extract failure_reason from gateway_response
+        failure_reason = None
+        if payment.gateway_response:
+            try:
+                # gateway_response is a JSON column, might be dict or string
+                if isinstance(payment.gateway_response, dict):
+                    failure_reason = payment.gateway_response.get("failure_reason")
+                elif isinstance(payment.gateway_response, str):
+                    gateway_data = json.loads(payment.gateway_response)
+                    failure_reason = gateway_data.get("failure_reason") if isinstance(gateway_data, dict) else None
+            except (AttributeError, TypeError, json.JSONDecodeError) as e:
+                logger.warning(f"Error parsing gateway_response for payment {payment.id}: {e}")
+                failure_reason = None
+        
+        result_list.append(
+            PaymentHistoryResponse(
+                id=payment.id,
+                order_id=payment.order_id,
+                amount=payment.amount,
+                currency=payment.currency,
+                status=payment.status.value,
+                payment_method=payment.payment_method,
+                gateway_transaction_id=payment.gateway_transaction_id,
+                created_at=payment.created_at,
+                failure_reason=failure_reason
+            )
         )
-        for payment in payments
-    ]
+    
+    return result_list
 
 
 @router.get("/{payment_id}", response_model=PaymentHistoryResponse)
@@ -626,6 +660,21 @@ async def get_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     
+    # Safely extract failure_reason from gateway_response
+    failure_reason = None
+    if payment.gateway_response:
+        try:
+            # gateway_response is a JSON column, might be dict or string
+            if isinstance(payment.gateway_response, dict):
+                failure_reason = payment.gateway_response.get("failure_reason")
+            elif isinstance(payment.gateway_response, str):
+                import json
+                gateway_data = json.loads(payment.gateway_response)
+                failure_reason = gateway_data.get("failure_reason") if isinstance(gateway_data, dict) else None
+        except (AttributeError, TypeError, json.JSONDecodeError) as e:
+            logger.warning(f"Error parsing gateway_response for payment {payment.id}: {e}")
+            failure_reason = None
+    
     return PaymentHistoryResponse(
         id=payment.id,
         order_id=payment.order_id,
@@ -635,5 +684,5 @@ async def get_payment(
         payment_method=payment.payment_method,
         gateway_transaction_id=payment.gateway_transaction_id,
         created_at=payment.created_at,
-        failure_reason=payment.gateway_response.get("failure_reason") if payment.gateway_response else None
+        failure_reason=failure_reason
     )

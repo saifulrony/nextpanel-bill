@@ -27,6 +27,16 @@ const nextConfig = {
         aggregateTimeout: 300,
       }
     }
+    
+    // @mui/x-charts has been uninstalled, but keep this as a safeguard
+    // in case it gets reinstalled accidentally
+    const webpack = require('webpack');
+    config.plugins.push(
+      new webpack.IgnorePlugin({
+        resourceRegExp: /^@mui\/x-charts/,
+      })
+    );
+    
     return config
   },
   // Enable fast refresh

@@ -681,6 +681,21 @@ export const customerBillingAPI = {
     return response.data;
   },
 
+  // Get account balance
+  getAccountBalance: async () => {
+    const response = await api.get('/customer/billing/balance');
+    return response.data;
+  },
+
+  // Add funds to account
+  addFunds: async (amount: number, paymentMethodId: string) => {
+    const response = await api.post('/customer/billing/add-funds', {
+      amount,
+      payment_method_id: paymentMethodId
+    });
+    return response.data;
+  },
+
   // Get billing summary
   getBillingSummary: async () => {
     const response = await api.get('/customer/billing/billing-summary');

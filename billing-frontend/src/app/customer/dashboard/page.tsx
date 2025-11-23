@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { customerDomainsAPI, customerSubscriptionsAPI, ordersAPI } from '@/lib/api';
+import { customerDomainsAPI, customerSubscriptionsAPI, ordersAPI, customerBillingAPI } from '@/lib/api';
 import {
   ShoppingCartIcon,
   CreditCardIcon,
@@ -12,6 +12,8 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
+  PlusIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 interface CustomerStats {
@@ -41,6 +43,12 @@ export default function CustomerDashboard() {
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accountBalance, setAccountBalance] = useState<number>(0);
+  const [showAddFundsModal, setShowAddFundsModal] = useState(false);
+  const [fundAmount, setFundAmount] = useState<string>('');
+  const [addingFunds, setAddingFunds] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
 
   useEffect(() => {
     const loadCustomerData = async () => {
@@ -48,10 +56,12 @@ export default function CustomerDashboard() {
         setLoading(true);
         
         // Fetch real data from APIs
-        const [domainsResponse, subscriptionsResponse, ordersResponse] = await Promise.all([
+        const [domainsResponse, subscriptionsResponse, ordersResponse, balanceResponse, paymentMethodsResponse] = await Promise.all([
           customerDomainsAPI.list().catch(() => ({ data: [] })),
           customerSubscriptionsAPI.getHosting().catch(() => []),
-          ordersAPI.list().catch(() => ({ data: [] }))
+          ordersAPI.list().catch(() => ({ data: [] })),
+          customerBillingAPI.getAccountBalance().catch(() => ({ balance: 0 })),
+          customerBillingAPI.getPaymentMethods().catch(() => [])
         ]);
 
         const domains = domainsResponse.data || [];
@@ -92,6 +102,14 @@ export default function CustomerDashboard() {
           }));
 
         setRecentActivity(recentActivity);
+        setAccountBalance(balanceResponse.balance || 0);
+        const methods = paymentMethodsResponse || [];
+        setPaymentMethods(methods);
+        // Set default payment method
+        if (methods.length > 0) {
+          const defaultMethod = methods.find(m => m.is_default) || methods[0];
+          setSelectedPaymentMethodId(defaultMethod.id);
+        }
 
       } catch (error) {
         console.error('Error loading customer data:', error);
@@ -159,6 +177,81 @@ export default function CustomerDashboard() {
           <p className="mt-1 text-sm text-gray-500">
             Here's what's happening with your services today.
           </p>
+        </div>
+      </div>
+
+      {/* Account Overview */}
+      <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Overview</h2>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Account Balance */}
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-6 border border-indigo-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-indigo-600">Account Balance</p>
+                  <p className="text-3xl font-bold text-indigo-900 mt-2">
+                    ${accountBalance.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-indigo-500 mt-1">Available for payments</p>
+                </div>
+                <div className="flex-shrink-0">
+                  <CreditCardIcon className="h-12 w-12 text-indigo-400" />
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddFundsModal(true)}
+                className="mt-4 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add Funds
+              </button>
+            </div>
+
+            {/* Pending Invoices */}
+            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-6 border border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-600">Pending Invoices</p>
+                  <p className="text-3xl font-bold text-yellow-900 mt-2">
+                    {stats.pendingInvoices}
+                  </p>
+                  <p className="text-xs text-yellow-500 mt-1">Require attention</p>
+                </div>
+                <div className="flex-shrink-0">
+                  <ExclamationTriangleIcon className="h-12 w-12 text-yellow-400" />
+                </div>
+              </div>
+              <a
+                href="/customer/invoices"
+                className="mt-4 w-full inline-flex items-center justify-center px-4 py-2 border border-yellow-300 text-sm font-medium rounded-md shadow-sm text-yellow-700 bg-white hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+              >
+                View Invoices
+              </a>
+            </div>
+
+            {/* Active Services */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600">Active Services</p>
+                  <p className="text-3xl font-bold text-green-900 mt-2">
+                    {stats.activeSubscriptions + stats.totalDomains}
+                  </p>
+                  <p className="text-xs text-green-500 mt-1">Subscriptions & Domains</p>
+                </div>
+                <div className="flex-shrink-0">
+                  <CubeIcon className="h-12 w-12 text-green-400" />
+                </div>
+              </div>
+              <a
+                href="/customer/my-services"
+                className="mt-4 w-full inline-flex items-center justify-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md shadow-sm text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                Manage Services
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -373,6 +466,131 @@ export default function CustomerDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Funds Modal */}
+      {showAddFundsModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Add Funds</h3>
+                <button
+                  onClick={() => {
+                    setShowAddFundsModal(false);
+                    setFundAmount('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount to Add
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={fundAmount}
+                    onChange={(e) => setFundAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Minimum amount: $1.00
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Method
+                </label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  value={selectedPaymentMethodId}
+                  onChange={(e) => setSelectedPaymentMethodId(e.target.value)}
+                >
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods.map((method) => (
+                      <option key={method.id} value={method.id}>
+                        {method.brand} •••• {method.last4} {method.is_default ? '(Default)' : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No payment methods available</option>
+                  )}
+                </select>
+                {paymentMethods.length === 0 && (
+                  <p className="mt-2 text-xs text-red-500">
+                    Please add a payment method first.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowAddFundsModal(false);
+                    setFundAmount('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                  disabled={addingFunds}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const amount = parseFloat(fundAmount);
+                    if (!amount || amount < 1) {
+                      alert('Please enter a valid amount (minimum $1.00)');
+                      return;
+                    }
+                    
+                    if (paymentMethods.length === 0) {
+                      alert('Please add a payment method first');
+                      return;
+                    }
+
+                    if (!selectedPaymentMethodId) {
+                      alert('Please select a payment method');
+                      return;
+                    }
+
+                    setAddingFunds(true);
+                    try {
+                      await customerBillingAPI.addFunds(amount, selectedPaymentMethodId);
+                      
+                      // Refresh balance
+                      const balanceResponse = await customerBillingAPI.getAccountBalance();
+                      setAccountBalance(balanceResponse.balance || 0);
+                      
+                      setShowAddFundsModal(false);
+                      setFundAmount('');
+                      alert(`Successfully added $${amount.toFixed(2)} to your account!`);
+                    } catch (error: any) {
+                      console.error('Failed to add funds:', error);
+                      console.error('Error response:', error.response?.data);
+                      const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || 'Failed to add funds. Please try again.';
+                      alert(`Failed to add funds: ${errorMessage}`);
+                    } finally {
+                      setAddingFunds(false);
+                    }
+                  }}
+                  disabled={addingFunds || paymentMethods.length === 0}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {addingFunds ? 'Processing...' : 'Add Funds'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

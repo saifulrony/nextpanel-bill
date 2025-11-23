@@ -3,14 +3,22 @@ Customer Invoice Management API
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, desc
+from sqlalchemy import select, and_, or_, desc, func, update
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import logging
 
 from ...core.database import get_db
 from ...core.security import get_current_user_id
-from ...models import Invoice, Payment, User, Order
+from ...models import Invoice, Payment, User, Order, PaymentStatus
 from ...schemas import InvoiceResponse, PaymentResponse
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+class AddFundsRequest(BaseModel):
+    amount: float
+    payment_method_id: str
 
 router = APIRouter()
 
@@ -313,3 +321,126 @@ async def pay_invoice(
         print(f"Error processing payment: {e}")
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to process payment")
+
+@router.get("/balance")
+async def get_account_balance(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get account balance for the current customer"""
+    try:
+        # Get user
+        user_query = select(User).where(User.id == user_id)
+        user_result = await db.execute(user_query)
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get balance from user account_balance field, or calculate from payments if field doesn't exist
+        if hasattr(user, 'account_balance') and user.account_balance is not None:
+            balance = float(user.account_balance) or 0.0
+        else:
+            # Fallback: Calculate balance from successful payments (fund additions)
+            payments_query = select(func.sum(Payment.amount)).where(
+                and_(
+                    Payment.user_id == user_id,
+                    Payment.status == PaymentStatus.SUCCEEDED,
+                    Payment.description.like('%Account fund addition%')
+                )
+            )
+            payments_result = await db.execute(payments_query)
+            balance = float(payments_result.scalar() or 0.0)
+        
+        return {
+            "balance": balance,
+            "currency": "USD"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching account balance: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch account balance")
+
+@router.post("/add-funds")
+async def add_funds(
+    request: AddFundsRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Add funds to customer account balance"""
+    try:
+        amount = request.amount
+        payment_method_id = request.payment_method_id
+        
+        # Validate amount
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
+        if amount < 1.0:
+            raise HTTPException(status_code=400, detail="Minimum amount is $1.00")
+        
+        # Get user
+        user_query = select(User).where(User.id == user_id)
+        user_result = await db.execute(user_query)
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get current balance (default to 0 if not set)
+        current_balance = getattr(user, 'account_balance', 0.0) or 0.0
+        new_balance = float(current_balance) + amount
+        
+        # Create a payment record for the fund addition
+        # Note: invoice_id is optional, so we can create a payment without an invoice for fund additions
+        payment = Payment(
+            user_id=user_id,
+            amount=amount,
+            currency="USD",
+            status=PaymentStatus.SUCCEEDED,
+            payment_method="card",
+            payment_method_id=payment_method_id,
+            description=f"Account fund addition: ${amount:.2f}",
+            processed_at=datetime.now(timezone.utc)
+        )
+        
+        db.add(payment)
+        
+        # Update user balance using SQL update to ensure it's saved
+        # This ensures the balance is updated even if SQLAlchemy doesn't detect the change
+        update_stmt = update(User).where(User.id == user_id).values(account_balance=new_balance)
+        await db.execute(update_stmt)
+        
+        logger.info(f"Updating user {user_id} account_balance from {current_balance} to {new_balance}")
+        
+        # Commit both payment and user balance update together
+        try:
+            await db.commit()
+            await db.refresh(payment)
+            await db.refresh(user)
+            logger.info(f"Committed payment and balance update. User balance after refresh: {user.account_balance}")
+        except Exception as e:
+            logger.error(f"Error committing payment: {e}", exc_info=True)
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to save payment: {str(e)}")
+        
+        # Get updated balance from refreshed user object
+        updated_balance = float(user.account_balance) if user.account_balance is not None else float(new_balance)
+        
+        return {
+            "message": "Funds added successfully",
+            "amount_added": amount,
+            "previous_balance": float(current_balance),
+            "new_balance": float(updated_balance),
+            "payment_id": payment.id,
+            "status": "success"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding funds: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to add funds: {str(e)}")

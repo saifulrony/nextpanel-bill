@@ -63,6 +63,10 @@ export default function BillingPage() {
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showAddFundsModal, setShowAddFundsModal] = useState(false);
+  const [fundAmount, setFundAmount] = useState<string>('');
+  const [accountBalance, setAccountBalance] = useState<number>(0);
+  const [addingFunds, setAddingFunds] = useState(false);
 
   useEffect(() => {
     const loadBillingData = async () => {
@@ -71,15 +75,17 @@ export default function BillingPage() {
         setError(null);
         
         // Load billing data
-        const [invoicesResponse, paymentMethodsResponse, summaryResponse] = await Promise.all([
+        const [invoicesResponse, paymentMethodsResponse, summaryResponse, balanceResponse] = await Promise.all([
           customerBillingAPI.getInvoices({ due_only: showDueOnly }),
           customerBillingAPI.getPaymentMethods(),
-          customerBillingAPI.getBillingSummary()
+          customerBillingAPI.getBillingSummary(),
+          customerBillingAPI.getAccountBalance().catch(() => ({ balance: 0 }))
         ]);
         
         setInvoices(invoicesResponse);
         setPaymentMethods(paymentMethodsResponse);
         setBillingSummary(summaryResponse);
+        setAccountBalance(balanceResponse.balance || 0);
         
       } catch (err) {
         console.error('Failed to load billing data:', err);
@@ -182,6 +188,32 @@ export default function BillingPage() {
           <p className="mt-1 text-sm text-gray-500">
             Manage your invoices, payment methods, and billing history.
           </p>
+        </div>
+      </div>
+
+      {/* Account Balance & Add Funds */}
+      <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Account Balance</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Pre-load funds to your account for faster payments
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-indigo-600">
+                ${accountBalance.toFixed(2)}
+              </div>
+              <button
+                onClick={() => setShowAddFundsModal(true)}
+                className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add Funds
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -477,6 +509,133 @@ export default function BillingPage() {
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
                   Pay Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Funds Modal */}
+      {showAddFundsModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Add Funds</h3>
+                <button
+                  onClick={() => {
+                    setShowAddFundsModal(false);
+                    setFundAmount('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount to Add
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={fundAmount}
+                    onChange={(e) => setFundAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Minimum amount: $1.00
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Method
+                </label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  defaultValue={paymentMethods.find(m => m.is_default)?.id || paymentMethods[0]?.id || ''}
+                >
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods.map((method) => (
+                      <option key={method.id} value={method.id}>
+                        {method.brand} •••• {method.last4} {method.is_default ? '(Default)' : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No payment methods available</option>
+                  )}
+                </select>
+                {paymentMethods.length === 0 && (
+                  <p className="mt-2 text-xs text-red-500">
+                    Please add a payment method first.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowAddFundsModal(false);
+                    setFundAmount('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                  disabled={addingFunds}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const amount = parseFloat(fundAmount);
+                    if (!amount || amount < 1) {
+                      alert('Please enter a valid amount (minimum $1.00)');
+                      return;
+                    }
+                    
+                    if (paymentMethods.length === 0) {
+                      alert('Please add a payment method first');
+                      return;
+                    }
+
+                    const select = document.querySelector('select') as HTMLSelectElement;
+                    const paymentMethodId = select?.value;
+                    
+                    if (!paymentMethodId) {
+                      alert('Please select a payment method');
+                      return;
+                    }
+
+                    setAddingFunds(true);
+                    try {
+                      await customerBillingAPI.addFunds(amount, paymentMethodId);
+                      
+                      // Refresh balance
+                      const balanceResponse = await customerBillingAPI.getAccountBalance();
+                      setAccountBalance(balanceResponse.balance || 0);
+                      
+                      setShowAddFundsModal(false);
+                      setFundAmount('');
+                      alert(`Successfully added $${amount.toFixed(2)} to your account!`);
+                    } catch (error: any) {
+                      console.error('Failed to add funds:', error);
+                      console.error('Error response:', error.response?.data);
+                      const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || 'Failed to add funds. Please try again.';
+                      alert(`Failed to add funds: ${errorMessage}`);
+                    } finally {
+                      setAddingFunds(false);
+                    }
+                  }}
+                  disabled={addingFunds || paymentMethods.length === 0}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {addingFunds ? 'Processing...' : 'Add Funds'}
                 </button>
               </div>
             </div>

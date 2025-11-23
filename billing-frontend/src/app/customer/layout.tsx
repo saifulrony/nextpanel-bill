@@ -40,8 +40,8 @@ const customerNavigation = [
       { name: 'Others', href: '/customer/my-services/others', icon: CubeIcon },
     ]
   },
-  { name: 'Billing', href: '/customer/billing', icon: CreditCardIcon },
   { name: 'Invoices', href: '/customer/invoices', icon: DocumentTextIcon },
+  { name: 'Billing', href: '/customer/billing', icon: CreditCardIcon },
   { name: 'Support', href: '/customer/support', icon: LifebuoyIcon },
   { name: 'Settings', href: '/customer/settings', icon: Cog6ToothIcon },
 ];
