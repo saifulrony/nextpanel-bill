@@ -107,39 +107,61 @@ async def provision_services_from_order(order: Order, db: AsyncSession):
                     db.add(plan)
                     await db.flush()  # Get the plan ID
                 
-                # Generate secure license key with cryptographic signature
-                from app.core.license_security import license_security
-                license_key, encrypted_secret = license_security.generate_secure_license_key(
-                    order.customer_id, plan.id
-                )
+                # Generate secure license key
+                try:
+                    from app.core.license_security import license_security
+                    license_key, encrypted_secret = license_security.generate_secure_license_key(
+                        order.customer_id, plan.id
+                    )
+                except Exception as e:
+                    print(f"Warning: Could not generate secure license key, using simple key: {e}")
+                    # Fallback to simple license key if license_security is not available
+                    import secrets
+                    license_key = f"NP-{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}"
+                    encrypted_secret = None
                 
                 # Create license record for hosting/service
-                license = License(
-                    user_id=order.customer_id,
-                    plan_id=plan.id,
-                    license_key=license_key,
-                    encrypted_secret=encrypted_secret,
-                    status='active',
-                    max_accounts=plan.max_accounts or 1,
-                    max_domains=plan.max_domains or 1,
-                    max_databases=plan.max_databases or 1,
-                    max_emails=plan.max_emails or 1,
-                    current_accounts=0,
-                    current_domains=0,
-                    current_databases=0,
-                    current_emails=0,
-                    activation_date=datetime.utcnow(),
-                    expiry_date=datetime.utcnow() + timedelta(days=365),  # 1 year
-                    auto_renew=True
-                )
+                # Build license data
+                license_kwargs = {
+                    'user_id': order.customer_id,
+                    'plan_id': plan.id,
+                    'license_key': license_key,
+                    'status': 'active',
+                    'max_accounts': plan.max_accounts or 1,
+                    'max_domains': plan.max_domains or 1,
+                    'max_databases': plan.max_databases or 1,
+                    'max_emails': plan.max_emails or 1,
+                    'current_accounts': 0,
+                    'current_domains': 0,
+                    'current_databases': 0,
+                    'current_emails': 0,
+                    'activation_date': datetime.utcnow(),
+                    'expiry_date': datetime.utcnow() + timedelta(days=365),  # 1 year
+                    'auto_renew': True
+                }
+                
+                # Add encrypted_secret if available (column should exist after migration)
+                if encrypted_secret is not None:
+                    license_kwargs['encrypted_secret'] = encrypted_secret
+                
+                # Create license
+                license = License(**license_kwargs)
                 db.add(license)
                 print(f"Created license for: {product_name}")
         
         await db.commit()
-        print(f"Successfully provisioned services for order {order.id}")
+        order_id = str(order.id) if hasattr(order, 'id') and order.id else 'unknown'
+        print(f"Successfully provisioned services for order {order_id}")
         
     except Exception as e:
-        print(f"Error provisioning services for order {order.id}: {e}")
+        # Get order ID safely before any rollback
+        order_id = str(order.id) if hasattr(order, 'id') and order.id else 'unknown'
+        print(f"Error provisioning services for order {order_id}: {e}")
+        # Rollback any partial changes
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         # Don't raise the exception to avoid breaking the order creation
 
 
@@ -255,93 +277,118 @@ async def create_order(
 ):
     """Create a new order"""
     from datetime import timedelta
+    import logging
     
-    # Verify customer exists and matches authenticated user
-    result = await db.execute(select(User).where(User.id == order_data.customer_id))
-    customer = result.scalars().first()
+    logger = logging.getLogger(__name__)
     
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    # Ensure the authenticated user is the same as the customer_id
-    if user_id != order_data.customer_id:
-        raise HTTPException(status_code=403, detail="You can only create orders for yourself")
-    
-    # Calculate due date based on billing period
-    due_date = None
-    if order_data.due_date:
-        # If due date is provided, use it
-        try:
-            due_date = datetime.fromisoformat(order_data.due_date.replace('Z', '+00:00'))
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid due_date format")
-    elif order_data.billing_period:
+    try:
+        # Verify customer exists and matches authenticated user
+        result = await db.execute(select(User).where(User.id == order_data.customer_id))
+        customer = result.scalars().first()
+        
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        # Ensure the authenticated user is the same as the customer_id
+        if user_id != order_data.customer_id:
+            raise HTTPException(status_code=403, detail="You can only create orders for yourself")
+        
         # Calculate due date based on billing period
-        now = datetime.utcnow()
-        if order_data.billing_period == 'monthly':
-            due_date = now + timedelta(days=30)
-        elif order_data.billing_period == 'yearly':
-            due_date = now + timedelta(days=365)
-        elif order_data.billing_period == 'one-time':
-            # For one-time purchases, due date is 30 days from now
-            due_date = now + timedelta(days=30)
-        else:
-            # Default to 30 days
-            due_date = now + timedelta(days=30)
-    
-    # Generate invoice number
-    invoice_number = await generate_invoice_number(db)
-    # Extract the number part from invoice (e.g., INV-0008 -> 0008)
-    invoice_num = invoice_number.split('-')[1]
-    order_number = f"ORD-{invoice_num}"
-    
-    # Create order
-    new_order = Order(
-        customer_id=order_data.customer_id,
-        status=OrderStatus.COMPLETED,
-        invoice_number=invoice_number,
-        order_number=order_number,
-        items=[item.dict() for item in order_data.items],
-        subtotal=order_data.subtotal,
-        tax=order_data.tax,
-        total=order_data.total,
-        payment_method=order_data.payment_method,
-        billing_info=order_data.billing_info,
-        billing_period=order_data.billing_period,
-        due_date=due_date
-    )
-    
-    db.add(new_order)
-    await db.commit()
-    await db.refresh(new_order)
-    
-    # Provision services based on order items
-    await provision_services_from_order(new_order, db)
-    
-    # Return order with customer details
-    return OrderResponse(
-        id=new_order.id,
-        customer_id=new_order.customer_id,
-        status=new_order.status.value,
-        invoice_number=new_order.invoice_number,
-        order_number=new_order.order_number,
-        items=new_order.items,
-        subtotal=new_order.subtotal,
-        tax=new_order.tax,
-        total=new_order.total,
-        payment_method=new_order.payment_method,
-        billing_info=new_order.billing_info,
-        billing_period=new_order.billing_period,
-        due_date=new_order.due_date,
-        created_at=new_order.created_at,
-        updated_at=new_order.updated_at,
-        customer=CustomerInfo(
-            id=customer.id,
-            email=customer.email,
-            full_name=customer.full_name,
-            company_name=customer.company_name
+        due_date = None
+        if order_data.due_date:
+            # If due date is provided, use it
+            try:
+                due_date = datetime.fromisoformat(order_data.due_date.replace('Z', '+00:00'))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid due_date format")
+        elif order_data.billing_period:
+            # Calculate due date based on billing period
+            now = datetime.utcnow()
+            if order_data.billing_period == 'monthly':
+                due_date = now + timedelta(days=30)
+            elif order_data.billing_period == 'yearly':
+                due_date = now + timedelta(days=365)
+            elif order_data.billing_period == 'one-time':
+                # For one-time purchases, due date is 30 days from now
+                due_date = now + timedelta(days=30)
+            else:
+                # Default to 30 days
+                due_date = now + timedelta(days=30)
+        
+        # Generate invoice number
+        try:
+            invoice_number = await generate_invoice_number(db)
+            # Extract the number part from invoice (e.g., INV-0008 -> 0008)
+            invoice_num = invoice_number.split('-')[1]
+            order_number = f"ORD-{invoice_num}"
+        except Exception as e:
+            logger.error(f"Error generating invoice number: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to generate invoice number: {str(e)}")
+        
+        # Create order
+        try:
+            new_order = Order(
+                customer_id=order_data.customer_id,
+                status=OrderStatus.COMPLETED,
+                invoice_number=invoice_number,
+                order_number=order_number,
+                items=[item.dict() for item in order_data.items],
+                subtotal=order_data.subtotal,
+                tax=order_data.tax,
+                total=order_data.total,
+                payment_method=order_data.payment_method,
+                billing_info=order_data.billing_info,
+                billing_period=order_data.billing_period,
+                due_date=due_date
+            )
+            
+            db.add(new_order)
+            await db.commit()
+            await db.refresh(new_order)
+        except Exception as e:
+            logger.error(f"Error creating order: {e}")
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
+        
+        # Provision services based on order items (don't fail order creation if this fails)
+        try:
+            await provision_services_from_order(new_order, db)
+        except Exception as e:
+            # Get order ID before logging (in case of session issues)
+            order_id = str(new_order.id) if hasattr(new_order, 'id') and new_order.id else 'unknown'
+            logger.error(f"Error provisioning services for order {order_id}: {e}")
+            # Don't raise the exception - order is already created, services can be provisioned later
+        
+        # Return order with customer details
+        return OrderResponse(
+            id=new_order.id,
+            customer_id=new_order.customer_id,
+            status=new_order.status.value,
+            invoice_number=new_order.invoice_number,
+            order_number=new_order.order_number,
+            items=new_order.items,
+            subtotal=new_order.subtotal,
+            tax=new_order.tax,
+            total=new_order.total,
+            payment_method=new_order.payment_method,
+            billing_info=new_order.billing_info,
+            billing_period=new_order.billing_period,
+            due_date=new_order.due_date,
+            created_at=new_order.created_at,
+            updated_at=new_order.updated_at,
+            customer=CustomerInfo(
+                id=customer.id,
+                email=customer.email,
+                full_name=customer.full_name,
+                company_name=customer.company_name
+            )
         )
-    )
+    except HTTPException:
+        # Re-raise HTTP exceptions (they already have proper status codes)
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error creating order: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.get("", response_model=List[OrderResponse])

@@ -65,7 +65,7 @@ export default function CustomerLoginPage() {
       console.log('=== CUSTOMER LOGIN SUCCESS ===');
       console.log('Auth state updated, redirecting to customer dashboard');
       // Redirect to customer dashboard after successful login
-      router.push('/customer');
+      router.push('/customer/dashboard');
     } catch (error: any) {
       console.error('=== CUSTOMER LOGIN ERROR ===');
       console.error('Error:', error);

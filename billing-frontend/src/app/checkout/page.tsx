@@ -295,7 +295,7 @@ export default function CheckoutPage() {
                   {showUserMenu && (
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                       <div className="px-4 py-2 text-sm text-gray-700 border-b">
-                        <p className="font-medium">{user?.email || 'User'}</p>
+                        <p className="font-medium text-gray-900">{user?.email || 'User'}</p>
                       </div>
                       <button
                         onClick={() => {
@@ -324,7 +324,7 @@ export default function CheckoutPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Checkout Form */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold mb-6">Billing Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Billing Information</h2>
               
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Personal Information */}
@@ -443,7 +443,7 @@ export default function CheckoutPage() {
 
                 {/* Payment Method Selection */}
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <CreditCardIcon className="h-5 w-5 mr-2" />
                     Payment Method
                   </h3>
@@ -505,22 +505,22 @@ export default function CheckoutPage() {
 
             {/* Order Summary */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
               
               <div className="space-y-4">
                 {items.map((item) => (
                   <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100">
                     <div>
-                      <h4 className="font-medium">{item.name}</h4>
+                      <h4 className="font-medium text-gray-900">{item.name}</h4>
                       <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
+                    <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>
 
               <div className="mt-6 pt-4 border-t border-gray-200">
-                <div className="flex justify-between items-center text-lg font-semibold">
+                <div className="flex justify-between items-center text-lg font-semibold text-gray-900">
                   <span>Total:</span>
                   <span>{formatPrice(getTotal())}</span>
                 </div>

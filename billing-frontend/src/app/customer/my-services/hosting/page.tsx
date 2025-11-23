@@ -50,11 +50,38 @@ export default function MyHostingPage() {
         
         // Fetch user's hosting subscriptions
         const subscriptionsResponse = await customerSubscriptionsAPI.getHosting();
-        setHostingSubscriptions(subscriptionsResponse);
         
-      } catch (err) {
+        // Handle different response structures
+        let subscriptions: HostingSubscription[] = [];
+        if (Array.isArray(subscriptionsResponse)) {
+          subscriptions = subscriptionsResponse;
+        } else if (subscriptionsResponse && Array.isArray(subscriptionsResponse.data)) {
+          subscriptions = subscriptionsResponse.data;
+        } else if (subscriptionsResponse && subscriptionsResponse.subscriptions && Array.isArray(subscriptionsResponse.subscriptions)) {
+          subscriptions = subscriptionsResponse.subscriptions;
+        } else if (subscriptionsResponse && subscriptionsResponse.items && Array.isArray(subscriptionsResponse.items)) {
+          subscriptions = subscriptionsResponse.items;
+        } else {
+          console.warn('Unexpected response structure:', subscriptionsResponse);
+          subscriptions = [];
+        }
+        
+        setHostingSubscriptions(subscriptions);
+        
+      } catch (err: any) {
         console.error('Failed to load hosting subscriptions:', err);
-        setError('Failed to load your hosting subscriptions. Please try again later.');
+        console.error('Error details:', {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+        });
+        
+        // Provide more specific error message
+        const errorMessage = err.response?.data?.detail || 
+                           err.response?.data?.message || 
+                           err.message || 
+                           'Failed to load your hosting subscriptions. Please try again later.';
+        setError(errorMessage);
         setHostingSubscriptions([]);
       } finally {
         setLoading(false);
@@ -106,8 +133,35 @@ export default function MyHostingPage() {
       <div className="space-y-6">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
-            <h1 className="text-2xl font-bold text-gray-900">My Hosting Services</h1>
-            <p className="mt-1 text-sm text-red-500">{error}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">My Hosting Services</h1>
+                <p className="mt-1 text-sm text-red-500">{error}</p>
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Show empty state even on error */}
+        <div className="text-center py-12">
+          <ServerIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No hosting subscriptions</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            You don't have any hosting subscriptions yet. Browse our hosting plans to get started.
+          </p>
+          <div className="mt-6">
+            <a
+              href="/customer/services?category=hosting"
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <ShoppingCartIcon className="h-4 w-4 mr-2" />
+              Browse Hosting Plans
+            </a>
           </div>
         </div>
       </div>

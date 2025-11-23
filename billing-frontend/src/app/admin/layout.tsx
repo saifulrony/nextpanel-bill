@@ -1,8 +1,9 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import AdminProtectedRoute from '@/components/auth/AdminProtectedRoute';
 import {
   HomeIcon,
   CreditCardIcon,
@@ -119,8 +120,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { hasModule } = useInstalledModules();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   
   // Build dynamic navigation based on installed modules
   const navigation = buildNavigation(hasModule);
@@ -312,10 +314,33 @@ export default function DashboardLayout({
 
   // If it's a full width page, render children without admin layout
   if (isFullWidthPage) {
-    return <>{children}</>;
+    return <AdminProtectedRoute>{children}</AdminProtectedRoute>;
+  }
+
+  // Check if user is admin
+  const isAdmin = (user as any)?.is_admin === true;
+
+  // If user is not admin, redirect to customer dashboard
+  useEffect(() => {
+    if (!isLoading && user && !isAdmin) {
+      router.replace('/customer/dashboard');
+    }
+  }, [isLoading, user, isAdmin, router]);
+
+  // Show loading while checking or redirecting
+  if (!isLoading && user && !isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
+    <AdminProtectedRoute>
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
@@ -521,5 +546,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </AdminProtectedRoute>
   );
 }

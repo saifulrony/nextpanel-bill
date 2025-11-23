@@ -122,6 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check user type before clearing data
     const userType = localStorage.getItem('user_type');
     
+    // Check if we're on a customer route
+    const isCustomerRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/customer');
+    
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token');
@@ -135,8 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     setAuthState({ user: null, isAuthenticated: false, isLoading: false });
     
-    // Redirect based on user type
-    if (userType === 'customer') {
+    // Redirect based on current route or user type
+    if (isCustomerRoute || userType === 'customer') {
       window.location.href = '/customer/login';
     } else {
       window.location.href = '/login';

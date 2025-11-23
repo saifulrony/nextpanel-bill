@@ -26,20 +26,9 @@ import {
 } from '@heroicons/react/24/outline';
 
 const customerNavigation = [
-  { name: 'Dashboard', href: '/customer', icon: HomeIcon },
+  { name: 'Dashboard', href: '/customer/dashboard', icon: HomeIcon },
   { name: 'Services', href: '/customer/services', icon: ShoppingCartIcon },
-  { 
-    name: 'My Services', 
-    href: '/customer/my-services', 
-    icon: CubeIcon,
-    submenu: [
-      { name: 'Domains', href: '/customer/my-services/domains', icon: GlobeAltIcon },
-      { name: 'Hosting', href: '/customer/my-services/hosting', icon: ServerIcon },
-      { name: 'Servers', href: '/customer/my-services/servers', icon: ServerIcon },
-      { name: 'Licenses', href: '/customer/my-services/licenses', icon: KeyIcon },
-      { name: 'Others', href: '/customer/my-services/others', icon: CubeIcon },
-    ]
-  },
+  { name: 'My Services', href: '/customer/my-services', icon: CubeIcon },
   { name: 'Billing', href: '/customer/billing', icon: CreditCardIcon },
   { name: 'Invoices', href: '/customer/invoices', icon: DocumentTextIcon },
   { name: 'Support', href: '/customer/support', icon: LifebuoyIcon },
@@ -197,10 +186,8 @@ export default function CustomerLayout({
 
   const handleCustomerLogout = () => {
     // Use the standard logout function
+    // It will automatically redirect to /customer/login since we're on a customer route
     logout();
-    
-    // Redirect to customer login
-    router.push('/customer/login');
   };
 
   // Show loading spinner
@@ -485,18 +472,25 @@ export default function CustomerLayout({
                 {showUserMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
                     <a
-                      href="/admin/dashboard"
+                      href="/customer/dashboard"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setShowUserMenu(false)}
                     >
-                      Admin Dashboard
+                      Dashboard
                     </a>
                     <a
-                      href="/customer/settings"
+                      href="/customer/my-services"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setShowUserMenu(false)}
                     >
-                      Settings
+                      My Services
+                    </a>
+                    <a
+                      href="/customer/invoices"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Invoices
                     </a>
                     <a
                       href="/customer/billing"
@@ -504,6 +498,21 @@ export default function CustomerLayout({
                       onClick={() => setShowUserMenu(false)}
                     >
                       Billing
+                    </a>
+                    <a
+                      href="/customer/support"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Support
+                    </a>
+                    <div className="border-t border-gray-100"></div>
+                    <a
+                      href="/customer/settings"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Settings
                     </a>
                     <div className="border-t border-gray-100"></div>
                     <button

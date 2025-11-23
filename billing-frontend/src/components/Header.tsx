@@ -238,7 +238,7 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
                   {customAuth?.userType === 'customer' ? (
                     <>
                       <a
-                        href="/customer"
+                        href="/customer/dashboard"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         onClick={() => setShowUserMenu(false)}
                       >
@@ -306,7 +306,7 @@ const renderElement = (element: HeaderElement, showUserMenu: boolean, setShowUse
                         Admin Dashboard
                       </a>
                       <a
-                        href="/customer"
+                        href="/customer/dashboard"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         onClick={() => setShowUserMenu(false)}
                       >

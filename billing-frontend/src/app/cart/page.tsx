@@ -368,7 +368,16 @@ export default function CartPage() {
               </div>
 
               <button
-                onClick={() => router.push('/checkout')}
+                onClick={() => {
+                  // Check if customer is logged in
+                  if (isAuthenticated && user) {
+                    // Customer is logged in, go to checkout
+                    router.push('/checkout');
+                  } else {
+                    // Customer is not logged in, redirect to login
+                    router.push('/customer/login');
+                  }
+                }}
                 className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition mb-4"
               >
                 Proceed to Checkout
@@ -383,7 +392,7 @@ export default function CartPage() {
 
               <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <span className="font-semibold">New customer?</span> You'll be able to create an account during checkout.
+                  <span className="font-semibold">New customer?</span> Please login or create an account to proceed with checkout.
                 </p>
               </div>
             </div>
