@@ -5,6 +5,7 @@ import { CartProvider } from '@/contexts/CartContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { DefaultPageProvider } from '@/contexts/DefaultPageContext'
 import { StripeProvider } from '@/contexts/StripeContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
@@ -21,29 +22,31 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
-        <NotificationProvider>
-          <AuthProvider> 
-            <CartProvider>
-              <DefaultPageProvider>
-                <StripeProvider>
-                  {children}
-                  <ToastContainer
-                    position="top-right"
-                    autoClose={5000}
-                    hideProgressBar={false}
-                    newestOnTop={false}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme="light"
-                  />
-                </StripeProvider>
-              </DefaultPageProvider>
-            </CartProvider>
-          </AuthProvider>
-        </NotificationProvider>
+        <ThemeProvider>
+          <NotificationProvider>
+            <AuthProvider> 
+              <CartProvider>
+                <DefaultPageProvider>
+                  <StripeProvider>
+                    {children}
+                    <ToastContainer
+                      position="top-right"
+                      autoClose={5000}
+                      hideProgressBar={false}
+                      newestOnTop={false}
+                      closeOnClick
+                      rtl={false}
+                      pauseOnFocusLoss
+                      draggable
+                      pauseOnHover
+                      theme="light"
+                    />
+                  </StripeProvider>
+                </DefaultPageProvider>
+              </CartProvider>
+            </AuthProvider>
+          </NotificationProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

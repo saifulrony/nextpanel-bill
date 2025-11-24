@@ -15,9 +15,28 @@ from app.api.v1.auth import get_current_user
 
 router = APIRouter(prefix="/api/customization", tags=["customization"])
 
+# Get the base directory (where the script is located)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 # Directory to store uploaded logos
-LOGO_DIR = "uploads/logos"
-os.makedirs(LOGO_DIR, exist_ok=True)
+LOGO_DIR = os.path.join(BASE_DIR, "uploads", "logos")
+try:
+    os.makedirs(LOGO_DIR, exist_ok=True, mode=0o755)
+except (PermissionError, OSError) as e:
+    # If permission denied, try to create in /tmp
+    LOGO_DIR = os.path.join("/tmp", "nextpanel_uploads", "logos")
+    os.makedirs(LOGO_DIR, exist_ok=True, mode=0o755)
+    print(f"Warning: Using /tmp for logo uploads due to permission error: {e}")
+
+# Directory to store uploaded images for page builder
+IMAGES_DIR = os.path.join(BASE_DIR, "uploads", "images")
+try:
+    os.makedirs(IMAGES_DIR, exist_ok=True, mode=0o755)
+except (PermissionError, OSError) as e:
+    # If permission denied, try to create in /tmp
+    IMAGES_DIR = os.path.join("/tmp", "nextpanel_uploads", "images")
+    os.makedirs(IMAGES_DIR, exist_ok=True, mode=0o755)
+    print(f"Warning: Using /tmp for image uploads due to permission error: {e}")
 
 
 class CustomizationSettings(BaseModel):

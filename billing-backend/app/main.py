@@ -3,10 +3,12 @@ FastAPI Main Application
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
 from datetime import datetime
 import socket
+import os
 
 from app.core.config import settings as config_settings
 from app.core.database import init_db
@@ -225,6 +227,10 @@ async def general_exception_handler(request: Request, exc: Exception):
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
+
+# Mount static files for uploads
+if os.path.exists("uploads"):
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Health check endpoint
 @app.get("/health", response_model=HealthResponse)

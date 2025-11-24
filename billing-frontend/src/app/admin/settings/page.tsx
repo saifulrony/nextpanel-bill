@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotification } from '@/contexts/NotificationContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { settingsAPI, authAPI } from '@/lib/api';
-import { ClockIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, CheckCircleIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const { success, error: showError, warning } = useNotification();
+  const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState({
     full_name: user?.full_name || '',
     email: user?.email || '',
@@ -208,10 +210,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="px-4 py-8 sm:px-0">
+    <div className="px-4 py-8 sm:px-0 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-2 text-sm text-gray-600">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           Manage your account and system settings
         </p>
       </div>
@@ -219,15 +221,15 @@ export default function SettingsPage() {
       {/* System Settings (Admin Only) */}
       {(user as any)?.is_admin && (
         <>
-          <div className="bg-white shadow sm:rounded-lg mb-8">
+          <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mb-8">
             <div className="px-4 py-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                    <ClockIcon className="h-5 w-5 mr-2 text-indigo-600" />
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
+                    <ClockIcon className="h-5 w-5 mr-2 text-indigo-600 dark:text-indigo-400" />
                     System Time Settings
                   </h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Configure system-wide time and date preferences
                   </p>
                 </div>
@@ -253,14 +255,14 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       System Timezone
                     </label>
                     <select
                       id="timezone"
                       value={timeSettings.timezone}
                       onChange={(e) => setTimeSettings({ ...timeSettings, timezone: e.target.value })}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
                       <option value="UTC">UTC</option>
                       <option value="America/New_York">Eastern Time (US)</option>
@@ -277,14 +279,14 @@ export default function SettingsPage() {
                   </div>
                   
                   <div>
-                    <label htmlFor="date_format" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="date_format" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Date Format
                     </label>
                     <select
                       id="date_format"
                       value={timeSettings.date_format}
                       onChange={(e) => setTimeSettings({ ...timeSettings, date_format: e.target.value })}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
                       <option value="YYYY-MM-DD">YYYY-MM-DD (2025-10-13)</option>
                       <option value="MM/DD/YYYY">MM/DD/YYYY (10/13/2025)</option>
@@ -295,14 +297,14 @@ export default function SettingsPage() {
                   </div>
                   
                   <div>
-                    <label htmlFor="time_format" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="time_format" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Time Format
                     </label>
                     <select
                       id="time_format"
                       value={timeSettings.time_format}
                       onChange={(e) => setTimeSettings({ ...timeSettings, time_format: e.target.value })}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
                       <option value="24h">24-hour (13:30)</option>
                       <option value="12h">12-hour (1:30 PM)</option>
@@ -314,16 +316,16 @@ export default function SettingsPage() {
           </div>
 
           {/* Currency Settings */}
-          <div className="bg-white shadow sm:rounded-lg mb-8">
+          <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mb-8">
             <div className="px-4 py-5 sm:p-6">
               <div className="mb-4">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
+                  <svg className="h-5 w-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Currency Settings
                 </h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   Set default currency for all transactions and invoices
                 </p>
               </div>
@@ -331,7 +333,7 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="default_currency" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="default_currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Default Currency
                     </label>
                     <select
@@ -342,7 +344,7 @@ export default function SettingsPage() {
                         const symbol = getCurrencySymbol(currency);
                         setCurrencySettings({ ...currencySettings, default_currency: currency, currency_symbol: symbol });
                       }}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
                       <option value="USD">USD - US Dollar</option>
                       <option value="EUR">EUR - Euro</option>
@@ -362,7 +364,7 @@ export default function SettingsPage() {
                   </div>
                   
                   <div>
-                    <label htmlFor="currency_symbol" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="currency_symbol" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Currency Symbol
                     </label>
                     <input
@@ -370,7 +372,7 @@ export default function SettingsPage() {
                       id="currency_symbol"
                       value={currencySettings.currency_symbol}
                       onChange={(e) => setCurrencySettings({ ...currencySettings, currency_symbol: e.target.value })}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                       placeholder="$"
                     />
                   </div>
@@ -402,15 +404,15 @@ export default function SettingsPage() {
       )}
 
       {/* Profile Settings */}
-      <div className="bg-white shadow sm:rounded-lg mb-8">
+      <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mb-8">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
             Profile Information
           </h3>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Full Name
               </label>
               <input
@@ -418,12 +420,12 @@ export default function SettingsPage() {
                 id="full_name"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Email Address
               </label>
               <input
@@ -431,14 +433,14 @@ export default function SettingsPage() {
                 id="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-gray-50"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
                 disabled
               />
-              <p className="mt-1 text-sm text-gray-500">Email cannot be changed</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Email cannot be changed</p>
             </div>
 
             <div>
-              <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Company Name
               </label>
               <input
@@ -446,7 +448,7 @@ export default function SettingsPage() {
                 id="company_name"
                 value={formData.company_name}
                 onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
@@ -463,47 +465,47 @@ export default function SettingsPage() {
       </div>
 
       {/* Password Change */}
-      <div className="bg-white shadow sm:rounded-lg mb-8">
+      <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mb-8">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
             Change Password
           </h3>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Current Password
               </label>
               <input
                 type="password"
                 value={passwordData.current_password}
                 onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 New Password
               </label>
               <input
                 type="password"
                 value={passwordData.new_password}
                 onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
               {passwordData.new_password && (
                 <div className="mt-2 text-xs space-y-1">
-                  <div className={validatePassword(passwordData.new_password).hasMinLength ? 'text-green-600' : 'text-gray-500'}>
+                  <div className={validatePassword(passwordData.new_password).hasMinLength ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
                     {validatePassword(passwordData.new_password).hasMinLength ? '✓' : '✗'} At least 6 characters
                   </div>
-                  <div className={validatePassword(passwordData.new_password).hasUppercase ? 'text-green-600' : 'text-gray-500'}>
+                  <div className={validatePassword(passwordData.new_password).hasUppercase ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
                     {validatePassword(passwordData.new_password).hasUppercase ? '✓' : '✗'} At least one uppercase letter (A-Z)
                   </div>
-                  <div className={validatePassword(passwordData.new_password).hasLowercase ? 'text-green-600' : 'text-gray-500'}>
+                  <div className={validatePassword(passwordData.new_password).hasLowercase ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
                     {validatePassword(passwordData.new_password).hasLowercase ? '✓' : '✗'} At least one lowercase letter (a-z)
                   </div>
-                  <div className={validatePassword(passwordData.new_password).hasNumber ? 'text-green-600' : 'text-gray-500'}>
+                  <div className={validatePassword(passwordData.new_password).hasNumber ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
                     {validatePassword(passwordData.new_password).hasNumber ? '✓' : '✗'} At least one number (0-9)
                   </div>
                 </div>
@@ -511,14 +513,14 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Confirm New Password
               </label>
               <input
                 type="password"
                 value={passwordData.confirm_password}
                 onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
@@ -533,10 +535,71 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Notification Preferences */}
-      <div className="bg-white shadow sm:rounded-lg mb-8">
+      {/* Appearance Preferences */}
+      <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mb-8">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4 flex items-center">
+            <SunIcon className="h-5 w-5 mr-2 text-indigo-600 dark:text-indigo-400" />
+            Appearance Preferences
+          </h3>
+          <p className="mt-1 mb-4 text-sm text-gray-500 dark:text-gray-400">
+            Customize the appearance of your panel interface
+          </p>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  {theme === 'dark' ? (
+                    <MoonIcon className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <SunIcon className="h-5 w-5 text-yellow-500" />
+                  )}
+                </div>
+                <div className="ml-3">
+                  <label htmlFor="theme-toggle" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Theme Mode
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Choose between light and dark mode
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setTheme('light')}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                    theme === 'light' ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+                  }`}
+                  role="switch"
+                  aria-checked={theme === 'light'}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      theme === 'light' ? 'translate-x-0' : 'translate-x-5'
+                    }`}
+                  />
+                </button>
+                <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
+                  {theme === 'light' ? 'Light' : 'Dark'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Your theme preference is saved automatically and will be applied across all pages.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notification Preferences */}
+      <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mb-8">
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
             Notification Preferences
           </h3>
           
@@ -548,7 +611,7 @@ export default function SettingsPage() {
                 defaultChecked
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
-              <label htmlFor="email_notifications" className="ml-3 text-sm text-gray-700">
+              <label htmlFor="email_notifications" className="ml-3 text-sm text-gray-700 dark:text-gray-300">
                 Email notifications
               </label>
             </div>
@@ -560,7 +623,7 @@ export default function SettingsPage() {
                 defaultChecked
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
-              <label htmlFor="payment_receipts" className="ml-3 text-sm text-gray-700">
+              <label htmlFor="payment_receipts" className="ml-3 text-sm text-gray-700 dark:text-gray-300">
                 Payment receipts
               </label>
             </div>
@@ -572,7 +635,7 @@ export default function SettingsPage() {
                 defaultChecked
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
-              <label htmlFor="expiry_reminders" className="ml-3 text-sm text-gray-700">
+              <label htmlFor="expiry_reminders" className="ml-3 text-sm text-gray-700 dark:text-gray-300">
                 License and domain expiry reminders
               </label>
             </div>
@@ -584,7 +647,7 @@ export default function SettingsPage() {
                 defaultChecked
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
-              <label htmlFor="quota_alerts" className="ml-3 text-sm text-gray-700">
+              <label htmlFor="quota_alerts" className="ml-3 text-sm text-gray-700 dark:text-gray-300">
                 Quota usage alerts
               </label>
             </div>
@@ -597,30 +660,30 @@ export default function SettingsPage() {
       </div>
 
       {/* Account Status */}
-      <div className="bg-white shadow sm:rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
             Account Status
           </h3>
           
           <dl className="space-y-3">
             <div className="flex justify-between">
-              <dt className="text-sm font-medium text-gray-500">Account Status</dt>
-              <dd className="text-sm text-gray-900">
-                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Account Status</dt>
+              <dd className="text-sm text-gray-900 dark:text-white">
+                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                   Active
                 </span>
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sm font-medium text-gray-500">Member Since</dt>
-              <dd className="text-sm text-gray-900">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Member Since</dt>
+              <dd className="text-sm text-gray-900 dark:text-white">
                 {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sm font-medium text-gray-500">User ID</dt>
-              <dd className="text-sm text-gray-900 font-mono">{user?.id || 'N/A'}</dd>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">User ID</dt>
+              <dd className="text-sm text-gray-900 dark:text-white font-mono">{user?.id || 'N/A'}</dd>
             </div>
           </dl>
         </div>

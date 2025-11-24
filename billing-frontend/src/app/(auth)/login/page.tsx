@@ -56,6 +56,10 @@ export default function LoginPage() {
     console.log('Email:', formData.email);
 
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      console.log('Attempting login to:', apiUrl);
       console.log('Calling login function...');
       console.log('Email being sent:', formData.email);
       console.log('Password length:', formData.password.length);
@@ -70,9 +74,23 @@ export default function LoginPage() {
       console.error('=== ADMIN LOGIN ERROR ===');
       console.error('Error:', error);
       console.error('Error response:', error.response?.data);
-      setGeneralError(
-        error.response?.data?.detail || 'Login failed. Please check your credentials.'
-      );
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      let errorMessage = 'Login failed. Please check your credentials.';
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = `Connection timeout. The backend server at ${apiUrl} is not responding. Please check:\n1. Backend is running: Check if uvicorn is running on port 8001\n2. Firewall: Ensure port 8001 is not blocked\n3. Network: Verify you can access ${apiUrl}/health in your browser`;
+      } else if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error') || error.message?.includes('Cannot connect') || error.message?.includes('Cannot reach')) {
+        errorMessage = `Network error. Unable to connect to ${apiUrl}.\n\nPlease verify:\n- Backend server is running (check terminal/processes)\n- Backend is accessible at ${apiUrl}/health\n- No firewall blocking port 8001`;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setGeneralError(errorMessage);
       isSubmitting.current = false;
       setIsLoading(false);
     }

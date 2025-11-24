@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ComponentLibrary from './ComponentLibrary';
 import ComponentRenderer from './ComponentRenderer';
 import PropertiesPanel from './PropertiesPanel';
+import { DropZone } from './DropZone';
+import { ContextMenu } from './ContextMenu';
 import { Component, ComponentType } from './types';
 import {
   DocumentTextIcon,
@@ -102,6 +104,7 @@ function SortableComponent({
   onAddColumn,
   onRemoveColumn,
   onAddAfter,
+  onContextMenu,
 }: {
   component: Component;
   isSelected: boolean;
@@ -114,9 +117,14 @@ function SortableComponent({
   onAddColumn: (containerId: string) => void;
   onRemoveColumn: (containerId: string) => void;
   onAddAfter: (componentId: string, type: ComponentType) => void;
+  onContextMenu?: (e: React.MouseEvent, componentId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
+  });
+
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+    id: `component-${component.id}`,
   });
 
   const style = {
@@ -125,8 +133,9 @@ function SortableComponent({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div className="relative group">
+    <div ref={setDroppableRef} className={isOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}>
+      <div ref={setNodeRef} style={style}>
+        <div className="relative group">
         {/* Drag Handle */}
         <div 
           {...listeners}
@@ -146,6 +155,13 @@ function SortableComponent({
             e.stopPropagation();
             onClick();
           }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (onContextMenu) {
+              onContextMenu(e, component.id);
+            }
+          }}
           className={`transition-all cursor-pointer ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
         >
           <ComponentRenderer
@@ -161,6 +177,7 @@ function SortableComponent({
             onRemoveColumn={onRemoveColumn}
             onAddAfter={onAddAfter}
           />
+        </div>
         </div>
       </div>
     </div>
@@ -198,6 +215,11 @@ export function PageBuilderWithISR({
   const [pageType, setPageType] = useState<string>('custom');
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [pageCode, setPageCode] = useState({ html: '', css: '', js: '' });
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    componentId: string;
+  } | null>(null);
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(() => {
     if (typeof window !== 'undefined') {
       return parseInt(localStorage.getItem('pageBuilderLeftSidebarWidth') || '280');
@@ -1410,6 +1432,128 @@ export function PageBuilderWithISR({
     setSelectedComponent(null);
   };
 
+  const handleDuplicateComponent = (id: string) => {
+    const componentToDuplicate = components.find((comp) => comp.id === id);
+    if (!componentToDuplicate) return;
+    
+    // Deep clone function for nested children
+    const deepCloneComponent = (comp: Component): Component => {
+      const newId = `${comp.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return {
+        ...comp,
+        id: newId,
+        children: comp.children
+          ? comp.children.map((child) => deepCloneComponent(child))
+          : undefined,
+      };
+    };
+    
+    const newComponent = deepCloneComponent(componentToDuplicate);
+    const componentIndex = components.findIndex((comp) => comp.id === id);
+    
+    if (componentIndex === -1) return;
+    
+    const newComponents = [
+      ...components.slice(0, componentIndex + 1),
+      newComponent,
+      ...components.slice(componentIndex + 1),
+    ];
+    
+    setComponents(newComponents);
+    addToHistory(newComponents);
+    setSelectedComponent(newComponent.id);
+  };
+
+  const handleCopyComponent = (id: string) => {
+    const componentToCopy = components.find((comp) => comp.id === id);
+    if (componentToCopy) {
+      // Store in clipboard (localStorage for now, could use Clipboard API)
+      localStorage.setItem('pageBuilderClipboard', JSON.stringify(componentToCopy));
+    }
+  };
+
+  const handleMoveComponentUp = (id: string) => {
+    const componentIndex = components.findIndex((comp) => comp.id === id);
+    if (componentIndex <= 0) return;
+    
+    const newComponents = [...components];
+    // Swap with previous component
+    const temp = newComponents[componentIndex - 1];
+    newComponents[componentIndex - 1] = newComponents[componentIndex];
+    newComponents[componentIndex] = temp;
+    
+    setComponents(newComponents);
+    addToHistory(newComponents);
+    // Keep the same component selected
+    setSelectedComponent(id);
+  };
+
+  const handleMoveComponentDown = (id: string) => {
+    const componentIndex = components.findIndex((comp) => comp.id === id);
+    if (componentIndex < 0 || componentIndex >= components.length - 1) return;
+    
+    const newComponents = [...components];
+    // Swap with next component
+    const temp = newComponents[componentIndex + 1];
+    newComponents[componentIndex + 1] = newComponents[componentIndex];
+    newComponents[componentIndex] = temp;
+    
+    setComponents(newComponents);
+    addToHistory(newComponents);
+    // Keep the same component selected
+    setSelectedComponent(id);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, componentId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      componentId,
+    });
+    setSelectedComponent(componentId);
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // Close context menu on Escape key or outside click
+  React.useEffect(() => {
+    if (!contextMenu) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeContextMenu();
+      }
+    };
+
+    const handleClickOutside = () => {
+      closeContextMenu();
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    // Small delay to avoid closing immediately when opening
+    setTimeout(() => {
+      document.addEventListener('click', handleClickOutside, true);
+    }, 100);
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('click', handleClickOutside, true);
+    };
+  }, [contextMenu]);
+
+  // Configure sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before starting drag
+      },
+    })
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -1417,7 +1561,48 @@ export function PageBuilderWithISR({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
+    // Handle library component drop
+    if (active.id.toString().startsWith('library-')) {
+      const componentType = active.data.current?.componentType as ComponentType;
+      if (componentType && over) {
+        // Check if dropping on a drop zone
+        if (over.id.toString().startsWith('drop-zone-')) {
+          const dropIndex = parseInt(over.id.toString().replace('drop-zone-', ''));
+          const newComponent = createComponent(componentType);
+          const newComponents = [
+            ...components.slice(0, dropIndex),
+            newComponent,
+            ...components.slice(dropIndex),
+          ];
+          setComponents(newComponents);
+          addToHistory(newComponents);
+          setSelectedComponent(newComponent.id);
+        } else if (over.id.toString().startsWith('component-')) {
+          // Drop on existing component - insert after it
+          const targetId = over.id.toString().replace('component-', '');
+          const targetIndex = components.findIndex((c) => c.id === targetId);
+          if (targetIndex !== -1) {
+            const newComponent = createComponent(componentType);
+            const newComponents = [
+              ...components.slice(0, targetIndex + 1),
+              newComponent,
+              ...components.slice(targetIndex + 1),
+            ];
+            setComponents(newComponents);
+            addToHistory(newComponents);
+            setSelectedComponent(newComponent.id);
+          }
+        } else {
+          // Drop on canvas - add to end
+          const newComponent = createComponent(componentType);
+          const newComponents = [...components, newComponent];
+          setComponents(newComponents);
+          addToHistory(newComponents);
+          setSelectedComponent(newComponent.id);
+        }
+      }
+    } else if (over && active.id !== over.id) {
+      // Handle reordering existing components
       setComponents((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
@@ -2281,60 +2466,61 @@ export function PageBuilderWithISR({
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Component Library */}
-        {!previewMode && (
-          <div 
-            className="bg-white border-r border-gray-200 flex-shrink-0"
-            style={{ width: `${leftSidebarWidth}px` }}
-          >
-            <ComponentLibrary onAddComponent={handleAddComponent} />
-          </div>
-        )}
-
-        {/* Left Resize Handle */}
-        {!previewMode && (
-          <div
-            className={`w-1 ${isDraggingLeft ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
-            onMouseDown={handleLeftSidebarMouseDown}
-            title={`Drag to resize left sidebar (${leftSidebarWidth}px)`}
-          >
-            <div className="absolute inset-y-0 -left-1 w-3 bg-transparent hover:bg-indigo-100 transition-colors" />
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex flex-col space-y-1">
-                <div className="w-0.5 h-1 bg-indigo-400"></div>
-                <div className="w-0.5 h-1 bg-indigo-400"></div>
-                <div className="w-0.5 h-1 bg-indigo-400"></div>
-              </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex flex-1 overflow-hidden">
+          {/* Component Library */}
+          {!previewMode && (
+            <div 
+              className="bg-white border-r border-gray-200 flex-shrink-0"
+              style={{ width: `${leftSidebarWidth}px` }}
+            >
+              <ComponentLibrary onAddComponent={handleAddComponent} />
             </div>
-            {isDraggingLeft && (
-              <div className="absolute top-4 left-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-50">
-                {leftSidebarWidth}px
-              </div>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* Canvas */}
-        <div 
-          ref={setCanvasRef}
-          className="flex-1 overflow-auto bg-gray-100"
-        >
-          <div
-            className="bg-white shadow-lg transition-all duration-300"
-            style={{
-              width: useCustomDimensions ? `${customWidth}px` : deviceWidths[deviceView],
-              height: useCustomDimensions ? `${customHeight}px` : 'auto',
-              maxWidth: '100%',
-              minHeight: useCustomDimensions ? `${customHeight}px` : '400px',
-              transform: `scale(${canvasZoom})`,
-              transformOrigin: 'top center',
-            }}
+          {/* Left Resize Handle */}
+          {!previewMode && (
+            <div
+              className={`w-1 ${isDraggingLeft ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
+              onMouseDown={handleLeftSidebarMouseDown}
+              title={`Drag to resize left sidebar (${leftSidebarWidth}px)`}
+            >
+              <div className="absolute inset-y-0 -left-1 w-3 bg-transparent hover:bg-indigo-100 transition-colors" />
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex flex-col space-y-1">
+                  <div className="w-0.5 h-1 bg-indigo-400"></div>
+                  <div className="w-0.5 h-1 bg-indigo-400"></div>
+                  <div className="w-0.5 h-1 bg-indigo-400"></div>
+                </div>
+              </div>
+              {isDraggingLeft && (
+                <div className="absolute top-4 left-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-50">
+                  {leftSidebarWidth}px
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Canvas */}
+          <div 
+            ref={setCanvasRef}
+            className="flex-1 overflow-auto bg-gray-100"
           >
-            <DndContext
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+            <div
+              className="bg-white shadow-lg transition-all duration-300"
+              style={{
+                width: useCustomDimensions ? `${customWidth}px` : deviceWidths[deviceView],
+                height: useCustomDimensions ? `${customHeight}px` : 'auto',
+                maxWidth: '100%',
+                minHeight: useCustomDimensions ? `${customHeight}px` : '400px',
+                transform: `scale(${canvasZoom})`,
+                transformOrigin: 'top center',
+              }}
             >
               <SortableContext
                 items={components.map((c) => c.id)}
@@ -2345,103 +2531,154 @@ export function PageBuilderWithISR({
                     <div className="flex flex-col items-center justify-center h-96 text-gray-400">
                       <PlusIcon className="h-16 w-16 mb-4" />
                       <p className="text-lg font-medium">Start building your page</p>
-                      <p className="text-sm">Add components from the left panel</p>
+                      <p className="text-sm">Drag components from the left panel or click to add</p>
                     </div>
                   ) : (
-                    components.map((component) => (
-                      <SortableComponent
-                        key={component.id}
-                        component={component}
-                        isSelected={selectedComponent === component.id}
-                        isHovered={hoveredComponent === component.id}
-                        onClick={() => setSelectedComponent(component.id)}
-                        onMouseEnter={() => setHoveredComponent(component.id)}
-                        onMouseLeave={() => setHoveredComponent(null)}
-                        onAddToContainer={handleAddComponent}
-                        onColumnClick={handleColumnClick}
-                        onAddColumn={handleAddColumn}
-                        onRemoveColumn={handleRemoveColumn}
-                        onAddAfter={handleAddAfter}
-                      />
-                    ))
+                    <>
+                      {/* Drop zone at the beginning */}
+                      <DropZone id="drop-zone-0" index={0} />
+                      {components.map((component, index) => (
+                        <React.Fragment key={component.id}>
+                          <SortableComponent
+                            component={component}
+                            isSelected={selectedComponent === component.id}
+                            isHovered={hoveredComponent === component.id}
+                            onClick={() => setSelectedComponent(component.id)}
+                            onMouseEnter={() => setHoveredComponent(component.id)}
+                            onMouseLeave={() => setHoveredComponent(null)}
+                            onAddToContainer={handleAddComponent}
+                            onColumnClick={handleColumnClick}
+                            onAddColumn={handleAddColumn}
+                            onRemoveColumn={handleRemoveColumn}
+                            onAddAfter={handleAddAfter}
+                            onContextMenu={handleContextMenu}
+                          />
+                          {/* Drop zone after each component */}
+                          <DropZone id={`drop-zone-${index + 1}`} index={index + 1} />
+                        </React.Fragment>
+                      ))}
+                    </>
                   )}
                 </div>
               </SortableContext>
-
-              <DragOverlay>
-                {activeId ? (
-                  <ComponentRenderer
-                    component={components.find((c) => c.id === activeId)!}
-                    isSelected={false}
-                    isHovered={false}
-                    onClick={() => {}}
-                    onMouseEnter={() => {}}
-                    onMouseLeave={() => {}}
-                    onAddToContainer={() => {}}
-                    onColumnClick={() => {}}
-                    onAddColumn={() => {}}
-                    onRemoveColumn={() => {}}
-                  />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+            </div>
           </div>
+
+          {/* Right Resize Handle */}
+          {!previewMode && (
+            <div
+              className={`w-1 ${isDraggingRight ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
+              onMouseDown={handleRightSidebarMouseDown}
+              title={`Drag to resize right sidebar (${rightSidebarWidth}px)`}
+            >
+              <div className="absolute inset-y-0 -right-1 w-3 bg-transparent hover:bg-indigo-100 transition-colors" />
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex flex-col space-y-1">
+                  <div className="w-0.5 h-1 bg-indigo-400"></div>
+                  <div className="w-0.5 h-1 bg-indigo-400"></div>
+                  <div className="w-0.5 h-1 bg-indigo-400"></div>
+                </div>
+              </div>
+              {isDraggingRight && (
+                <div className="absolute top-4 right-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-50">
+                  {rightSidebarWidth}px
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Properties Panel */}
+          {!previewMode && (
+            <div 
+              className="bg-white border-l border-gray-200 flex-shrink-0"
+              style={{ width: `${rightSidebarWidth}px` }}
+            >
+              {selectedComponentData ? (
+                <div className="relative h-full">
+                  <PropertiesPanel
+                    component={selectedComponentData}
+                    onUpdate={handleUpdateComponent}
+                    onClose={() => setSelectedComponent(null)}
+                  />
+                  <button
+                    onClick={() => handleDeleteComponent(selectedComponentData.id)}
+                    className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg z-20"
+                    title="Delete Component"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              ) : (
+                <PropertiesPanel
+                  component={null}
+                  onUpdate={() => {}}
+                  onClose={() => {}}
+                />
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Right Resize Handle */}
-        {!previewMode && (
-          <div
-            className={`w-1 ${isDraggingRight ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
-            onMouseDown={handleRightSidebarMouseDown}
-            title={`Drag to resize right sidebar (${rightSidebarWidth}px)`}
-          >
-            <div className="absolute inset-y-0 -right-1 w-3 bg-transparent hover:bg-indigo-100 transition-colors" />
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex flex-col space-y-1">
-                <div className="w-0.5 h-1 bg-indigo-400"></div>
-                <div className="w-0.5 h-1 bg-indigo-400"></div>
-                <div className="w-0.5 h-1 bg-indigo-400"></div>
-              </div>
-            </div>
-            {isDraggingRight && (
-              <div className="absolute top-4 right-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg z-50">
-                {rightSidebarWidth}px
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Properties Panel */}
-        {!previewMode && (
-          <div 
-            className="bg-white border-l border-gray-200 flex-shrink-0"
-            style={{ width: `${rightSidebarWidth}px` }}
-          >
-            {selectedComponentData ? (
-              <div className="relative h-full">
-                <PropertiesPanel
-                  component={selectedComponentData}
-                  onUpdate={handleUpdateComponent}
-                  onClose={() => setSelectedComponent(null)}
-                />
-                <button
-                  onClick={() => handleDeleteComponent(selectedComponentData.id)}
-                  className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg z-20"
-                  title="Delete Component"
-                >
-                  <TrashIcon className="h-5 w-5" />
-                </button>
+        <DragOverlay>
+          {activeId ? (
+            activeId.toString().startsWith('library-') ? (
+              <div className="bg-white border-2 border-indigo-500 rounded-lg p-4 shadow-lg">
+                <p className="text-sm font-medium text-indigo-600">
+                  {activeId.toString().replace('library-', '').replace(/-/g, ' ')}
+                </p>
               </div>
             ) : (
-              <PropertiesPanel
-                component={null}
-                onUpdate={() => {}}
-                onClose={() => {}}
+              <ComponentRenderer
+                component={components.find((c) => c.id === activeId)!}
+                isSelected={false}
+                isHovered={false}
+                onClick={() => {}}
+                onMouseEnter={() => {}}
+                onMouseLeave={() => {}}
+                onAddToContainer={() => {}}
+                onColumnClick={() => {}}
+                onAddColumn={() => {}}
+                onRemoveColumn={() => {}}
               />
-            )}
-          </div>
-        )}
-      </div>
+            )
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+          onEdit={() => {
+            setSelectedComponent(contextMenu.componentId);
+            closeContextMenu();
+          }}
+          onDelete={() => {
+            handleDeleteComponent(contextMenu.componentId);
+            closeContextMenu();
+          }}
+          onDuplicate={() => {
+            handleDuplicateComponent(contextMenu.componentId);
+            closeContextMenu();
+          }}
+          onCopy={() => {
+            handleCopyComponent(contextMenu.componentId);
+            closeContextMenu();
+          }}
+          onMoveUp={() => {
+            handleMoveComponentUp(contextMenu.componentId);
+            closeContextMenu();
+          }}
+          onMoveDown={() => {
+            handleMoveComponentDown(contextMenu.componentId);
+            closeContextMenu();
+          }}
+          canMoveUp={components.findIndex((c) => c.id === contextMenu.componentId) > 0}
+          canMoveDown={components.findIndex((c) => c.id === contextMenu.componentId) < components.length - 1}
+        />
+      )}
 
       {/* Component Selector Modal */}
       {showComponentSelector && (
