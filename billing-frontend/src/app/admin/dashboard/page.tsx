@@ -5,9 +5,20 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
-import { getDemoData } from '@/lib/demoData';
-import DraggableResizableWidget from '@/components/dashboard/DraggableResizableWidget';
-// import { div } from '@mui/x-charts/div';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from 'chart.js';
+import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2';
 import {
   UserGroupIcon,
   ShoppingCartIcon,
@@ -21,7 +32,20 @@ import {
   DocumentTextIcon,
   CubeIcon,
 } from '@heroicons/react/24/outline';
-// import { div, div, gaugeClasses } from '@mui/x-charts';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -35,8 +59,7 @@ export default function DashboardPage() {
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [isUsingDemoData, setIsUsingDemoData] = useState(false);
-  const [widgetConfigs, setWidgetConfigs] = useState<Record<string, { x: number; y: number; width: number; height: number }>>({});
+  const [revenueTimeSeries, setRevenueTimeSeries] = useState<Array<{period: string; revenue: number}>>([]);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -48,50 +71,52 @@ export default function DashboardPage() {
         params += `&start_date=${customStartDate}&end_date=${customEndDate}`;
       }
       
-      try {
-        const [statsResponse, customersResponse] = await Promise.all([
+      const [statsResponse, customersResponse, revenueResponse] = await Promise.all([
           api.get(`/dashboard/stats?${params}`),
           api.get(`/dashboard/customers/analytics?${params}`),
-        ]);
-        
-        // Check if API returned empty or minimal data
-        if (!statsResponse.data || 
-            (statsResponse.data.total_customers === 0 && 
-             statsResponse.data.total_orders === 0 && 
-             statsResponse.data.total_revenue === 0)) {
-          console.log('📊 API returned empty data, using demo dashboard...');
-          throw new Error('No data in database');
-        }
-        
-        // Force new object to trigger React updates
+        api.get(`/dashboard/revenue/time-series?${params}`).catch(() => ({ data: { data: [] } })),
+      ]);
+      
+      // Use real data from API
         setStats({
           ...statsResponse.data,
           _timestamp: Date.now(),
         });
         
-        setTopCustomers(Array.isArray(customersResponse.data.top_customers) ? customersResponse.data.top_customers : []);
+      setTopCustomers(Array.isArray(customersResponse.data?.top_customers) ? customersResponse.data.top_customers : []);
+      setRevenueTimeSeries(Array.isArray(revenueResponse.data?.data) ? revenueResponse.data.data : []);
         setLastUpdate(new Date());
-        setIsUsingDemoData(false);
         console.log('✅ Dashboard stats loaded from API');
-      } catch (apiError) {
-        console.log('📊 API not available, using demo data...');
-        
-        // Use demo data when API is not available
-        const demoStats = getDemoData('stats');
-        const demoCustomers = getDemoData('customers');
-        
-        setStats({
-          ...demoStats,
-          _timestamp: Date.now(),
-        });
-        
-        setTopCustomers(Array.isArray(demoCustomers) ? demoCustomers : []);
-        setLastUpdate(new Date());
-        setIsUsingDemoData(true);
-        console.log('✅ Demo data loaded');
-      }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
+      // Set empty stats if API fails
+      setStats({
+        total_customers: 0,
+        total_orders: 0,
+        total_revenue: 0,
+        active_customers: 0,
+        active_licenses: 0,
+        total_licenses: 0,
+        suspended_licenses: 0,
+        expired_licenses: 0,
+        total_domains: 0,
+        active_domains: 0,
+        completed_orders: 0,
+        pending_orders: 0,
+        paid_invoices: 0,
+        unpaid_invoices: 0,
+        overdue_invoices: 0,
+        total_invoices: 0,
+        monthly_revenue: 0,
+        weekly_revenue: 0,
+        total_products: 0,
+        active_subscriptions: 0,
+        recent_signups: 0,
+        recent_payments: 0,
+        recent_orders: 0,
+      });
+      setTopCustomers([]);
+      setRevenueTimeSeries([]);
     } finally {
       setIsLoading(false);
     }
@@ -126,60 +151,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardData();
-    // Load widget configurations from localStorage
-    const savedConfigs = localStorage.getItem('dashboard_widget_configs');
-    if (savedConfigs) {
-      try {
-        setWidgetConfigs(JSON.parse(savedConfigs));
-      } catch (e) {
-        console.error('Failed to load widget configs:', e);
-      }
-    }
   }, [loadDashboardData]);
-
-  const saveWidgetConfigs = (configs: Record<string, { x: number; y: number; width: number; height: number }>) => {
-    setWidgetConfigs(configs);
-    localStorage.setItem('dashboard_widget_configs', JSON.stringify(configs));
-  };
-
-  const handleWidgetResize = (id: string, width: number, height: number) => {
-    const newConfigs = {
-      ...widgetConfigs,
-      [id]: {
-        ...widgetConfigs[id],
-        width,
-        height,
-      },
-    };
-    saveWidgetConfigs(newConfigs);
-  };
-
-  const handleWidgetPositionChange = (id: string, x: number, y: number) => {
-    const newConfigs = {
-      ...widgetConfigs,
-      [id]: {
-        ...(widgetConfigs[id] || {}),
-        x,
-        y,
-      },
-    };
-    saveWidgetConfigs(newConfigs);
-  };
-
-  const handleWidgetEdit = (id: string) => {
-    console.log('Edit widget:', id);
-    // You can implement edit functionality here
-    alert(`Edit widget ${id} - Feature coming soon!`);
-  };
-
-  const handleWidgetDelete = (id: string) => {
-    if (confirm('Are you sure you want to remove this widget?')) {
-      const newConfigs = { ...widgetConfigs };
-      delete newConfigs[id];
-      saveWidgetConfigs(newConfigs);
-      // You might want to hide the widget or remove it from the DOM
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -211,55 +183,10 @@ export default function DashboardPage() {
     { id: 2, value: stats?.expired_licenses || 0, label: 'Expired', color: '#ef4444' },
   ];
 
-  // Revenue data for line chart (last 7 days, 30 days, or 12 months based on period)
-  const getRevenueTimeSeriesData = () => {
-    // For now, we'll show a trend with available data
-    // In production, you'd fetch time-series data from the backend
-    const total = stats?.total_revenue || 0;
-    const monthly = stats?.monthly_revenue || 0;
-    const weekly = stats?.weekly_revenue || 0;
-    
-    if (timePeriod === 'today' || timePeriod === 'yesterday') {
-      return [
-        { period: 'Morning', revenue: weekly * 0.3 },
-        { period: 'Afternoon', revenue: weekly * 0.5 },
-        { period: 'Evening', revenue: weekly * 0.2 },
-      ];
-    } else if (timePeriod === 'week') {
-      return [
-        { period: 'Mon', revenue: weekly * 0.1 },
-        { period: 'Tue', revenue: weekly * 0.15 },
-        { period: 'Wed', revenue: weekly * 0.2 },
-        { period: 'Thu', revenue: weekly * 0.15 },
-        { period: 'Fri', revenue: weekly * 0.2 },
-        { period: 'Sat', revenue: weekly * 0.1 },
-        { period: 'Sun', revenue: weekly * 0.1 },
-      ];
-    } else if (timePeriod === 'month') {
-      return [
-        { period: 'Week 1', revenue: monthly * 0.25 },
-        { period: 'Week 2', revenue: monthly * 0.3 },
-        { period: 'Week 3', revenue: monthly * 0.25 },
-        { period: 'Week 4', revenue: monthly * 0.2 },
-      ];
-    } else if (timePeriod === 'year') {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return months.map((month, idx) => ({
-        period: month,
-        revenue: (total / 12) * (0.8 + Math.random() * 0.4), // Simulate variation
-      }));
-    }
-    
-    // Default to weekly
-    return [
-      { period: 'Week 1', revenue: monthly * 0.2 },
-      { period: 'Week 2', revenue: monthly * 0.3 },
-      { period: 'Week 3', revenue: monthly * 0.25 },
-      { period: 'Week 4', revenue: monthly * 0.25 },
-    ];
-  };
-  
-  const revenueData = getRevenueTimeSeriesData();
+  // Use real revenue time-series data from API
+  const revenueData = revenueTimeSeries.length > 0 
+    ? revenueTimeSeries 
+    : [{ period: 'No Data', revenue: 0 }];
 
   const orderStatusData = [
     { status: 'Completed', orders: stats?.completed_orders || 0 },
@@ -273,45 +200,20 @@ export default function DashboardPage() {
   ];
 
   // Calculate percentages for gauges
-  const customerActiveRate = stats?.total_customers > 0 
-    ? (stats.active_customers / stats.total_customers) * 100 
+  const customerActiveRate = stats && stats.total_customers > 0 
+    ? (stats.active_customers || 0) / stats.total_customers * 100 
     : 0;
   
-  const licenseActiveRate = stats?.total_licenses > 0 
-    ? (stats.active_licenses / stats.total_licenses) * 100 
+  const licenseActiveRate = stats && stats.total_licenses > 0 
+    ? (stats.active_licenses || 0) / stats.total_licenses * 100 
     : 0;
 
-  const domainActiveRate = stats?.total_domains > 0 
-    ? (stats.active_domains / stats.total_domains) * 100 
+  const domainActiveRate = stats && stats.total_domains > 0 
+    ? (stats.active_domains || 0) / stats.total_domains * 100 
     : 0;
 
   return (
     <div className="space-y-6" key={lastUpdate.getTime()}>
-      {/* Demo Data Banner */}
-      {isUsingDemoData && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">
-                Demo Data Mode
-              </h3>
-              <div className="mt-1 text-sm text-blue-700">
-                <p>
-                  The dashboard is currently displaying demo data. This includes sample products, orders, and customer information to demonstrate the system's capabilities.
-                </p>
-                <p className="mt-2">
-                  <strong>Demo includes:</strong> 6 products, 5 orders, 5 customers, and realistic analytics data.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Notification Banner */}
       {notification && (
@@ -422,116 +324,76 @@ export default function DashboardPage() {
       </div>
 
       {/* Key Metrics Row */}
-      <div className="relative min-h-[800px]">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Customers Card */}
-        <DraggableResizableWidget
-          id="widget-customers"
-          defaultWidth={280}
-          defaultHeight={120}
-          minWidth={200}
-          minHeight={100}
-          config={widgetConfigs['widget-customers'] || { x: 0, y: 0, width: 280, height: 120 }}
-          onEdit={handleWidgetEdit}
-          onDelete={handleWidgetDelete}
-          onResize={handleWidgetResize}
-          onPositionChange={handleWidgetPositionChange}
-          editMode={true}
-        >
-              <div className="flex items-center h-full">
-                <div className="flex-shrink-0">
-                  <UserGroupIcon className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Customers</dt>
-                    <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.total_customers || 0}</dd>
-                  </dl>
-                </div>
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <UserGroupIcon className="h-6 w-6 text-blue-600" />
               </div>
-            </DraggableResizableWidget>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Customers</dt>
+                  <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.total_customers || 0}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Total Orders Card */}
-        <DraggableResizableWidget
-          id="widget-orders"
-          defaultWidth={280}
-          defaultHeight={120}
-          minWidth={200}
-          minHeight={100}
-          config={widgetConfigs['widget-orders'] || { x: 300, y: 0, width: 280, height: 120 }}
-          onEdit={handleWidgetEdit}
-          onDelete={handleWidgetDelete}
-          onResize={handleWidgetResize}
-          onPositionChange={handleWidgetPositionChange}
-          editMode={true}
-        >
-              <div className="flex items-center h-full">
-                <div className="flex-shrink-0">
-                  <ShoppingCartIcon className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Orders</dt>
-                    <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.total_orders || 0}</dd>
-                  </dl>
-                </div>
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ShoppingCartIcon className="h-6 w-6 text-green-600" />
               </div>
-            </DraggableResizableWidget>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Orders</dt>
+                  <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.total_orders || 0}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Total Revenue Card */}
-        <DraggableResizableWidget
-          id="widget-revenue"
-          defaultWidth={280}
-          defaultHeight={120}
-          minWidth={200}
-          minHeight={100}
-          config={widgetConfigs['widget-revenue'] || { x: 600, y: 0, width: 280, height: 120 }}
-          onEdit={handleWidgetEdit}
-          onDelete={handleWidgetDelete}
-          onResize={handleWidgetResize}
-          onPositionChange={handleWidgetPositionChange}
-          editMode={true}
-        >
-              <div className="flex items-center h-full">
-                <div className="flex-shrink-0">
-                  <CreditCardIcon className="h-6 w-6 text-purple-600" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
-                    <dd className="text-2xl font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(stats?.total_revenue || 0)}
-                    </dd>
-                  </dl>
-                </div>
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <CreditCardIcon className="h-6 w-6 text-purple-600" />
               </div>
-            </DraggableResizableWidget>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
+                  <dd className="text-2xl font-semibold text-gray-900 dark:text-white">
+                    {formatCurrency(stats?.total_revenue || 0)}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Active Licenses Card */}
-        <DraggableResizableWidget
-          id="widget-licenses"
-          defaultWidth={280}
-          defaultHeight={120}
-          minWidth={200}
-          minHeight={100}
-          config={widgetConfigs['widget-licenses'] || { x: 900, y: 0, width: 280, height: 120 }}
-          onEdit={handleWidgetEdit}
-          onDelete={handleWidgetDelete}
-          onResize={handleWidgetResize}
-          onPositionChange={handleWidgetPositionChange}
-          editMode={true}
-        >
-              <div className="flex items-center h-full">
-                <div className="flex-shrink-0">
-                  <KeyIcon className="h-6 w-6 text-indigo-600" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Active Licenses</dt>
-                    <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.active_licenses || 0}</dd>
-                  </dl>
-                </div>
+        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <KeyIcon className="h-6 w-6 text-indigo-600" />
               </div>
-            </DraggableResizableWidget>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Active Licenses</dt>
+                  <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.active_licenses || 0}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Charts Row 1: Customer & License Distribution */}
@@ -561,9 +423,52 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">License Status</h3>
           <div className="h-64">
-            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
-              <p className="text-gray-500">Chart placeholder - License Status</p>
-            </div>
+            <Bar
+              data={{
+                labels: licenseStatusData.map(item => item.label),
+                datasets: [
+                  {
+                    label: 'Licenses',
+                    data: licenseStatusData.map(item => item.value),
+                    backgroundColor: licenseStatusData.map(item => item.color),
+                    borderColor: licenseStatusData.map(item => item.color),
+                    borderWidth: 1,
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1,
+                    },
+                    grid: {
+                      color: 'rgba(0, 0, 0, 0.05)',
+                    },
+                  },
+                  x: {
+                    grid: {
+                      display: false,
+                    },
+                  },
+                },
+              }}
+            />
           </div>
         </div>
 
@@ -571,9 +476,52 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Status</h3>
           <div className="h-64">
-            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
-              <p className="text-gray-500">Chart placeholder - Invoice Status</p>
-            </div>
+            <Bar
+              data={{
+                labels: invoiceStatusData.map(item => item.label),
+                datasets: [
+                  {
+                    label: 'Invoices',
+                    data: invoiceStatusData.map(item => item.value),
+                    backgroundColor: invoiceStatusData.map(item => item.color),
+                    borderColor: invoiceStatusData.map(item => item.color),
+                    borderWidth: 1,
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1,
+                    },
+                    grid: {
+                      color: 'rgba(0, 0, 0, 0.05)',
+                    },
+                  },
+                  x: {
+                    grid: {
+                      display: false,
+                    },
+                  },
+                },
+              }}
+            />
           </div>
         </div>
       </div>
@@ -591,9 +539,65 @@ export default function DashboardPage() {
             </span>
           </h3>
           <div className="h-64">
-            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
-              <p className="text-gray-500">Chart placeholder - Revenue</p>
-            </div>
+            <Line
+              data={{
+                labels: revenueData.map(item => item.period),
+                datasets: [
+                  {
+                    label: 'Revenue',
+                    data: revenueData.map(item => item.revenue),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#6366f1',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                      label: function(context) {
+                        return `Revenue: ${formatCurrency(context.parsed.y)}`;
+                      },
+                    },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      callback: function(value) {
+                        return formatCurrency(value as number);
+                      },
+                    },
+                    grid: {
+                      color: 'rgba(0, 0, 0, 0.05)',
+                    },
+                  },
+                  x: {
+                    grid: {
+                      display: false,
+                    },
+                  },
+                },
+              }}
+            />
           </div>
         </div>
 
@@ -601,9 +605,52 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Status</h3>
           <div className="h-64">
-            <div className="h-48 flex items-center justify-center bg-gray-100 rounded">
-              <p className="text-gray-500">Chart placeholder - Order Status</p>
-            </div>
+            <Bar
+              data={{
+                labels: orderStatusData.map(item => item.status),
+                datasets: [
+                  {
+                    label: 'Orders',
+                    data: orderStatusData.map(item => item.orders),
+                    backgroundColor: ['#10b981', '#f59e0b'],
+                    borderColor: ['#10b981', '#f59e0b'],
+                    borderWidth: 1,
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1,
+                    },
+                    grid: {
+                      color: 'rgba(0, 0, 0, 0.05)',
+                    },
+                  },
+                  x: {
+                    grid: {
+                      display: false,
+                    },
+                  },
+                },
+              }}
+            />
           </div>
         </div>
       </div>

@@ -216,7 +216,7 @@ export default function ComponentLibrary({
         <h2 className="text-white font-bold text-sm">Components</h2>
         <p className="text-indigo-100 text-xs mt-1">Drag to canvas to add</p>
       </div>
-
+      
       {/* Search Bar */}
       <div className="p-3 border-b border-gray-200 flex-shrink-0">
         <div className="relative">
@@ -263,8 +263,8 @@ export default function ComponentLibrary({
                 onEditComponent={onEditComponent}
                 onDeleteComponent={onDeleteComponent}
               />
-            );
-          })}
+          );
+        })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -285,11 +285,11 @@ export default function ComponentLibrary({
       </div>
 
       <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-          <div className="text-xs text-gray-500 space-y-1">
-            <p className="font-semibold text-gray-700">💡 Tips:</p>
+        <div className="text-xs text-gray-500 space-y-1">
+          <p className="font-semibold text-gray-700">💡 Tips:</p>
             <p>• Drag components to canvas to add</p>
             <p>• Click component in canvas to edit</p>
-            <p>• Drag handle to reorder</p>
+          <p>• Drag handle to reorder</p>
             <p>• Hover to see controls</p>
           {searchQuery && (
             <p className="mt-2 pt-2 border-t border-gray-300">

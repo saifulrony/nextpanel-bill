@@ -138,7 +138,14 @@ function SortableComponent({
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const componentRef = useRef<HTMLDivElement>(null);
-  const resizeStartPos = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const resizeStartPos = useRef({ 
+    x: 0, 
+    y: 0, 
+    width: 0, 
+    height: 0,
+    left: 0,
+    top: 0,
+  });
 
   const handleResizeMouseDown = (e: React.MouseEvent, handle: string) => {
     e.preventDefault();
@@ -147,11 +154,14 @@ function SortableComponent({
     setResizeHandle(handle);
     if (componentRef.current) {
       const rect = componentRef.current.getBoundingClientRect();
+      const parentRect = componentRef.current.parentElement?.getBoundingClientRect() || { left: 0, top: 0 };
       resizeStartPos.current = {
         x: e.clientX,
         y: e.clientY,
         width: rect.width,
         height: rect.height,
+        left: rect.left - parentRect.left,
+        top: rect.top - parentRect.top,
       };
     }
   };
@@ -165,27 +175,54 @@ function SortableComponent({
 
       let newWidth = resizeStartPos.current.width;
       let newHeight = resizeStartPos.current.height;
+      let newLeft = resizeStartPos.current.left;
+      let newTop = resizeStartPos.current.top;
 
-      if (resizeHandle.includes('right')) {
+      // Handle corner and edge resizing
+      if (resizeHandle === 'top-left') {
+        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
+        newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
+        newLeft = resizeStartPos.current.left + (resizeStartPos.current.width - newWidth);
+        newTop = resizeStartPos.current.top + (resizeStartPos.current.height - newHeight);
+      } else if (resizeHandle === 'top-right') {
+        newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+        newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
+        newTop = resizeStartPos.current.top + (resizeStartPos.current.height - newHeight);
+      } else if (resizeHandle === 'bottom-left') {
+        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
+        newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
+        newLeft = resizeStartPos.current.left + (resizeStartPos.current.width - newWidth);
+      } else if (resizeHandle === 'bottom-right') {
+        newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+        newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
+      } else if (resizeHandle === 'top') {
+        newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
+        newTop = resizeStartPos.current.top + (resizeStartPos.current.height - newHeight);
+      } else if (resizeHandle === 'bottom') {
+        newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
+      } else if (resizeHandle === 'left') {
+        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
+        newLeft = resizeStartPos.current.left + (resizeStartPos.current.width - newWidth);
+      } else if (resizeHandle === 'right') {
         newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
       }
-      if (resizeHandle.includes('left')) {
-        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
-      }
-      if (resizeHandle.includes('bottom')) {
-        newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
-      }
-      if (resizeHandle.includes('top')) {
-        newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
+
+      const updatedStyle: React.CSSProperties = {
+        ...component.style,
+        width: `${newWidth}px`,
+        height: `${newHeight}px`,
+      };
+
+      // Only add position styles if we're actually moving the component
+      if (resizeHandle.includes('left') || resizeHandle.includes('top')) {
+        updatedStyle.position = 'relative';
+        updatedStyle.left = `${newLeft}px`;
+        updatedStyle.top = `${newTop}px`;
       }
 
       onUpdate({
         ...component,
-        style: {
-          ...component.style,
-          width: `${newWidth}px`,
-          height: `${newHeight}px`,
-        },
+        style: updatedStyle,
       });
     };
 

@@ -933,13 +933,13 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               
               {/* URL Input (as fallback) */}
               <div className="relative">
-                <input
-                  type="url"
-                  value={component.props?.src || ''}
-                  onChange={(e) => updateProp('src', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            <input
+                type="url"
+                value={component.props?.src || ''}
+              onChange={(e) => updateProp('src', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                   placeholder="Or enter image URL"
-                />
+            />
               </div>
             </div>
             </div>

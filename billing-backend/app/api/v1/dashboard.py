@@ -462,6 +462,215 @@ async def get_dashboard_stats(
     )
 
 
+@router.get("/revenue/time-series")
+async def get_revenue_time_series(
+    period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    user_info: tuple = Depends(verify_user_or_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get time-series revenue data for charts - Real data from orders"""
+    user_id, is_admin = user_info
+    
+    # Calculate date ranges based on selected period
+    now = datetime.utcnow()
+    
+    if period == "today":
+        period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = now
+    elif period == "yesterday":
+        yesterday = now - timedelta(days=1)
+        period_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif period == "week":
+        period_start = now - timedelta(days=7)
+        period_end = now
+    elif period == "month":
+        period_start = now - timedelta(days=30)
+        period_end = now
+    elif period == "year":
+        period_start = now - timedelta(days=365)
+        period_end = now
+    elif period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
+        period_start = start_date
+        period_end = end_date
+    else:
+        period_start = now - timedelta(days=7)
+        period_end = now
+    
+    # Get all completed orders in the period
+    result = await db.execute(
+        select(Order.created_at, Order.total)
+        .where(
+            and_(
+                Order.status == OrderStatus.COMPLETED,
+                Order.created_at.between(period_start, period_end)
+            )
+        )
+        .order_by(Order.created_at)
+    )
+    orders = result.all()
+    
+    # Group by time period based on selected period
+    data = []
+    if period in ["today", "yesterday"]:
+        # Group by hour
+        hourly_revenue = {}
+        for order in orders:
+            hour = order.created_at.hour
+            if hour not in hourly_revenue:
+                hourly_revenue[hour] = 0.0
+            hourly_revenue[hour] += float(order.total or 0)
+        
+        # Fill in all hours for the period
+        if period == "today":
+            # Show hours from 0 to current hour
+            start_hour = 0
+            end_hour = period_end.hour
+        else:  # yesterday
+            # Show all 24 hours
+            start_hour = 0
+            end_hour = 23
+        
+        for hour in range(start_hour, end_hour + 1):
+            data.append({
+                "period": f"{hour:02d}:00",
+                "revenue": hourly_revenue.get(hour, 0.0)
+            })
+    elif period == "week":
+        # Group by day (last 7 days)
+        daily_revenue = {}
+        day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        for order in orders:
+            date_key = order.created_at.date()
+            if date_key not in daily_revenue:
+                daily_revenue[date_key] = 0.0
+            daily_revenue[date_key] += float(order.total or 0)
+        
+        # Fill in all 7 days, even if no revenue
+        for i in range(7):
+            check_date = (period_end - timedelta(days=6-i)).date()
+            day_name = day_names[check_date.weekday()]
+            revenue = daily_revenue.get(check_date, 0.0)
+            data.append({
+                "period": day_name,
+                "revenue": revenue
+            })
+    elif period == "month":
+        # Group by day - fill all days in the month period
+        daily_revenue = {}
+        for order in orders:
+            date_key = order.created_at.date()
+            if date_key not in daily_revenue:
+                daily_revenue[date_key] = 0.0
+            daily_revenue[date_key] += float(order.total or 0)
+        
+        # Fill in all days in the period
+        current_date = period_start.date()
+        end_date = period_end.date()
+        while current_date <= end_date:
+            revenue = daily_revenue.get(current_date, 0.0)
+            data.append({
+                "period": current_date.strftime('%m/%d'),
+                "revenue": revenue
+            })
+            current_date += timedelta(days=1)
+    elif period == "year":
+        # Group by month - fill all 12 months
+        monthly_revenue = {}
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        for order in orders:
+            month_key = order.created_at.month
+            if month_key not in monthly_revenue:
+                monthly_revenue[month_key] = 0.0
+            monthly_revenue[month_key] += float(order.total or 0)
+        
+        # Fill in all months in the year period
+        current_date = period_start
+        while current_date <= period_end:
+            month_key = current_date.month
+            month_name = month_names[month_key - 1]
+            # Only add if not already added
+            if not any(d['period'] == month_name for d in data):
+                data.append({
+                    "period": month_name,
+                    "revenue": monthly_revenue.get(month_key, 0.0)
+                })
+            # Move to next month
+            if current_date.month == 12:
+                current_date = current_date.replace(year=current_date.year + 1, month=1)
+            else:
+                current_date = current_date.replace(month=current_date.month + 1)
+    else:  # custom
+        # Determine grouping based on date range
+        days_diff = (period_end - period_start).days
+        if days_diff <= 1:
+            # Group by hour
+            hourly_revenue = {}
+            for order in orders:
+                hour = order.created_at.hour
+                if hour not in hourly_revenue:
+                    hourly_revenue[hour] = 0.0
+                hourly_revenue[hour] += float(order.total or 0)
+            
+            for hour in range(24):
+                data.append({
+                    "period": f"{hour:02d}:00",
+                    "revenue": hourly_revenue.get(hour, 0.0)
+                })
+        elif days_diff <= 30:
+            # Group by day
+            daily_revenue = {}
+            for order in orders:
+                date_key = order.created_at.date()
+                if date_key not in daily_revenue:
+                    daily_revenue[date_key] = 0.0
+                daily_revenue[date_key] += float(order.total or 0)
+            
+            current_date = period_start.date()
+            end_date = period_end.date()
+            while current_date <= end_date:
+                revenue = daily_revenue.get(current_date, 0.0)
+                data.append({
+                    "period": current_date.strftime('%m/%d'),
+                    "revenue": revenue
+                })
+                current_date += timedelta(days=1)
+        else:
+            # Group by month
+            monthly_revenue = {}
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            for order in orders:
+                month_key = order.created_at.month
+                year_key = order.created_at.year
+                key = (year_key, month_key)
+                if key not in monthly_revenue:
+                    monthly_revenue[key] = 0.0
+                monthly_revenue[key] += float(order.total or 0)
+            
+            current_date = period_start
+            while current_date <= period_end:
+                month_name = month_names[current_date.month - 1]
+                key = (current_date.year, current_date.month)
+                revenue = monthly_revenue.get(key, 0.0)
+                period_label = f"{month_name} {current_date.year}"
+                if not any(d['period'] == period_label for d in data):
+                    data.append({
+                        "period": period_label,
+                        "revenue": revenue
+                    })
+                # Move to next month
+                if current_date.month == 12:
+                    current_date = current_date.replace(year=current_date.year + 1, month=1)
+                else:
+                    current_date = current_date.replace(month=current_date.month + 1)
+    
+    return {"data": data}
+
+
 @router.get("/products/analytics", response_model=ProductAnalyticsResponse)
 async def get_product_analytics(
     period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),

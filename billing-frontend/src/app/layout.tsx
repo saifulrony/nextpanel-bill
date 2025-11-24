@@ -23,29 +23,29 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans">
         <ThemeProvider>
-          <NotificationProvider>
-            <AuthProvider> 
-              <CartProvider>
-                <DefaultPageProvider>
-                  <StripeProvider>
-                    {children}
-                    <ToastContainer
-                      position="top-right"
-                      autoClose={5000}
-                      hideProgressBar={false}
-                      newestOnTop={false}
-                      closeOnClick
-                      rtl={false}
-                      pauseOnFocusLoss
-                      draggable
-                      pauseOnHover
-                      theme="light"
-                    />
-                  </StripeProvider>
-                </DefaultPageProvider>
-              </CartProvider>
-            </AuthProvider>
-          </NotificationProvider>
+        <NotificationProvider>
+          <AuthProvider> 
+            <CartProvider>
+              <DefaultPageProvider>
+                <StripeProvider>
+                  {children}
+                  <ToastContainer
+                    position="top-right"
+                    autoClose={5000}
+                    hideProgressBar={false}
+                    newestOnTop={false}
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                    theme="light"
+                  />
+                </StripeProvider>
+              </DefaultPageProvider>
+            </CartProvider>
+          </AuthProvider>
+        </NotificationProvider>
         </ThemeProvider>
       </body>
     </html>
