@@ -37,7 +37,6 @@ export default function DashboardPage() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [isUsingDemoData, setIsUsingDemoData] = useState(false);
   const [widgetConfigs, setWidgetConfigs] = useState<Record<string, { x: number; y: number; width: number; height: number }>>({});
-  const [editMode, setEditMode] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -360,16 +359,6 @@ export default function DashboardPage() {
           </label>
 
             <button
-              onClick={() => setEditMode(!editMode)}
-              className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                editMode
-                  ? 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'
-                  : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-              }`}
-            >
-              {editMode ? 'Done Editing' : 'Edit Layout'}
-            </button>
-            <button
               onClick={loadDashboardData}
               className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
@@ -433,22 +422,21 @@ export default function DashboardPage() {
       </div>
 
       {/* Key Metrics Row */}
-      <div className={`relative ${editMode ? 'min-h-[800px]' : ''}`}>
-        {editMode ? (
-          <>
-            {/* Total Customers Card */}
-            <DraggableResizableWidget
-              id="widget-customers"
-              defaultWidth={280}
-              defaultHeight={120}
-              minWidth={200}
-              minHeight={100}
-              config={widgetConfigs['widget-customers'] || { x: 0, y: 0, width: 280, height: 120 }}
-              onEdit={handleWidgetEdit}
-              onDelete={handleWidgetDelete}
-              onResize={handleWidgetResize}
-              onPositionChange={handleWidgetPositionChange}
-            >
+      <div className="relative min-h-[800px]">
+        {/* Total Customers Card */}
+        <DraggableResizableWidget
+          id="widget-customers"
+          defaultWidth={280}
+          defaultHeight={120}
+          minWidth={200}
+          minHeight={100}
+          config={widgetConfigs['widget-customers'] || { x: 0, y: 0, width: 280, height: 120 }}
+          onEdit={handleWidgetEdit}
+          onDelete={handleWidgetDelete}
+          onResize={handleWidgetResize}
+          onPositionChange={handleWidgetPositionChange}
+          editMode={true}
+        >
               <div className="flex items-center h-full">
                 <div className="flex-shrink-0">
                   <UserGroupIcon className="h-6 w-6 text-blue-600" />
@@ -462,19 +450,20 @@ export default function DashboardPage() {
               </div>
             </DraggableResizableWidget>
 
-            {/* Total Orders Card */}
-            <DraggableResizableWidget
-              id="widget-orders"
-              defaultWidth={280}
-              defaultHeight={120}
-              minWidth={200}
-              minHeight={100}
-              config={widgetConfigs['widget-orders'] || { x: 300, y: 0, width: 280, height: 120 }}
-              onEdit={handleWidgetEdit}
-              onDelete={handleWidgetDelete}
-              onResize={handleWidgetResize}
-              onPositionChange={handleWidgetPositionChange}
-            >
+        {/* Total Orders Card */}
+        <DraggableResizableWidget
+          id="widget-orders"
+          defaultWidth={280}
+          defaultHeight={120}
+          minWidth={200}
+          minHeight={100}
+          config={widgetConfigs['widget-orders'] || { x: 300, y: 0, width: 280, height: 120 }}
+          onEdit={handleWidgetEdit}
+          onDelete={handleWidgetDelete}
+          onResize={handleWidgetResize}
+          onPositionChange={handleWidgetPositionChange}
+          editMode={true}
+        >
               <div className="flex items-center h-full">
                 <div className="flex-shrink-0">
                   <ShoppingCartIcon className="h-6 w-6 text-green-600" />
@@ -488,19 +477,20 @@ export default function DashboardPage() {
               </div>
             </DraggableResizableWidget>
 
-            {/* Total Revenue Card */}
-            <DraggableResizableWidget
-              id="widget-revenue"
-              defaultWidth={280}
-              defaultHeight={120}
-              minWidth={200}
-              minHeight={100}
-              config={widgetConfigs['widget-revenue'] || { x: 600, y: 0, width: 280, height: 120 }}
-              onEdit={handleWidgetEdit}
-              onDelete={handleWidgetDelete}
-              onResize={handleWidgetResize}
-              onPositionChange={handleWidgetPositionChange}
-            >
+        {/* Total Revenue Card */}
+        <DraggableResizableWidget
+          id="widget-revenue"
+          defaultWidth={280}
+          defaultHeight={120}
+          minWidth={200}
+          minHeight={100}
+          config={widgetConfigs['widget-revenue'] || { x: 600, y: 0, width: 280, height: 120 }}
+          onEdit={handleWidgetEdit}
+          onDelete={handleWidgetDelete}
+          onResize={handleWidgetResize}
+          onPositionChange={handleWidgetPositionChange}
+          editMode={true}
+        >
               <div className="flex items-center h-full">
                 <div className="flex-shrink-0">
                   <CreditCardIcon className="h-6 w-6 text-purple-600" />
@@ -516,19 +506,20 @@ export default function DashboardPage() {
               </div>
             </DraggableResizableWidget>
 
-            {/* Active Licenses Card */}
-            <DraggableResizableWidget
-              id="widget-licenses"
-              defaultWidth={280}
-              defaultHeight={120}
-              minWidth={200}
-              minHeight={100}
-              config={widgetConfigs['widget-licenses'] || { x: 900, y: 0, width: 280, height: 120 }}
-              onEdit={handleWidgetEdit}
-              onDelete={handleWidgetDelete}
-              onResize={handleWidgetResize}
-              onPositionChange={handleWidgetPositionChange}
-            >
+        {/* Active Licenses Card */}
+        <DraggableResizableWidget
+          id="widget-licenses"
+          defaultWidth={280}
+          defaultHeight={120}
+          minWidth={200}
+          minHeight={100}
+          config={widgetConfigs['widget-licenses'] || { x: 900, y: 0, width: 280, height: 120 }}
+          onEdit={handleWidgetEdit}
+          onDelete={handleWidgetDelete}
+          onResize={handleWidgetResize}
+          onPositionChange={handleWidgetPositionChange}
+          editMode={true}
+        >
               <div className="flex items-center h-full">
                 <div className="flex-shrink-0">
                   <KeyIcon className="h-6 w-6 text-indigo-600" />
@@ -541,80 +532,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             </DraggableResizableWidget>
-          </>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Total Customers Card */}
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <UserGroupIcon className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Customers</dt>
-                      <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.total_customers || 0}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Total Orders Card */}
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <ShoppingCartIcon className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Orders</dt>
-                      <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.total_orders || 0}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Total Revenue Card */}
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <CreditCardIcon className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
-                      <dd className="text-2xl font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(stats?.total_revenue || 0)}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Active Licenses Card */}
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <KeyIcon className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Active Licenses</dt>
-                      <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stats?.active_licenses || 0}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Charts Row 1: Customer & License Distribution */}

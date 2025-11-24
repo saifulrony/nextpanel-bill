@@ -38,6 +38,7 @@ interface DraggableResizableWidgetProps {
   onResize?: (id: string, width: number, height: number) => void;
   onPositionChange?: (id: string, x: number, y: number) => void;
   config?: WidgetConfig;
+  editMode?: boolean;
 }
 
 function DraggableWidget({
@@ -52,7 +53,9 @@ function DraggableWidget({
   defaultHeight = 200,
   minWidth = 200,
   minHeight = 150,
+  editMode = true,
 }: Omit<DraggableResizableWidgetProps, 'id'> & { id: string }) {
+  // Always in edit mode - no need to check editMode prop
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [position, setPosition] = useState({ 
@@ -67,12 +70,59 @@ function DraggableWidget({
   // Update position and size when config changes
   useEffect(() => {
     if (config) {
-      setPosition({ x: config.x ?? 0, y: config.y ?? 0 });
-      setSize({ width: config.width ?? defaultWidth, height: config.height ?? defaultHeight });
+      const newPos = { x: config.x ?? 0, y: config.y ?? 0 };
+      const newSize = { width: config.width ?? defaultWidth, height: config.height ?? defaultHeight };
+      setPosition(newPos);
+      setSize(newSize);
+      currentPosRef.current = newPos;
+      currentSizeRef.current = newSize;
     }
   }, [config, defaultWidth, defaultHeight]);
   const widgetRef = useRef<HTMLDivElement>(null);
-  const resizeStartPos = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const borderRef = useRef<HTMLDivElement>(null);
+  const resizeStartPos = useRef({ x: 0, y: 0, width: 0, height: 0, startX: 0, startY: 0 });
+  const currentSizeRef = useRef(size);
+  const currentPosRef = useRef(position);
+  
+  // Detect which edge/corner the mouse is on
+  const detectResizeEdge = (e: React.MouseEvent<HTMLDivElement> | MouseEvent, element?: HTMLElement): string | null => {
+    const target = element || borderRef.current;
+    if (!target) return null;
+    
+    const rect = target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const width = rect.width;
+    const height = rect.height;
+    
+    // Define resize zone thickness (12px from edges for easier grabbing)
+    const resizeZone = 12;
+    
+    // Check corners first (priority) - smaller zone for corners
+    const cornerZone = 16;
+    const isNearTop = y < resizeZone;
+    const isNearBottom = y > height - resizeZone;
+    const isNearLeft = x < resizeZone;
+    const isNearRight = x > width - resizeZone;
+    const isInCornerTop = y < cornerZone;
+    const isInCornerBottom = y > height - cornerZone;
+    const isInCornerLeft = x < cornerZone;
+    const isInCornerRight = x > width - cornerZone;
+    
+    // Corner detection (priority - check corners first)
+    if (isInCornerTop && isInCornerLeft) return 'top-left';
+    if (isInCornerTop && isInCornerRight) return 'top-right';
+    if (isInCornerBottom && isInCornerLeft) return 'bottom-left';
+    if (isInCornerBottom && isInCornerRight) return 'bottom-right';
+    
+    // Edge detection (only if not in corner)
+    if (isNearTop && !isInCornerLeft && !isInCornerRight) return 'top';
+    if (isNearBottom && !isInCornerLeft && !isInCornerRight) return 'bottom';
+    if (isNearLeft && !isInCornerTop && !isInCornerBottom) return 'left';
+    if (isNearRight && !isInCornerTop && !isInCornerBottom) return 'right';
+    
+    return null;
+  };
 
   const {
     attributes,
@@ -106,19 +156,64 @@ function DraggableWidget({
     }
   }, [isDragging, transform, config, id, onPositionChange]);
 
-  const handleMouseDown = (e: React.MouseEvent, handle: string) => {
+  const handleMouseDown = (e: React.MouseEvent, handle?: string) => {
+    // If handle is provided, use it; otherwise detect from mouse position
+    const detectedHandle = handle || detectResizeEdge(e);
+    
+    if (!detectedHandle) return; // Not on a resize zone
+    
     e.preventDefault();
     e.stopPropagation();
     setIsResizing(true);
-    setResizeHandle(handle);
+    setResizeHandle(detectedHandle);
     if (widgetRef.current) {
       const rect = widgetRef.current.getBoundingClientRect();
+      const startX = config?.x ?? 0;
+      const startY = config?.y ?? 0;
       resizeStartPos.current = {
         x: e.clientX,
         y: e.clientY,
         width: rect.width,
         height: rect.height,
+        startX: startX,
+        startY: startY,
       };
+    }
+  };
+  
+  const handleBorderMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!editMode || isResizing) return;
+    
+    // Check if mouse is over a handle (handles have their own cursor)
+    const target = e.target as HTMLElement;
+    if (target.closest('[class*="cursor-"]')) {
+      return; // Let the handle's cursor show
+    }
+    
+    const edge = detectResizeEdge(e);
+    if (!edge) {
+      document.body.style.cursor = '';
+      return;
+    }
+    
+    // Set appropriate cursor based on edge
+    const cursorMap: Record<string, string> = {
+      'top-left': 'nwse-resize',
+      'top-right': 'nesw-resize',
+      'bottom-left': 'nesw-resize',
+      'bottom-right': 'nwse-resize',
+      'top': 'ns-resize',
+      'bottom': 'ns-resize',
+      'left': 'ew-resize',
+      'right': 'ew-resize',
+    };
+    
+    document.body.style.cursor = cursorMap[edge] || '';
+  };
+  
+  const handleBorderMouseLeave = () => {
+    if (!isResizing) {
+      document.body.style.cursor = '';
     }
   };
 
@@ -131,51 +226,72 @@ function DraggableWidget({
 
       let newWidth = resizeStartPos.current.width;
       let newHeight = resizeStartPos.current.height;
-      let newX = position.x;
-      let newY = position.y;
+      let newX = resizeStartPos.current.startX;
+      let newY = resizeStartPos.current.startY;
 
-      if (resizeHandle.includes('right')) {
-        newWidth = Math.max(minWidth, resizeStartPos.current.width + deltaX);
-      }
-      if (resizeHandle.includes('left')) {
-        const widthChange = Math.max(minWidth - resizeStartPos.current.width, -deltaX);
+      // Handle corner and edge resizing
+      if (resizeHandle === 'top-left') {
         newWidth = Math.max(minWidth, resizeStartPos.current.width - deltaX);
-        if (newWidth > minWidth) {
-          newX = position.x + deltaX;
-        }
-      }
-      if (resizeHandle.includes('bottom')) {
-        newHeight = Math.max(minHeight, resizeStartPos.current.height + deltaY);
-      }
-      if (resizeHandle.includes('top')) {
         newHeight = Math.max(minHeight, resizeStartPos.current.height - deltaY);
-        if (newHeight > minHeight) {
-          newY = position.y + deltaY;
-        }
+        newX = resizeStartPos.current.startX + (resizeStartPos.current.width - newWidth);
+        newY = resizeStartPos.current.startY + (resizeStartPos.current.height - newHeight);
+      } else if (resizeHandle === 'top-right') {
+        newWidth = Math.max(minWidth, resizeStartPos.current.width + deltaX);
+        newHeight = Math.max(minHeight, resizeStartPos.current.height - deltaY);
+        newY = resizeStartPos.current.startY + (resizeStartPos.current.height - newHeight);
+      } else if (resizeHandle === 'bottom-left') {
+        newWidth = Math.max(minWidth, resizeStartPos.current.width - deltaX);
+        newHeight = Math.max(minHeight, resizeStartPos.current.height + deltaY);
+        newX = resizeStartPos.current.startX + (resizeStartPos.current.width - newWidth);
+      } else if (resizeHandle === 'bottom-right') {
+        newWidth = Math.max(minWidth, resizeStartPos.current.width + deltaX);
+        newHeight = Math.max(minHeight, resizeStartPos.current.height + deltaY);
+      } else if (resizeHandle === 'top') {
+        newHeight = Math.max(minHeight, resizeStartPos.current.height - deltaY);
+        newY = resizeStartPos.current.startY + (resizeStartPos.current.height - newHeight);
+      } else if (resizeHandle === 'bottom') {
+        newHeight = Math.max(minHeight, resizeStartPos.current.height + deltaY);
+      } else if (resizeHandle === 'left') {
+        newWidth = Math.max(minWidth, resizeStartPos.current.width - deltaX);
+        newX = resizeStartPos.current.startX + (resizeStartPos.current.width - newWidth);
+      } else if (resizeHandle === 'right') {
+        newWidth = Math.max(minWidth, resizeStartPos.current.width + deltaX);
       }
 
       setSize({ width: newWidth, height: newHeight });
       setPosition({ x: newX, y: newY });
+      // Update refs for use in mouseup handler
+      currentSizeRef.current = { width: newWidth, height: newHeight };
+      currentPosRef.current = { x: newX, y: newY };
     };
 
     const handleMouseUp = () => {
       if (isResizing) {
+        // Get final size and position from refs (always up-to-date)
+        const finalSize = currentSizeRef.current;
+        const finalPos = currentPosRef.current;
+        
         setIsResizing(false);
         setResizeHandle(null);
-        // Get current size and position
-        const currentSize = size;
-        const currentPos = position;
-        onResize?.(id, currentSize.width, currentSize.height);
-        onPositionChange?.(id, currentPos.x, currentPos.y);
+        
+        // Call callbacks with final values
+        onResize?.(id, finalSize.width, finalSize.height);
+        onPositionChange?.(id, finalPos.x, finalPos.y);
       }
     };
 
     if (isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = resizeHandle?.includes('nwse') ? 'nwse-resize' : 
+                                   resizeHandle?.includes('nesw') ? 'nesw-resize' :
+                                   resizeHandle?.includes('ns') ? 'ns-resize' : 'ew-resize';
+      document.body.style.userSelect = 'none';
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
       };
     }
   }, [isResizing, resizeHandle, minWidth, minHeight, id, onResize, onPositionChange]);
@@ -201,77 +317,164 @@ function DraggableWidget({
       className="group"
     >
       <div
-        className="relative w-full h-full bg-white dark:bg-gray-800 shadow-lg rounded-lg border-2 border-transparent hover:border-indigo-500 transition-all"
+        ref={borderRef}
+        className={`relative w-full h-full bg-white dark:bg-gray-800 shadow-lg rounded-lg transition-all ${
+          isResizing 
+            ? 'border-4 border-indigo-600 border-dashed' 
+            : editMode 
+              ? 'border-4 border-indigo-400' 
+              : 'border-2 border-transparent hover:border-indigo-500'
+        }`}
         style={{ minWidth: `${minWidth}px`, minHeight: `${minHeight}px` }}
+        onMouseDown={editMode ? handleMouseDown : undefined}
+        onMouseMove={editMode ? handleBorderMouseMove : undefined}
+        onMouseLeave={editMode ? handleBorderMouseLeave : undefined}
       >
-        {/* Control Bar - Top Middle */}
-        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-10 flex items-center gap-1 bg-gray-800 dark:bg-gray-700 rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            {...attributes}
-            {...listeners}
-            className="p-1 text-white hover:bg-gray-700 rounded cursor-grab active:cursor-grabbing"
-            title="Drag"
-          >
-            <Bars3Icon className="h-4 w-4" />
-          </button>
-          {onEdit && (
+        {/* Control Bar - Top Middle - Always Visible in Edit Mode */}
+        {editMode && (
+          <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 z-40 flex items-center gap-1 bg-indigo-600 dark:bg-indigo-700 rounded-lg px-2 py-1.5 opacity-100 shadow-lg">
             <button
-              onClick={() => onEdit(id)}
-              className="p-1 text-white hover:bg-gray-700 rounded"
-              title="Edit"
+              {...attributes}
+              {...listeners}
+              className="p-1.5 text-white hover:bg-indigo-700 rounded cursor-grab active:cursor-grabbing transition-colors"
+              title="Drag widget"
             >
-              <PencilIcon className="h-4 w-4" />
+              <Bars3Icon className="h-5 w-5" />
             </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={() => onDelete(id)}
-              className="p-1 text-red-400 hover:bg-red-600 rounded"
-              title="Delete"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+            {onEdit && (
+              <button
+                onClick={() => onEdit(id)}
+                className="p-1.5 text-white hover:bg-indigo-700 rounded transition-colors"
+                title="Edit widget"
+              >
+                <PencilIcon className="h-5 w-5" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(id)}
+                className="p-1.5 text-red-200 hover:bg-red-600 rounded transition-colors"
+                title="Delete widget"
+              >
+                <TrashIcon className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Content */}
-        <div className="w-full h-full overflow-auto p-4">
+        <div 
+          className="w-full h-full overflow-auto p-4"
+          onMouseDown={(e) => {
+            // Prevent content clicks from triggering resize
+            e.stopPropagation();
+          }}
+        >
           {children}
         </div>
 
-        {/* Resize Handles */}
-        <div
-          className="absolute top-0 left-0 w-4 h-4 bg-indigo-500 border-2 border-white rounded-sm cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'top-left')}
-        />
-        <div
-          className="absolute top-0 right-0 w-4 h-4 bg-indigo-500 border-2 border-white rounded-sm cursor-nesw-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'top-right')}
-        />
-        <div
-          className="absolute bottom-0 left-0 w-4 h-4 bg-indigo-500 border-2 border-white rounded-sm cursor-nesw-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'bottom-left')}
-        />
-        <div
-          className="absolute bottom-0 right-0 w-4 h-4 bg-indigo-500 border-2 border-white rounded-sm cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'bottom-right')}
-        />
-        <div
-          className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-3 bg-indigo-500 border-2 border-white rounded-sm cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'top')}
-        />
-        <div
-          className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-3 bg-indigo-500 border-2 border-white rounded-sm cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'bottom')}
-        />
-        <div
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 w-3 h-8 bg-indigo-500 border-2 border-white rounded-sm cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'left')}
-        />
-        <div
-          className="absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-8 bg-indigo-500 border-2 border-white rounded-sm cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
-          onMouseDown={(e) => handleMouseDown(e, 'right')}
-        />
+        {/* Resize Handles on Border - Elementor Style - Always Visible */}
+        {editMode && (
+          <>
+            {/* Corner Handles - Larger and more visible */}
+            <div
+              className={`absolute -top-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'top-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'top-left');
+              }}
+              title="Resize from top-left"
+              style={{ pointerEvents: 'auto' }}
+            />
+            <div
+              className={`absolute -top-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'top-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'top-right');
+              }}
+              title="Resize from top-right"
+              style={{ pointerEvents: 'auto' }}
+            />
+            <div
+              className={`absolute -bottom-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'bottom-left');
+              }}
+              title="Resize from bottom-left"
+              style={{ pointerEvents: 'auto' }}
+            />
+            <div
+              className={`absolute -bottom-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'bottom-right');
+              }}
+              title="Resize from bottom-right"
+              style={{ pointerEvents: 'auto' }}
+            />
+            
+            {/* Edge Handles - Top */}
+            <div
+              className={`absolute -top-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize transition-all z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
+                isResizing && resizeHandle === 'top' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'top');
+              }}
+              title="Resize height from top"
+              style={{ pointerEvents: 'auto' }}
+            />
+            
+            {/* Edge Handles - Bottom */}
+            <div
+              className={`absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize transition-all z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'bottom');
+              }}
+              title="Resize height from bottom"
+              style={{ pointerEvents: 'auto' }}
+            />
+            
+            {/* Edge Handles - Left */}
+            <div
+              className={`absolute -left-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize transition-all z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
+                isResizing && resizeHandle === 'left' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'left');
+              }}
+              title="Resize width from left"
+              style={{ pointerEvents: 'auto' }}
+            />
+            
+            {/* Edge Handles - Right */}
+            <div
+              className={`absolute -right-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize transition-all z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
+                isResizing && resizeHandle === 'right' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : 'opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e, 'right');
+              }}
+              title="Resize width from right"
+              style={{ pointerEvents: 'auto' }}
+            />
+          </>
+        )}
       </div>
     </div>
   );
@@ -289,6 +492,7 @@ export default function DraggableResizableWidget({
   onResize,
   onPositionChange,
   config,
+  editMode = true,
 }: DraggableResizableWidgetProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -315,6 +519,7 @@ export default function DraggableResizableWidget({
         onResize={onResize}
         onPositionChange={onPositionChange}
         config={config}
+        editMode={editMode}
       >
         {children}
       </DraggableWidget>

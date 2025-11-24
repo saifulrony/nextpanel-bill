@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -105,6 +105,7 @@ function SortableComponent({
   onRemoveColumn,
   onAddAfter,
   onContextMenu,
+  onUpdate,
 }: {
   component: Component;
   isSelected: boolean;
@@ -118,6 +119,7 @@ function SortableComponent({
   onRemoveColumn: (containerId: string) => void;
   onAddAfter: (componentId: string, type: ComponentType) => void;
   onContextMenu?: (e: React.MouseEvent, componentId: string) => void;
+  onUpdate?: (component: Component) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
@@ -132,10 +134,89 @@ function SortableComponent({
     transition,
   };
 
+  // Resize functionality
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const componentRef = useRef<HTMLDivElement>(null);
+  const resizeStartPos = useRef({ x: 0, y: 0, width: 0, height: 0 });
+
+  const handleResizeMouseDown = (e: React.MouseEvent, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeHandle(handle);
+    if (componentRef.current) {
+      const rect = componentRef.current.getBoundingClientRect();
+      resizeStartPos.current = {
+        x: e.clientX,
+        y: e.clientY,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+  };
+
+  useEffect(() => {
+    if (!isResizing || !resizeHandle || !onUpdate) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - resizeStartPos.current.x;
+      const deltaY = e.clientY - resizeStartPos.current.y;
+
+      let newWidth = resizeStartPos.current.width;
+      let newHeight = resizeStartPos.current.height;
+
+      if (resizeHandle.includes('right')) {
+        newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+      }
+      if (resizeHandle.includes('left')) {
+        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
+      }
+      if (resizeHandle.includes('bottom')) {
+        newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
+      }
+      if (resizeHandle.includes('top')) {
+        newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
+      }
+
+      onUpdate({
+        ...component,
+        style: {
+          ...component.style,
+          width: `${newWidth}px`,
+          height: `${newHeight}px`,
+        },
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      setResizeHandle(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, resizeHandle, component, onUpdate]);
+
   return (
     <div ref={setDroppableRef} className={isOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}>
       <div ref={setNodeRef} style={style}>
-        <div className="relative group">
+        <div 
+          ref={componentRef}
+          className="relative group"
+          style={{
+            ...component.style,
+            border: isSelected || isHovered ? '2px solid #6366f1' : '2px solid transparent',
+            position: 'relative',
+          }}
+        >
         {/* Drag Handle */}
         <div 
           {...listeners}
@@ -178,6 +259,95 @@ function SortableComponent({
             onAddAfter={onAddAfter}
           />
         </div>
+
+        {/* Resize Handles - Always visible when selected or hovered */}
+        {(isSelected || isHovered) && onUpdate && (
+          <>
+            {/* Corner Handles */}
+            <div
+              className={`absolute -top-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'top-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'top-left');
+              }}
+              title="Resize from top-left"
+            />
+            <div
+              className={`absolute -top-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'top-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'top-right');
+              }}
+              title="Resize from top-right"
+            />
+            <div
+              className={`absolute -bottom-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'bottom-left');
+              }}
+              title="Resize from bottom-left"
+            />
+            <div
+              className={`absolute -bottom-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'bottom-right');
+              }}
+              title="Resize from bottom-right"
+            />
+            
+            {/* Edge Handles */}
+            <div
+              className={`absolute -top-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize transition-all z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
+                isResizing && resizeHandle === 'top' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'top');
+              }}
+              title="Resize height from top"
+            />
+            <div
+              className={`absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize transition-all z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'bottom');
+              }}
+              title="Resize height from bottom"
+            />
+            <div
+              className={`absolute -left-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize transition-all z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
+                isResizing && resizeHandle === 'left' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'left');
+              }}
+              title="Resize width from left"
+            />
+            <div
+              className={`absolute -right-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize transition-all z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
+                isResizing && resizeHandle === 'right' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleResizeMouseDown(e, 'right');
+              }}
+              title="Resize width from right"
+            />
+          </>
+        )}
         </div>
       </div>
     </div>
@@ -2552,6 +2722,7 @@ export function PageBuilderWithISR({
                             onRemoveColumn={handleRemoveColumn}
                             onAddAfter={handleAddAfter}
                             onContextMenu={handleContextMenu}
+                            onUpdate={handleUpdateComponent}
                           />
                           {/* Drop zone after each component */}
                           <DropZone id={`drop-zone-${index + 1}`} index={index + 1} />
