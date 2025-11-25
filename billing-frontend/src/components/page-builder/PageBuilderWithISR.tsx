@@ -253,6 +253,8 @@ function SortableComponent({
             border: isSelected || isHovered ? '2px solid #6366f1' : '2px solid transparent',
             position: 'relative',
           }}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
         >
         {/* Drag Handle */}
         <div 
@@ -297,8 +299,8 @@ function SortableComponent({
           />
         </div>
 
-        {/* Resize Handles - Always visible when selected or hovered */}
-        {(isSelected || isHovered) && onUpdate && (
+        {/* Resize Handles - Always visible when hovered or selected */}
+        {(isHovered || isSelected) && onUpdate && (
           <>
             {/* Corner Handles */}
             <div

@@ -1064,19 +1064,45 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
   // Limit products based on productCount
   const displayProducts = products.slice(0, productCount);
 
-  // Generate grid classes based on columns
-  const getGridClasses = (cols: number) => {
-    switch (cols) {
-      case 1: return "grid-cols-1";
-      case 2: return "grid-cols-1 md:grid-cols-2";
-      case 3: return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
-      case 4: return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
-      default: return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
+  // Responsive columns based on component width
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [actualColumns, setActualColumns] = React.useState(columns);
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const updateColumns = () => {
+      const width = containerRef.current?.offsetWidth || 0;
+      const baseColumns = columns;
+      
+      // Responsive column calculation based on width
+      let responsiveCols = baseColumns;
+      if (width < 400) {
+        responsiveCols = 1;
+      } else if (width < 600) {
+        responsiveCols = Math.min(2, baseColumns);
+      } else if (width < 900) {
+        responsiveCols = Math.min(3, baseColumns);
+      } else if (width < 1200) {
+        responsiveCols = Math.min(4, baseColumns);
+      } else {
+        responsiveCols = baseColumns;
+      }
+      
+      setActualColumns(responsiveCols);
+    };
+    
+    updateColumns();
+    const resizeObserver = new ResizeObserver(updateColumns);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
     }
-  };
+    
+    return () => resizeObserver.disconnect();
+  }, [columns]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8" style={style}>
+    <div ref={containerRef} className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8" style={style}>
       <div className="text-center mb-12">
         <h2 className="text-4xl font-bold text-gray-900 mb-4">{title}</h2>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
@@ -1084,7 +1110,7 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
         </p>
       </div>
       
-      <div className={`grid ${getGridClasses(columns)} gap-8`}>
+      <div className="grid gap-8" style={{ gridTemplateColumns: `repeat(${actualColumns}, 1fr)` }}>
         {displayProducts.map((product: any) => (
           <div key={product.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200">
             <div className="p-6">

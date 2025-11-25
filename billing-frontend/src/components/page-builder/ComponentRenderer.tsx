@@ -13,6 +13,9 @@ import {
 import HeaderComponent from './HeaderComponent';
 import FooterComponent from './FooterComponent';
 import CartComponent from './CartComponent';
+import ResponsiveContainer from './ResponsiveContainer';
+import ResponsiveGrid from './ResponsiveGrid';
+import ResponsiveShowcase from './ResponsiveShowcase';
 
 interface ComponentRendererProps {
   component: Component;
@@ -226,105 +229,22 @@ export default function ComponentRenderer({
         );
 
       case 'container':
-        const containerColumns = component.props?.columns || 2;
-        console.log('Rendering container with columns:', containerColumns, 'props:', component.props);
-        console.log('Grid columns:', containerColumns);
-        
         return (
-          <div
-            style={{
-              width: '100%',
-              ...component.style,
-            }}
-            className={`${isEditor ? 'bg-white border border-gray-200 rounded-md shadow-sm' : ''} ${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
-          >
-            {isEditor && (
-              <div className="mb-2 flex items-center justify-between p-2 bg-gray-50 border-b">
-                <h3 className="text-xs font-medium text-gray-600">Container ({containerColumns} columns)</h3>
-                <div className="flex space-x-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      console.log('+ Column button clicked for container:', component.id);
-                      console.log('onAddColumn function:', onAddColumn);
-                      onAddColumn?.(component.id);
-                    }}
-                    className="px-1.5 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
-                  >
-                    + Column
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveColumn?.(component.id);
-                    }}
-                    className="px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
-                  >
-                    - Column
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            <div 
-              className="grid gap-0"
-              style={{ gridTemplateColumns: `repeat(${containerColumns}, 1fr)` }}
-            >
-              {Array.from({ length: containerColumns }).map((_, index) => {
-                const child = component.children?.[index];
-                return (
-                  <div 
-                    key={index} 
-                    className={`${isEditor ? 'min-h-[80px] border border-dashed border-gray-300 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-400 transition-all' : ''} ${isEditor ? 'cursor-pointer' : ''}`}
-                    onClick={isEditor ? (e) => {
-                      e.stopPropagation();
-                      onColumnClick?.(component.id, index);
-                    } : undefined}
-                  >
-                    {child ? (
-                      <ComponentRenderer
-                        component={child}
-                        isSelected={isSelected && selectedComponent === child.id}
-                        isHovered={isHovered}
-                        onClick={() => {
-                          onColumnClick?.(component.id, index);
-                        }}
-                        onMouseEnter={onMouseEnter}
-                        onMouseLeave={onMouseLeave}
-                        onAddToContainer={onAddToContainer}
-                        onColumnClick={onColumnClick}
-                        onColumnAddClick={onColumnAddClick}
-                        onAddColumn={onAddColumn}
-                        onRemoveColumn={onRemoveColumn}
-                        onAddAfter={onAddAfter}
-                        containerId={component.id}
-                        columnIndex={index}
-                        isEditor={isEditor}
-                        selectedComponent={selectedComponent}
-                      />
-                    ) : isEditor ? (
-                      // Show placeholder only for empty columns in editor mode
-                      <div 
-                        className="cursor-pointer transition-all flex items-center justify-center group h-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onColumnAddClick?.(component.id, index);
-                        }}
-                      >
-                        <div className="text-center text-gray-400 group-hover:text-indigo-600">
-                          <svg className="h-6 w-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          <p className="text-xs font-medium">Click to Add</p>
-                          <p className="text-xs mt-0.5 opacity-75">Col {index + 1}</p>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <ResponsiveContainer
+            component={component}
+            isSelected={isSelected}
+            isHovered={isHovered}
+            onAddColumn={onAddColumn}
+            onRemoveColumn={onRemoveColumn}
+            onColumnClick={onColumnClick}
+            onColumnAddClick={onColumnAddClick}
+            onAddToContainer={onAddToContainer}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+            onAddAfter={onAddAfter}
+            isEditor={isEditor}
+            selectedComponent={selectedComponent}
+          />
         );
 
       case 'spacer':
@@ -377,26 +297,13 @@ export default function ComponentRenderer({
 
       case 'grid':
         return (
-          <div
-            style={component.style}
-            className={`grid gap-4 ${component.className || 'grid-cols-3'}`}
-          >
-            {component.children?.map((child) => (
-              <ComponentRenderer
-                key={child.id}
-                component={child}
-                isSelected={false}
-                isHovered={false}
-                onClick={() => {}}
-                onMouseEnter={() => {}}
-                onMouseLeave={() => {}}
-                onAddToContainer={onAddToContainer}
-                onColumnClick={onColumnClick}
-                onAddColumn={onAddColumn}
-                onRemoveColumn={onRemoveColumn}
-              />
-            ))}
-          </div>
+          <ResponsiveGrid
+            component={component}
+            onAddToContainer={onAddToContainer}
+            onColumnClick={onColumnClick}
+            onAddColumn={onAddColumn}
+            onRemoveColumn={onRemoveColumn}
+          />
         );
 
       case 'video':
@@ -776,50 +683,12 @@ export default function ComponentRenderer({
         );
 
       case 'showcase':
-        const showcaseColumns = component.props?.columns || 3;
         return (
-          <div
-            style={{
-              padding: '1rem',
-              ...component.style
-            }}
-            className={`${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
-          >
-            {component.props?.showTitle && (
-              <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>
-                {component.props?.title || 'Showcase'}
-              </h2>
-            )}
-            {component.props?.showSubtitle && (
-              <p style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: '#6b7280' }}>
-                {component.props?.subtitle || 'Showcase your best work'}
-              </p>
-            )}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${showcaseColumns}, 1fr)`,
-                gap: '1rem'
-              }}
-            >
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: '1rem',
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '0.5rem',
-                    textAlign: 'center',
-                    color: '#6b7280',
-                    fontSize: '0.875rem'
-                  }}
-                >
-                  Showcase item {index + 1}
-                </div>
-              ))}
-            </div>
-          </div>
+          <ResponsiveShowcase
+            component={component}
+            isEditor={isEditor}
+            isHovered={isHovered}
+          />
         );
 
       default:
