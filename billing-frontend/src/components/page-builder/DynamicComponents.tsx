@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { 
-  MagnifyingGlassIcon, 
-  CheckCircleIcon, 
-  XCircleIcon, 
+import {
+  MagnifyingGlassIcon,
+  CheckCircleIcon,
+  XCircleIcon,
   ShoppingCartIcon,
   HeartIcon,
   LightBulbIcon,
@@ -40,10 +40,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
   const [premiumData, setPremiumData] = useState<any[]>([]);
   const [loadingPremium, setLoadingPremium] = useState(false);
   const cartContext = useCart();
-  
+
   // Always access cart context, but handle cases where it might be null
-  const { addItem, items } = cartContext || { addItem: () => {}, items: [] };
-  
+  const { addItem, items } = cartContext || { addItem: () => { }, items: [] };
+
   useEffect(() => {
     setMounted(true);
     // Load favorites from localStorage
@@ -51,7 +51,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
     if (savedFavorites) {
       setFavorites(JSON.parse(savedFavorites));
     }
-    
+
     // Check for search query in URL
     const searchFromUrl = searchParams.get('search');
     if (searchFromUrl) {
@@ -114,15 +114,15 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
 
   const performSearch = async (query: string) => {
     if (!query.trim()) return;
-    
+
     setIsSearching(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
+
       const domainName = query.includes('.') ? query.split('.')[0] : query;
       const tld = selectedTld.startsWith('.') ? selectedTld : `.${selectedTld}`;
-      
+
       const response = await fetch(`${apiUrl}/api/v1/domains/search`, {
         method: 'POST',
         headers: {
@@ -133,13 +133,13 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
           tlds: [tld]
         })
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Extract the first result for single domain check
       if (data.results && data.results.length > 0) {
         const firstResult = data.results[0];
@@ -153,17 +153,17 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
         };
         setResult(resultData);
       } else {
-        const resultData = { 
-          available: false, 
+        const resultData = {
+          available: false,
           domain: `${domainName}${tld}`,
-          error: 'No results found' 
+          error: 'No results found'
         };
         setResult(resultData);
       }
     } catch (error) {
       console.warn('Domain search API error:', error);
-      const resultData = { 
-        available: false, 
+      const resultData = {
+        available: false,
         domain: `${query}${selectedTld}`,
         error: 'Domain check API not configured.'
       };
@@ -176,21 +176,21 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    
+
     // Update URL with search query
     const params = new URLSearchParams(searchParams);
     params.set('search', searchQuery);
     router.push(`?${params.toString()}`, { scroll: false });
-    
+
     // Perform search
     await performSearch(searchQuery);
   };
 
   const handleAddDomainToCart = async (domain: string, price: number) => {
     if (addingToCart) return; // Prevent duplicate calls
-    
+
     setAddingToCart(true);
-    
+
     const domainItem = {
       id: `domain-${domain}`,
       name: domain,
@@ -202,17 +202,17 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
       domain_name: domain,
       quantity: 1
     };
-    
+
     addItem(domainItem);
-    
+
     // Show cart notification
     setShowCartNotification(true);
-    
+
     // Reset after a short delay
     setTimeout(() => {
       setAddingToCart(false);
     }, 1000);
-    
+
     // Hide notification after 3 seconds
     setTimeout(() => {
       setShowCartNotification(false);
@@ -234,11 +234,11 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
   const fetchAuctionData = async () => {
     setLoadingAuctions(true);
     console.log('Starting to fetch auction data...');
-    
+
     try {
       // Try to fetch from API first
       const response = await fetch('/api/v1/domains/auctions');
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Auction data from API:', data);
@@ -251,17 +251,17 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
           'innovation', 'digital', 'smart', 'global', 'premium', 'elite', 'pro', 'expert', 'master', 'prime', 'gold'
         ];
         const extensions = ['.com', '.net', '.org', '.io', '.pro', '.biz', '.co', '.me'];
-        
+
         const generateRandomAuction = (index: number) => {
-          const domain = domains[Math.floor(Math.random() * domains.length)] + 
-                        (Math.random() > 0.5 ? Math.floor(Math.random() * 1000) : '') + 
-                        extensions[Math.floor(Math.random() * extensions.length)];
+          const domain = domains[Math.floor(Math.random() * domains.length)] +
+            (Math.random() > 0.5 ? Math.floor(Math.random() * 1000) : '') +
+            extensions[Math.floor(Math.random() * extensions.length)];
           const category = categories[Math.floor(Math.random() * categories.length)];
           const currentBid = Math.floor(Math.random() * 500) + 50;
           const bids = Math.floor(Math.random() * 20) + 1;
           const hoursLeft = Math.floor(Math.random() * 72) + 1;
           const minutesLeft = Math.floor(Math.random() * 60);
-          
+
           return {
             id: `auction-${index}-${Date.now()}`,
             domain,
@@ -272,7 +272,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             description: `Premium ${category.toLowerCase()} domain perfect for your business needs`
           };
         };
-        
+
         const dynamicAuctions = Array.from({ length: 6 }, (_, i) => generateRandomAuction(i));
         setAuctionData(dynamicAuctions);
       }
@@ -297,11 +297,11 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
   const fetchPremiumData = async () => {
     setLoadingPremium(true);
     console.log('Starting to fetch premium domain data...');
-    
+
     try {
       // Try to fetch from API first
       const response = await fetch('/api/v1/domains/premium');
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Premium data from API:', data);
@@ -314,17 +314,17 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
         ];
         const extensions = ['.com', '.net', '.org', '.io', '.co', '.pro', '.biz'];
         const adjectives = ['premium', 'elite', 'gold', 'platinum', 'diamond', 'royal', 'luxury', 'exclusive'];
-        
+
         const generatePremiumDomain = (index: number) => {
           const isAdjective = Math.random() > 0.5;
           const base = premiumDomains[Math.floor(Math.random() * premiumDomains.length)];
           const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
           const extension = extensions[Math.floor(Math.random() * extensions.length)];
-          
+
           const domain = isAdjective ? `${adjective}${base}${extension}` : `${base}${adjective}${extension}`;
           const price = Math.floor(Math.random() * 5000) + 500; // $500 - $5500
           const category = base.charAt(0).toUpperCase() + base.slice(1);
-          
+
           return {
             id: `premium-${index}-${Date.now()}`,
             domain,
@@ -335,7 +335,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             availability: 'Available for purchase'
           };
         };
-        
+
         const dynamicPremium = Array.from({ length: 8 }, (_, i) => generatePremiumDomain(i));
         setPremiumData(dynamicPremium);
       }
@@ -373,18 +373,18 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
       e.preventDefault();
       e.stopPropagation();
     }
-    
+
     if (!searchQuery.trim()) return;
-    
+
     setIsSearching(true);
-    
+
     try {
       // Generate domain suggestions based on search term
       const suggestions: any[] = [];
       const baseWord = searchQuery.toLowerCase();
       const categories = ['Technology', 'Business', 'Creative', 'Personal', 'E-commerce'];
       const keywords = ['app', 'tech', 'digital', 'online', 'web', 'cloud', 'data', 'smart', 'pro', 'hub'];
-      
+
       // Generate variations
       for (const category of categories.slice(0, 3)) {
         for (const keyword of keywords.slice(0, 3)) {
@@ -400,15 +400,15 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             `${baseWord}tech.com`,
             `${baseWord}digital.com`
           ];
-          
+
           for (const domain of variations) {
             if (suggestions.length >= 12) break;
-            
+
             // Mock availability and pricing
             const isAvailable = Math.random() > 0.7;
             const price = isAvailable ? Math.random() * 50 + 10 : undefined;
             const score = Math.random() * 100;
-            
+
             suggestions.push({
               domain,
               available: isAvailable,
@@ -419,14 +419,14 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
           }
         }
       }
-      
+
       // Sort by score and availability
       suggestions.sort((a, b) => {
         if (a.available && !b.available) return -1;
         if (!a.available && b.available) return 1;
         return b.score - a.score;
       });
-      
+
       setGeneratedDomains(suggestions.slice(0, 12));
     } catch (error) {
       console.error('Domain generation error:', error);
@@ -434,7 +434,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
       setIsSearching(false);
     }
   };
- 
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8" style={style}>
@@ -445,7 +445,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
             <h2 className="text-3xl font-bold text-gray-900 mb-2">🚀 Find Your Perfect Domain - Hot Reloading Test 2!</h2>
             <p className="text-gray-600">Search for available domain names and register them instantly</p>
           </div>
-          
+
           <form onSubmit={handleSearch} className="space-y-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
@@ -503,11 +503,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                             e.stopPropagation();
                             setActiveTab(tab.id as any);
                           }}
-                          className={`${
-                            activeTab === tab.id
-                              ? 'border-indigo-500 text-indigo-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                          } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                          className={`${activeTab === tab.id
+                            ? 'border-indigo-500 text-indigo-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                         >
                           <Icon className="h-4 w-4" />
                           <span>{tab.name}</span>
@@ -542,11 +541,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => toggleFavorite(result.domain)}
-                            className={`p-2 rounded-lg ${
-                              favorites.includes(result.domain)
-                                ? 'text-red-500 bg-red-50'
-                                : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                            }`}
+                            className={`p-2 rounded-lg ${favorites.includes(result.domain)
+                              ? 'text-red-500 bg-red-50'
+                              : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                              }`}
                           >
                             <HeartIcon className="h-4 w-4" />
                           </button>
@@ -565,11 +563,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                                 <button
                                   onClick={() => handleAddDomainToCart(result.domain, result.price)}
                                   disabled={addingToCart}
-                                  className={`px-4 py-2 text-white rounded-lg text-sm ${
-                                    addingToCart 
-                                      ? 'bg-gray-400 cursor-not-allowed' 
-                                      : 'bg-green-600 hover:bg-green-700'
-                                  }`}
+                                  className={`px-4 py-2 text-white rounded-lg text-sm ${addingToCart
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-green-600 hover:bg-green-700'
+                                    }`}
                                 >
                                   {addingToCart ? 'Adding...' : 'Add to Cart'}
                                 </button>
@@ -592,7 +589,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                     <LightBulbIcon className="h-5 w-5 mr-2 text-blue-500" />
                     Domain Generator
                   </h3>
-                  
+
                   {isSearching && (
                     <div className="flex items-center justify-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
@@ -622,11 +619,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => toggleFavorite(domain.domain)}
-                                className={`p-2 rounded-lg ${
-                                  favorites.includes(domain.domain)
-                                    ? 'text-red-500 bg-red-50'
-                                    : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                                }`}
+                                className={`p-2 rounded-lg ${favorites.includes(domain.domain)
+                                  ? 'text-red-500 bg-red-50'
+                                  : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                                  }`}
                               >
                                 <HeartIcon className="h-4 w-4" />
                               </button>
@@ -645,11 +641,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                                     <button
                                       onClick={() => handleAddDomainToCart(domain.domain, domain.price)}
                                       disabled={addingToCart}
-                                      className={`px-4 py-2 text-white rounded-lg text-sm ${
-                                        addingToCart 
-                                          ? 'bg-gray-400 cursor-not-allowed' 
-                                          : 'bg-green-600 hover:bg-green-700'
-                                      }`}
+                                      className={`px-4 py-2 text-white rounded-lg text-sm ${addingToCart
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'bg-green-600 hover:bg-green-700'
+                                        }`}
                                     >
                                       {addingToCart ? 'Adding...' : 'Add to Cart'}
                                     </button>
@@ -675,7 +670,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                     Domain Auctions
                   </h3>
                   <p className="text-sm text-gray-600 mb-6">Bid on expiring domains and grab a great deal!</p>
-                  
+
                   {loadingAuctions ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mr-3"></div>
@@ -738,7 +733,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                     Premium Domains
                   </h3>
                   <p className="text-sm text-gray-600 mb-6">Discover high-value, memorable domains for your brand.</p>
-                  
+
                   {loadingPremium ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mr-3"></div>
@@ -760,9 +755,9 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                               <div className="text-sm text-gray-500">Premium Price</div>
                             </div>
                           </div>
-                          
+
                           <p className="text-sm text-gray-600 mb-3">{domain.description}</p>
-                          
+
                           <div className="flex flex-wrap gap-1 mb-3">
                             {domain.features.map((feature: any, index: number) => (
                               <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
@@ -770,7 +765,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                               </span>
                             ))}
                           </div>
-                          
+
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-green-600 font-medium">{domain.availability}</span>
                             <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium">
@@ -800,7 +795,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                     Beast Mode
                   </h3>
                   <p className="text-sm text-gray-600 mb-6">Search across all available TLDs for maximum domain discovery.</p>
-                  
+
                   <div className="flex items-center space-x-2 mb-4">
                     <input
                       type="checkbox"
@@ -813,7 +808,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                       Enable Beast Mode - Search all TLDs
                     </label>
                   </div>
-                  
+
                   {beastMode && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <p className="text-sm text-yellow-800">
@@ -834,7 +829,7 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                     My Favorites ({favorites.length})
                   </h3>
                   <p className="text-sm text-gray-600 mb-6">Domains you've marked as favorites for quick access.</p>
-                  
+
                   {favorites.length === 0 ? (
                     <div className="text-center py-8">
                       <HeartIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -877,11 +872,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
                                   handleAddDomainToCart(domain, price);
                                 }}
                                 disabled={addingToCart}
-                                className={`px-4 py-2 text-white rounded-lg text-sm ${
-                                  addingToCart 
-                                    ? 'bg-gray-400 cursor-not-allowed' 
-                                    : 'bg-green-600 hover:bg-green-700'
-                                }`}
+                                className={`px-4 py-2 text-white rounded-lg text-sm ${addingToCart
+                                  ? 'bg-gray-400 cursor-not-allowed'
+                                  : 'bg-green-600 hover:bg-green-700'
+                                  }`}
                               >
                                 {addingToCart ? 'Adding...' : 'Add to Cart'}
                               </button>
@@ -941,10 +935,10 @@ export function DomainSearchComponent({ style }: { style?: React.CSSProperties }
 }
 
 // Products Grid Component (Fetches from Real Backend)
-export const ProductsGridComponent = React.memo(function ProductsGridComponent({ 
-  style, 
-  props 
-}: { 
+export const ProductsGridComponent = React.memo(function ProductsGridComponent({
+  style,
+  props
+}: {
   style?: React.CSSProperties;
   props?: {
     columns?: number;
@@ -956,78 +950,130 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     subtitle?: string;
   };
 }) {
+  // ALL HOOKS MUST BE AT THE TOP
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const { addItem } = useCart();
 
-  const fetchProducts = async () => {
-    // Prevent multiple API calls
-    if (hasFetched) return;
-    
-    // Check cache first
-    const now = Date.now();
-    if (productsCache && (now - productsCacheTimestamp) < CACHE_DURATION) {
-      setProducts(productsCache);
-      setHasFetched(true);
-      return;
-    }
+  // Get configuration from props (before hooks that depend on them)
+  const columns = props?.columns || 3;
+  const productCount = props?.productCount || products.length;
+  const showPrices = props?.showPrices !== false; // Default to true
+  const showButtons = props?.showButtons !== false; // Default to true
+  const title = props?.title || "Our Products";
+  const subtitle = props?.subtitle || "Choose from our range of hosting solutions designed to meet your needs";
 
-    setLoading(true);
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
-      const response = await fetch(`${apiUrl}/api/v1/products/`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
-      
-      // Cache the results
-      productsCache = data;
-      productsCacheTimestamp = now;
-      setProducts(data);
-    } catch (error) {
-      console.warn('Products API not available, using fallback data:', error);
-      // Fallback to mock data if API fails
-      setProducts([
-        {
-          id: '1',
-          name: 'Basic Hosting',
-          description: 'Perfect for small websites',
-          price: 9.99,
-          billing_cycle: 'monthly',
-          category: 'hosting'
-        },
-        {
-          id: '2',
-          name: 'Professional Hosting',
-          description: 'Great for business websites',
-          price: 19.99,
-          billing_cycle: 'monthly',
-          category: 'hosting'
-        },
-        {
-          id: '3',
-          name: 'Premium Hosting',
-          description: 'For high-traffic websites',
-          price: 39.99,
-          billing_cycle: 'monthly',
-          category: 'hosting'
-        }
-      ]);
-    } finally {
-      setLoading(false);
-      setHasFetched(true);
-    }
-  };
+  // Limit products based on productCount
+  const displayProducts = products.slice(0, productCount);
 
+  // Responsive columns hooks
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [actualColumns, setActualColumns] = React.useState(columns);
+
+  // ALL useEffect hooks together
   useEffect(() => {
+    // Fetch products logic inlined to avoid forward reference
+    const fetchProducts = async () => {
+      // Prevent multiple API calls
+      if (hasFetched) return;
+
+      // Check cache first
+      const now = Date.now();
+      if (productsCache && (now - productsCacheTimestamp) < CACHE_DURATION) {
+        setProducts(productsCache);
+        setHasFetched(true);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
+          (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+
+        const response = await fetch(`${apiUrl}/api/v1/products/`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+
+        // Cache the results
+        productsCache = data;
+        productsCacheTimestamp = now;
+        setProducts(data);
+      } catch (error) {
+        console.warn('Products API not available, using fallback data:', error);
+        // Fallback to mock data if API fails
+        setProducts([
+          {
+            id: '1',
+            name: 'Basic Hosting',
+            description: 'Perfect for small websites',
+            price: 9.99,
+            billing_cycle: 'monthly',
+            category: 'hosting'
+          },
+          {
+            id: '2',
+            name: 'Professional Hosting',
+            description: 'Great for business websites',
+            price: 19.99,
+            billing_cycle: 'monthly',
+            category: 'hosting'
+          },
+          {
+            id: '3',
+            name: 'Premium Hosting',
+            description: 'For high-traffic websites',
+            price: 39.99,
+            billing_cycle: 'monthly',
+            category: 'hosting'
+          }
+        ]);
+      } finally {
+        setLoading(false);
+        setHasFetched(true);
+      }
+    };
+
     fetchProducts();
   }, [hasFetched]);
 
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateColumns = () => {
+      const width = containerRef.current?.offsetWidth || 0;
+      const baseColumns = columns;
+
+      // Responsive column calculation based on width
+      let responsiveCols = baseColumns;
+      if (width < 400) {
+        responsiveCols = 1;
+      } else if (width < 600) {
+        responsiveCols = Math.min(2, baseColumns);
+      } else if (width < 900) {
+        responsiveCols = Math.min(3, baseColumns);
+      } else if (width < 1200) {
+        responsiveCols = Math.min(4, baseColumns);
+      } else {
+        responsiveCols = baseColumns;
+      }
+
+      setActualColumns(responsiveCols);
+    };
+
+    updateColumns();
+    const resizeObserver = new ResizeObserver(updateColumns);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => resizeObserver.disconnect();
+  }, [columns]);
+
+  // Function definitions AFTER all hooks
   const handleAddToCart = (product: any) => {
     addItem({
       id: product.id,
@@ -1053,54 +1099,6 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     );
   }
 
-  // Get configuration from props
-  const columns = props?.columns || 3;
-  const productCount = props?.productCount || products.length;
-  const showPrices = props?.showPrices !== false; // Default to true
-  const showButtons = props?.showButtons !== false; // Default to true
-  const title = props?.title || "Our Products";
-  const subtitle = props?.subtitle || "Choose from our range of hosting solutions designed to meet your needs";
-
-  // Limit products based on productCount
-  const displayProducts = products.slice(0, productCount);
-
-  // Responsive columns based on component width
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [actualColumns, setActualColumns] = React.useState(columns);
-
-  React.useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const updateColumns = () => {
-      const width = containerRef.current?.offsetWidth || 0;
-      const baseColumns = columns;
-      
-      // Responsive column calculation based on width
-      let responsiveCols = baseColumns;
-      if (width < 400) {
-        responsiveCols = 1;
-      } else if (width < 600) {
-        responsiveCols = Math.min(2, baseColumns);
-      } else if (width < 900) {
-        responsiveCols = Math.min(3, baseColumns);
-      } else if (width < 1200) {
-        responsiveCols = Math.min(4, baseColumns);
-      } else {
-        responsiveCols = baseColumns;
-      }
-      
-      setActualColumns(responsiveCols);
-    };
-    
-    updateColumns();
-    const resizeObserver = new ResizeObserver(updateColumns);
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    
-    return () => resizeObserver.disconnect();
-  }, [columns]);
-
   return (
     <div ref={containerRef} className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8" style={style}>
       <div className="text-center mb-12">
@@ -1109,14 +1107,14 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
           {subtitle}
         </p>
       </div>
-      
+
       <div className="grid gap-8" style={{ gridTemplateColumns: `repeat(${actualColumns}, 1fr)` }}>
         {displayProducts.map((product: any) => (
           <div key={product.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200">
             <div className="p-6">
               <h3 className="text-2xl font-bold text-gray-900 mb-3">{product.name}</h3>
               <p className="text-gray-600 mb-4">{product.description}</p>
-              
+
               {showPrices && (
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -1125,7 +1123,7 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
                   </div>
                 </div>
               )}
-              
+
               {showButtons && (
                 <button
                   onClick={() => handleAddToCart(product)}
@@ -1144,10 +1142,10 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
 });
 
 // Featured Products Component (Shows only featured products)
-export const FeaturedProductsComponent = React.memo(function FeaturedProductsComponent({ 
-  style, 
-  props 
-}: { 
+export const FeaturedProductsComponent = React.memo(function FeaturedProductsComponent({
+  style,
+  props
+}: {
   style?: React.CSSProperties;
   props?: {
     columns?: number;
@@ -1168,25 +1166,25 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
   const fetchFeaturedProducts = async () => {
     // Prevent multiple API calls
     if (hasFetched) return;
-    
+
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
+
       // Try to fetch featured products specifically
       let response = await fetch(`${apiUrl}/api/v1/products/?featured=true`);
       if (!response.ok) {
         // Fallback to regular products if featured endpoint doesn't exist
         response = await fetch(`${apiUrl}/api/v1/products/`);
       }
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Filter for featured products or use first few as featured
       const featuredProducts = data.filter((product: any) => product.featured === true) || data.slice(0, 4);
       setProducts(featuredProducts);
@@ -1287,7 +1285,7 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
           {subtitle}
         </p>
       </div>
-      
+
       <div className={`grid ${getGridClasses(columns)} gap-8`}>
         {displayProducts.map((product: any) => (
           <div key={product.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 relative">
@@ -1297,11 +1295,11 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
                 ⭐ Featured
               </span>
             </div>
-            
+
             <div className="p-6">
               <h3 className="text-2xl font-bold text-gray-900 mb-3">{product.name}</h3>
               <p className="text-gray-600 mb-4">{product.description}</p>
-              
+
               {showPrices && (
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -1310,7 +1308,7 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
                   </div>
                 </div>
               )}
-              
+
               {showButtons && (
                 <button
                   onClick={() => handleAddToCart(product)}
@@ -1342,11 +1340,11 @@ export function ContactFormComponent({ style }: { style?: React.CSSProperties })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
+
       const response = await fetch(`${apiUrl}/api/v1/contact/`, {
         method: 'POST',
         headers: {
@@ -1392,7 +1390,7 @@ export function ContactFormComponent({ style }: { style?: React.CSSProperties })
             <p className="text-green-800">Thank you! Your message has been sent successfully.</p>
           </div>
         )}
-        
+
         {submitStatus === 'error' && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800">Sorry, there was an error sending your message. Please try again.</p>
@@ -1416,7 +1414,7 @@ export function ContactFormComponent({ style }: { style?: React.CSSProperties })
                 placeholder="Your name"
               />
             </div>
-            
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email
@@ -1433,7 +1431,7 @@ export function ContactFormComponent({ style }: { style?: React.CSSProperties })
               />
             </div>
           </div>
-          
+
           <div>
             <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
               Subject
@@ -1449,7 +1447,7 @@ export function ContactFormComponent({ style }: { style?: React.CSSProperties })
               placeholder="What's this about?"
             />
           </div>
-          
+
           <div>
             <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
               Message
@@ -1465,7 +1463,7 @@ export function ContactFormComponent({ style }: { style?: React.CSSProperties })
               placeholder="Tell us more..."
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={isSubmitting}
@@ -1489,12 +1487,12 @@ export function ProductSearchComponent({ style }: { style?: React.CSSProperties 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    
+
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
+
       const response = await fetch(`${apiUrl}/api/v1/products/?search=${encodeURIComponent(searchQuery)}`);
       if (response.ok) {
         const data = await response.json();
@@ -1579,12 +1577,12 @@ export function NewsletterComponent({ style }: { style?: React.CSSProperties }) 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    
+
     setIsSubscribing(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
-      
+
       const response = await fetch(`${apiUrl}/api/v1/newsletter/subscribe`, {
         method: 'POST',
         headers: {
@@ -1615,13 +1613,13 @@ export function NewsletterComponent({ style }: { style?: React.CSSProperties }) 
         <p className="text-xl text-indigo-100 mb-8">
           Subscribe to our newsletter for the latest updates and offers
         </p>
-        
+
         {subscribeStatus === 'success' && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-green-800">Thank you for subscribing!</p>
           </div>
         )}
-        
+
         {subscribeStatus === 'error' && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800">Sorry, there was an error. Please try again.</p>
