@@ -265,7 +265,7 @@ export default function ComponentLibrary({
               />
           );
         })}
-            </div>
+      </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <MagnifyingGlassIcon className="h-12 w-12 text-gray-300 mb-4" />
@@ -284,20 +284,6 @@ export default function ComponentLibrary({
         </div>
       </div>
 
-      <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-        <div className="text-xs text-gray-500 space-y-1">
-          <p className="font-semibold text-gray-700">💡 Tips:</p>
-            <p>• Drag components to canvas to add</p>
-            <p>• Click component in canvas to edit</p>
-          <p>• Drag handle to reorder</p>
-            <p>• Hover to see controls</p>
-          {searchQuery && (
-            <p className="mt-2 pt-2 border-t border-gray-300">
-              • Use search to find components quickly
-            </p>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

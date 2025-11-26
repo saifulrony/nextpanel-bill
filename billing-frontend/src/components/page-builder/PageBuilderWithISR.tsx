@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -137,7 +138,19 @@ function SortableComponent({
   // Resize functionality
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [resizeTransform, setResizeTransform] = useState({ x: 0, y: 0 });
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [mounted, setMounted] = useState(false);
+  const [tempDimensions, setTempDimensions] = useState<{ width?: number; height?: number }>({});
+  const resizeTransformRef = useRef({ x: 0, y: 0 });
+  const mousePositionRef = useRef({ x: 0, y: 0 });
   const componentRef = useRef<HTMLDivElement>(null);
+
+  // Ensure component is mounted for portal
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
   const resizeStartPos = useRef({ 
     x: 0, 
     y: 0, 
@@ -145,6 +158,14 @@ function SortableComponent({
     height: 0,
     left: 0,
     top: 0,
+    initialLeft: 0,
+    initialTop: 0,
+    edgeOffsetX: 0, // Offset from mouse to edge
+    edgeOffsetY: 0,
+    initialRightEdgeX: 0, // Actual edge positions in screen coordinates
+    initialLeftEdgeX: 0,
+    initialBottomEdgeY: 0,
+    initialTopEdgeY: 0,
   });
 
   const handleResizeMouseDown = (e: React.MouseEvent, handle: string) => {
@@ -152,93 +173,349 @@ function SortableComponent({
     e.stopPropagation();
     setIsResizing(true);
     setResizeHandle(handle);
+    const initialMousePos = { x: e.clientX, y: e.clientY };
+    setMousePosition(initialMousePos);
+    mousePositionRef.current = initialMousePos;
     if (componentRef.current) {
       const rect = componentRef.current.getBoundingClientRect();
       const parentRect = componentRef.current.parentElement?.getBoundingClientRect() || { left: 0, top: 0 };
+      
+      // Get initial computed styles
+      const computedStyle = window.getComputedStyle(componentRef.current);
+      const initialLeft = parseFloat(computedStyle.left) || 0;
+      const initialTop = parseFloat(computedStyle.top) || 0;
+      
+      // Try to get width/height from component.style first (most accurate)
+      // Parse pixel values from style string (e.g., "300px" -> 300)
+      let initialWidth = 0;
+      let initialHeight = 0;
+      
+      if (component.style?.width) {
+        const widthStr = String(component.style.width);
+        const widthMatch = widthStr.match(/(\d+\.?\d*)px/);
+        if (widthMatch) {
+          initialWidth = parseFloat(widthMatch[1]);
+        }
+      }
+      
+      if (component.style?.height) {
+        const heightStr = String(component.style.height);
+        const heightMatch = heightStr.match(/(\d+\.?\d*)px/);
+        if (heightMatch) {
+          initialHeight = parseFloat(heightMatch[1]);
+        }
+      }
+      
+      // If not found in style, use getBoundingClientRect
+      // getBoundingClientRect includes borders, so if box-sizing is border-box, it matches
+      // If box-sizing is content-box, we need to account for borders
+      const boxSizing = computedStyle.boxSizing || 'content-box';
+      
+      if (initialWidth === 0) {
+        if (boxSizing === 'border-box') {
+          // getBoundingClientRect matches CSS width with border-box
+          initialWidth = rect.width;
+        } else {
+          // getBoundingClientRect includes borders, but content-box width doesn't
+          const borderLeft = parseFloat(computedStyle.borderLeftWidth) || 0;
+          const borderRight = parseFloat(computedStyle.borderRightWidth) || 0;
+          const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+          const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+          initialWidth = rect.width - borderLeft - borderRight - paddingLeft - paddingRight;
+        }
+      }
+      
+      if (initialHeight === 0) {
+        if (boxSizing === 'border-box') {
+          initialHeight = rect.height;
+        } else {
+          const borderTop = parseFloat(computedStyle.borderTopWidth) || 0;
+          const borderBottom = parseFloat(computedStyle.borderBottomWidth) || 0;
+          const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+          const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+          initialHeight = rect.height - borderTop - borderBottom - paddingTop - paddingBottom;
+        }
+      }
+      
+      // Ensure we have valid dimensions
+      if (initialWidth <= 0) initialWidth = rect.width;
+      if (initialHeight <= 0) initialHeight = rect.height;
+      
+      // Use the exact mouse position as the reference point
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+      
+      // Store the initial edge positions in screen coordinates
+      // These will be used as fixed reference points for calculating new dimensions
+      const initialRightEdgeX = rect.right;
+      const initialLeftEdgeX = rect.left;
+      const initialBottomEdgeY = rect.bottom;
+      const initialTopEdgeY = rect.top;
+
       resizeStartPos.current = {
-        x: e.clientX,
-        y: e.clientY,
-        width: rect.width,
-        height: rect.height,
+        x: mouseX, // Initial mouse position for delta calculation
+        y: mouseY,
+        width: initialWidth, // Use the parsed initial width (from style or computed)
+        height: initialHeight, // Use the parsed initial height (from style or computed)
         left: rect.left - parentRect.left,
         top: rect.top - parentRect.top,
+        initialLeft,
+        initialTop,
+        initialRightEdgeX, // Fixed reference: right edge position
+        initialLeftEdgeX,  // Fixed reference: left edge position
+        initialBottomEdgeY, // Fixed reference: bottom edge position
+        initialTopEdgeY,   // Fixed reference: top edge position
       };
+      
+      
+      // Ensure transform starts at 0,0 - no initial movement
+      setResizeTransform({ x: 0, y: 0 });
+      resizeTransformRef.current = { x: 0, y: 0 };
+      setTempDimensions({}); // Clear any previous temp dimensions
     }
   };
 
   useEffect(() => {
     if (!isResizing || !resizeHandle || !onUpdate) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - resizeStartPos.current.x;
-      const deltaY = e.clientY - resizeStartPos.current.y;
+    let rafId: number | null = null;
+    let pendingUpdate: { width: number; height: number; transformX: number; transformY: number } | null = null;
+    const lastAppliedDimensions = { width: resizeStartPos.current.width, height: resizeStartPos.current.height };
 
+    const applyUpdate = () => {
+      if (!pendingUpdate) return;
+      
+      const { width, height, transformX, transformY } = pendingUpdate;
+      pendingUpdate = null;
+      
+      // Store the last applied dimensions for mouseup
+      lastAppliedDimensions.width = width;
+      lastAppliedDimensions.height = height;
+
+      // During drag, update transform and store dimensions
+      // Dimensions are applied via tempDimensions in the component style (not via onUpdate to avoid re-render issues)
+      setResizeTransform({ x: transformX, y: transformY });
+      resizeTransformRef.current = { x: transformX, y: transformY };
+      setTempDimensions({ width, height });
+      
+      // Directly update the element's style to trigger ResizeObserver immediately
+      // This ensures responsive elements update instantly during drag
+      if (componentRef.current) {
+        // Apply dimensions directly to DOM to trigger ResizeObserver immediately
+        componentRef.current.style.width = `${width}px`;
+        componentRef.current.style.height = `${height}px`;
+        // Force a reflow to ensure ResizeObserver fires
+        void componentRef.current.offsetWidth;
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Always update mouse position for handle tracking - update immediately for smooth tracking
+      const newMousePos = { x: e.clientX, y: e.clientY };
+      mousePositionRef.current = newMousePos;
+      // Always update state to ensure ghost handle re-renders and stays visible
+      setMousePosition(newMousePos);
+      
+      // Use absolute positions relative to initial edges for more accurate calculations
+      const currentMouseX = e.clientX;
+      const currentMouseY = e.clientY;
+      
+      // Calculate delta from initial mouse position for threshold check
+      const deltaX = currentMouseX - resizeStartPos.current.x;
+      const deltaY = currentMouseY - resizeStartPos.current.y;
+      
+      // Small threshold to prevent jitter on initial click
+      // Only update if mouse has moved at least 1px to avoid initial blink
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+        return; // Don't update on tiny movements - prevents initial blink
+      }
+      
       let newWidth = resizeStartPos.current.width;
       let newHeight = resizeStartPos.current.height;
-      let newLeft = resizeStartPos.current.left;
-      let newTop = resizeStartPos.current.top;
+      let transformX = 0;
+      let transformY = 0;
 
-      // Handle corner and edge resizing
+      // Use pure delta-based calculations for accuracy
+      // This directly adds/subtracts mouse movement to initial dimensions
       if (resizeHandle === 'top-left') {
+        // Moving left (negative deltaX) increases width, moving right decreases it
+        // Moving up (negative deltaY) increases height, moving down decreases it
         newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
         newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
-        newLeft = resizeStartPos.current.left + (resizeStartPos.current.width - newWidth);
-        newTop = resizeStartPos.current.top + (resizeStartPos.current.height - newHeight);
+        transformX = resizeStartPos.current.width - newWidth;
+        transformY = resizeStartPos.current.height - newHeight;
       } else if (resizeHandle === 'top-right') {
+        // Moving right (positive deltaX) increases width
+        // Moving up (negative deltaY) increases height
         newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
         newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
-        newTop = resizeStartPos.current.top + (resizeStartPos.current.height - newHeight);
+        transformY = resizeStartPos.current.height - newHeight;
       } else if (resizeHandle === 'bottom-left') {
+        // Moving left (negative deltaX) increases width
+        // Moving down (positive deltaY) increases height
         newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
         newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
-        newLeft = resizeStartPos.current.left + (resizeStartPos.current.width - newWidth);
+        transformX = resizeStartPos.current.width - newWidth;
       } else if (resizeHandle === 'bottom-right') {
+        // Moving right (positive deltaX) increases width
+        // Moving down (positive deltaY) increases height
         newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
         newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
+        // No transform needed for bottom-right
       } else if (resizeHandle === 'top') {
+        // Top edge: moving up (negative deltaY) increases height
         newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
-        newTop = resizeStartPos.current.top + (resizeStartPos.current.height - newHeight);
+        transformY = resizeStartPos.current.height - newHeight;
       } else if (resizeHandle === 'bottom') {
+        // Bottom edge: moving down (positive deltaY) increases height
         newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
+        // No transform needed for bottom
       } else if (resizeHandle === 'left') {
+        // Left edge: moving left (negative deltaX) increases width
         newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
-        newLeft = resizeStartPos.current.left + (resizeStartPos.current.width - newWidth);
+        transformX = resizeStartPos.current.width - newWidth;
       } else if (resizeHandle === 'right') {
+        // Right edge: moving right (positive deltaX) increases width
         newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+        // No transform needed for right edge - only width changes
       }
 
-      const updatedStyle: React.CSSProperties = {
-        ...component.style,
-        width: `${newWidth}px`,
-        height: `${newHeight}px`,
-      };
-
-      // Only add position styles if we're actually moving the component
-      if (resizeHandle.includes('left') || resizeHandle.includes('top')) {
-        updatedStyle.position = 'relative';
-        updatedStyle.left = `${newLeft}px`;
-        updatedStyle.top = `${newTop}px`;
+      // Batch updates using requestAnimationFrame to prevent jitter
+      pendingUpdate = { width: newWidth, height: newHeight, transformX, transformY };
+      
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          applyUpdate();
+        });
       }
-
-      onUpdate({
-        ...component,
-        style: updatedStyle,
-      });
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e?: MouseEvent) => {
+      // Apply any pending update first to ensure lastAppliedDimensions is up to date
+      if (pendingUpdate) {
+        applyUpdate();
+      }
+      
+      // Recalculate final dimensions based on current mouse position to ensure accuracy
+      // This ensures we use the exact position where the user released the mouse
+      let finalWidth = lastAppliedDimensions.width;
+      let finalHeight = lastAppliedDimensions.height;
+      let finalTransformX = resizeTransformRef.current.x;
+      let finalTransformY = resizeTransformRef.current.y;
+      
+      if (e && componentRef.current) {
+        const currentMouseX = e.clientX;
+        const currentMouseY = e.clientY;
+        
+        // Recalculate dimensions one final time using delta-based calculation
+        const finalDeltaX = currentMouseX - resizeStartPos.current.x;
+        const finalDeltaY = currentMouseY - resizeStartPos.current.y;
+        
+        if (resizeHandle === 'top-left') {
+          finalWidth = Math.max(100, resizeStartPos.current.width - finalDeltaX);
+          finalHeight = Math.max(50, resizeStartPos.current.height - finalDeltaY);
+          finalTransformX = resizeStartPos.current.width - finalWidth;
+          finalTransformY = resizeStartPos.current.height - finalHeight;
+        } else if (resizeHandle === 'top-right') {
+          finalWidth = Math.max(100, resizeStartPos.current.width + finalDeltaX);
+          finalHeight = Math.max(50, resizeStartPos.current.height - finalDeltaY);
+          finalTransformY = resizeStartPos.current.height - finalHeight;
+        } else if (resizeHandle === 'bottom-left') {
+          finalWidth = Math.max(100, resizeStartPos.current.width - finalDeltaX);
+          finalHeight = Math.max(50, resizeStartPos.current.height + finalDeltaY);
+          finalTransformX = resizeStartPos.current.width - finalWidth;
+        } else if (resizeHandle === 'bottom-right') {
+          finalWidth = Math.max(100, resizeStartPos.current.width + finalDeltaX);
+          finalHeight = Math.max(50, resizeStartPos.current.height + finalDeltaY);
+        } else if (resizeHandle === 'top') {
+          finalHeight = Math.max(50, resizeStartPos.current.height - finalDeltaY);
+          finalTransformY = resizeStartPos.current.height - finalHeight;
+        } else if (resizeHandle === 'bottom') {
+          finalHeight = Math.max(50, resizeStartPos.current.height + finalDeltaY);
+        } else if (resizeHandle === 'left') {
+          finalWidth = Math.max(100, resizeStartPos.current.width - finalDeltaX);
+          finalTransformX = resizeStartPos.current.width - finalWidth;
+        } else if (resizeHandle === 'right') {
+          finalWidth = Math.max(100, resizeStartPos.current.width + finalDeltaX);
+        }
+      }
+      
+      // getBoundingClientRect() returns the total rendered size including borders and padding
+      // To match this, we need to use box-sizing: border-box so that width/height includes borders
+      // This ensures the CSS width/height matches what getBoundingClientRect() returns
+      
+      // Convert transform to left/top on mouse up
+      if (componentRef.current && (finalTransformX !== 0 || finalTransformY !== 0)) {
+        const finalLeft = resizeStartPos.current.initialLeft + finalTransformX;
+        const finalTop = resizeStartPos.current.initialTop + finalTransformY;
+        
+        const updatedStyle: React.CSSProperties = {
+          ...component.style,
+          width: `${finalWidth}px`,
+          height: `${finalHeight}px`,
+          position: 'relative',
+          left: `${finalLeft}px`,
+          top: `${finalTop}px`,
+          transform: 'none',
+          boxSizing: 'border-box', // Ensure width/height includes borders to match getBoundingClientRect()
+        };
+
+        onUpdate({
+          ...component,
+          style: updatedStyle,
+        });
+      } else if (finalWidth !== resizeStartPos.current.width || finalHeight !== resizeStartPos.current.height) {
+        // If dimensions changed but no transform, just update dimensions
+        const updatedStyle: React.CSSProperties = {
+          ...component.style,
+          width: `${finalWidth}px`,
+          height: `${finalHeight}px`,
+          boxSizing: 'border-box', // Ensure width/height includes borders to match getBoundingClientRect()
+        };
+
+        onUpdate({
+          ...component,
+          style: updatedStyle,
+        });
+      }
+      
       setIsResizing(false);
       setResizeHandle(null);
+      setResizeTransform({ x: 0, y: 0 });
+      resizeTransformRef.current = { x: 0, y: 0 };
+      setMousePosition({ x: 0, y: 0 });
+      setTempDimensions({}); // Clear temporary dimensions
     };
 
+    const handleMouseUpWrapper = (e: MouseEvent) => {
+      handleMouseUp(e);
+    };
+    
     document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseup', handleMouseUpWrapper);
     document.body.style.userSelect = 'none';
+    document.body.style.cursor = resizeHandle.includes('left') && resizeHandle.includes('right') 
+      ? 'ew-resize' 
+      : resizeHandle.includes('top') && resizeHandle.includes('bottom')
+      ? 'ns-resize'
+      : resizeHandle.includes('left') || resizeHandle.includes('right')
+      ? 'ew-resize'
+      : 'ns-resize';
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      // Apply any pending update before cleanup
+      if (pendingUpdate) {
+        applyUpdate();
+      }
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', handleMouseUpWrapper);
       document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
   }, [isResizing, resizeHandle, component, onUpdate]);
 
@@ -250,8 +527,16 @@ function SortableComponent({
           className="relative group"
           style={{
             ...component.style,
+            // Apply temporary dimensions during resize so border moves in real-time
+            ...(isResizing && tempDimensions.width ? { width: `${tempDimensions.width}px` } : {}),
+            ...(isResizing && tempDimensions.height ? { height: `${tempDimensions.height}px` } : {}),
             border: isSelected || isHovered ? '2px solid #6366f1' : '2px solid transparent',
             position: 'relative',
+            boxSizing: component.style?.boxSizing || 'border-box', // Ensure consistent box-sizing
+            // Apply transform during resize for smooth handling (for left/top edges)
+            ...(isResizing && (resizeTransform.x !== 0 || resizeTransform.y !== 0) 
+              ? { transform: `translate(${resizeTransform.x}px, ${resizeTransform.y}px)` }
+              : {}),
           }}
           onMouseEnter={onMouseEnter}
           onMouseLeave={onMouseLeave}
@@ -304,9 +589,10 @@ function SortableComponent({
           <>
             {/* Corner Handles */}
             <div
-              className={`absolute -top-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'top-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -top-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'top-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'top-left' ? { pointerEvents: 'none' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'top-left');
@@ -314,9 +600,10 @@ function SortableComponent({
               title="Resize from top-left"
             />
             <div
-              className={`absolute -top-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'top-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -top-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'top-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'top-right' ? { pointerEvents: 'none' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'top-right');
@@ -324,9 +611,10 @@ function SortableComponent({
               title="Resize from top-right"
             />
             <div
-              className={`absolute -bottom-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'bottom-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -bottom-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'bottom-left' ? { pointerEvents: 'none' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'bottom-left');
@@ -334,9 +622,10 @@ function SortableComponent({
               title="Resize from bottom-left"
             />
             <div
-              className={`absolute -bottom-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize transition-all z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'bottom-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -bottom-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'bottom-right' ? { pointerEvents: 'none' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'bottom-right');
@@ -346,9 +635,10 @@ function SortableComponent({
             
             {/* Edge Handles */}
             <div
-              className={`absolute -top-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize transition-all z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
-                isResizing && resizeHandle === 'top' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -top-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
+                isResizing && resizeHandle === 'top' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'top' ? { pointerEvents: 'none' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'top');
@@ -356,9 +646,10 @@ function SortableComponent({
               title="Resize height from top"
             />
             <div
-              className={`absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize transition-all z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
-                isResizing && resizeHandle === 'bottom' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
+                isResizing && resizeHandle === 'bottom' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'bottom' ? { pointerEvents: 'none' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'bottom');
@@ -366,9 +657,10 @@ function SortableComponent({
               title="Resize height from bottom"
             />
             <div
-              className={`absolute -left-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize transition-all z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
-                isResizing && resizeHandle === 'left' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -left-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
+                isResizing && resizeHandle === 'left' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'left' ? { pointerEvents: 'none' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'left');
@@ -376,15 +668,80 @@ function SortableComponent({
               title="Resize width from left"
             />
             <div
-              className={`absolute -right-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize transition-all z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
-                isResizing && resizeHandle === 'right' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : ''
+              className={`absolute -right-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
+                isResizing && resizeHandle === 'right' ? 'opacity-0' : 'transition-all'
               }`}
+              style={isResizing && resizeHandle === 'right' ? { pointerEvents: 'none', visibility: 'hidden' } : {}}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 handleResizeMouseDown(e, 'right');
               }}
               title="Resize width from right"
             />
+            
+            {/* Ghost handle that follows the component edge during resize - rendered via portal to persist through re-renders */}
+            {mounted && isResizing && resizeHandle && componentRef.current && createPortal(
+              <>
+                {(() => {
+                  // Get actual current edge positions from the component (now that dimensions are applied)
+                  const rect = componentRef.current.getBoundingClientRect();
+                  let handleX = 0;
+                  let handleY = 0;
+                  
+                  if (resizeHandle === 'top-left' || resizeHandle === 'left' || resizeHandle === 'bottom-left') {
+                    // Left edge
+                    handleX = rect.left;
+                  } else if (resizeHandle === 'top-right' || resizeHandle === 'right' || resizeHandle === 'bottom-right') {
+                    // Right edge
+                    handleX = rect.right;
+                  } else {
+                    // Top or bottom edge - center horizontally
+                    handleX = rect.left + (rect.width / 2);
+                  }
+                  
+                  if (resizeHandle === 'top-left' || resizeHandle === 'top' || resizeHandle === 'top-right') {
+                    // Top edge
+                    handleY = rect.top;
+                  } else if (resizeHandle === 'bottom-left' || resizeHandle === 'bottom' || resizeHandle === 'bottom-right') {
+                    // Bottom edge
+                    handleY = rect.bottom;
+                  } else {
+                    // Left or right edge - center vertically
+                    handleY = rect.top + (rect.height / 2);
+                  }
+                  
+                  return (
+                    <div
+                      className="fixed bg-indigo-700 border-2 border-white rounded-full ring-2 ring-indigo-300 shadow-xl z-[99999] pointer-events-none"
+                      style={{
+                        left: `${handleX}px`,
+                        top: `${handleY}px`,
+                        width: (resizeHandle.includes('left') || resizeHandle.includes('right')) && !resizeHandle.includes('top') && !resizeHandle.includes('bottom')
+                          ? '20px' // Edge handles (left/right) are tall
+                          : (resizeHandle.includes('top') || resizeHandle.includes('bottom')) && !resizeHandle.includes('left') && !resizeHandle.includes('right')
+                          ? '64px' // Edge handles (top/bottom) are wide
+                          : '24px', // Corner handles are square
+                        height: (resizeHandle.includes('top') || resizeHandle.includes('bottom')) && !resizeHandle.includes('left') && !resizeHandle.includes('right')
+                          ? '20px' // Edge handles (top/bottom) are short
+                          : (resizeHandle.includes('left') || resizeHandle.includes('right')) && !resizeHandle.includes('top') && !resizeHandle.includes('bottom')
+                          ? '64px' // Edge handles (left/right) are tall
+                          : '24px', // Corner handles are square
+                        transform: 'translate(-50%, -50%)',
+                        cursor: resizeHandle.includes('left') && resizeHandle.includes('right')
+                          ? 'ew-resize'
+                          : resizeHandle.includes('top') && resizeHandle.includes('bottom')
+                          ? 'ns-resize'
+                          : resizeHandle.includes('left') || resizeHandle.includes('right')
+                          ? 'ew-resize'
+                          : 'ns-resize',
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  );
+                })()}
+              </>,
+              document.body
+            )}
           </>
         )}
         </div>

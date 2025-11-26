@@ -233,18 +233,18 @@ export default function ComponentRenderer({
           <ResponsiveContainer
             component={component}
             isSelected={isSelected}
-            isHovered={isHovered}
-            onAddColumn={onAddColumn}
-            onRemoveColumn={onRemoveColumn}
+                        isHovered={isHovered}
+                        onAddColumn={onAddColumn}
+                        onRemoveColumn={onRemoveColumn}
             onColumnClick={onColumnClick}
             onColumnAddClick={onColumnAddClick}
             onAddToContainer={onAddToContainer}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
-            onAddAfter={onAddAfter}
-            isEditor={isEditor}
-            selectedComponent={selectedComponent}
-          />
+                        onAddAfter={onAddAfter}
+                        isEditor={isEditor}
+                        selectedComponent={selectedComponent}
+                      />
         );
 
       case 'spacer':
@@ -299,11 +299,11 @@ export default function ComponentRenderer({
         return (
           <ResponsiveGrid
             component={component}
-            onAddToContainer={onAddToContainer}
-            onColumnClick={onColumnClick}
-            onAddColumn={onAddColumn}
-            onRemoveColumn={onRemoveColumn}
-          />
+                onAddToContainer={onAddToContainer}
+                onColumnClick={onColumnClick}
+                onAddColumn={onAddColumn}
+                onRemoveColumn={onRemoveColumn}
+              />
         );
 
       case 'video':
