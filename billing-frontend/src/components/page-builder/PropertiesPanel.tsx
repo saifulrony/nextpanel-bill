@@ -73,6 +73,9 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
     header: 'Header',
     footer: 'Footer',
     cart: 'Cart',
+    slider: 'Slider',
+    banner: 'Banner',
+    'nav-menu': 'Navigation Menu',
   };
 
   return (
@@ -420,6 +423,904 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                   onChange={(e) => updateProp('buttonColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
+            </div>
+          </div>
+        )}
+
+        {/* Slider Component Properties */}
+        {component.type === 'slider' && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">Slides</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentSlides = component.props?.slides || [];
+                    const newSlide = {
+                      id: `slide-${Date.now()}`,
+                      image: '',
+                      title: '',
+                      description: '',
+                      buttonText: '',
+                      buttonLink: '#',
+                      overlay: true,
+                      overlayOpacity: 0.5,
+                    };
+                    updateProp('slides', [...currentSlides, newSlide]);
+                  }}
+                  className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                >
+                  + Add Slide
+                </button>
+              </div>
+              <div className="space-y-3">
+                {(component.props?.slides || [
+                  {
+                    id: '1',
+                    image: '',
+                    title: '',
+                    description: '',
+                    buttonText: '',
+                    buttonLink: '#',
+                    overlay: true,
+                    overlayOpacity: 0.5,
+                  },
+                ]).map((slide: any, index: number) => (
+                  <div key={slide.id || index} className="border border-gray-300 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-700">Slide {index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentSlides = component.props?.slides || [];
+                          updateProp('slides', currentSlides.filter((_: any, i: number) => i !== index));
+                        }}
+                        className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    
+                    {/* Image Upload */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Image</label>
+                      {slide.image && (
+                        <div className="mb-2">
+                          <img src={slide.image} alt={`Slide ${index + 1}`} className="w-full h-24 object-cover rounded border" />
+                        </div>
+                      )}
+                      <ImageUploadButton
+                        onUploadSuccess={(imageUrl) => {
+                          const currentSlides = component.props?.slides || [];
+                          const updatedSlides = [...currentSlides];
+                          updatedSlides[index] = { ...updatedSlides[index], image: imageUrl };
+                          updateProp('slides', updatedSlides);
+                        }}
+                        currentImageUrl={slide.image}
+                      />
+                    </div>
+                    
+                    {/* Title */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={slide.title || ''}
+                        onChange={(e) => {
+                          const currentSlides = component.props?.slides || [];
+                          const updatedSlides = [...currentSlides];
+                          updatedSlides[index] = { ...updatedSlides[index], title: e.target.value };
+                          updateProp('slides', updatedSlides);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="Slide title"
+                      />
+                    </div>
+                    
+                    {/* Description */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        value={slide.description || ''}
+                        onChange={(e) => {
+                          const currentSlides = component.props?.slides || [];
+                          const updatedSlides = [...currentSlides];
+                          updatedSlides[index] = { ...updatedSlides[index], description: e.target.value };
+                          updateProp('slides', updatedSlides);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        rows={2}
+                        placeholder="Slide description"
+                      />
+                    </div>
+                    
+                    {/* Button Text */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Button Text</label>
+                      <input
+                        type="text"
+                        value={slide.buttonText || ''}
+                        onChange={(e) => {
+                          const currentSlides = component.props?.slides || [];
+                          const updatedSlides = [...currentSlides];
+                          updatedSlides[index] = { ...updatedSlides[index], buttonText: e.target.value };
+                          updateProp('slides', updatedSlides);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="Button text"
+                      />
+                    </div>
+                    
+                    {/* Button Link */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Button Link</label>
+                      <input
+                        type="text"
+                        value={slide.buttonLink || '#'}
+                        onChange={(e) => {
+                          const currentSlides = component.props?.slides || [];
+                          const updatedSlides = [...currentSlides];
+                          updatedSlides[index] = { ...updatedSlides[index], buttonLink: e.target.value };
+                          updateProp('slides', updatedSlides);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="#"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Desktop)</label>
+              <input
+                type="text"
+                value={component.props?.height || '600px'}
+                onChange={(e) => updateProp('height', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="600px"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Tablet)</label>
+              <input
+                type="text"
+                value={component.props?.heightTablet || '500px'}
+                onChange={(e) => updateProp('heightTablet', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="500px"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Mobile)</label>
+              <input
+                type="text"
+                value={component.props?.heightMobile || '400px'}
+                onChange={(e) => updateProp('heightMobile', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="400px"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Autoplay Interval (ms)</label>
+              <input
+                type="number"
+                value={component.props?.autoplayInterval || 5000}
+                onChange={(e) => updateProp('autoplayInterval', parseInt(e.target.value) || 5000)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="5000"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Animation Speed (ms)</label>
+              <input
+                type="number"
+                value={component.props?.animationSpeed || 500}
+                onChange={(e) => updateProp('animationSpeed', parseInt(e.target.value) || 500)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Size</label>
+              <select
+                value={component.props?.backgroundSize || 'cover'}
+                onChange={(e) => updateProp('backgroundSize', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="cover">Cover</option>
+                <option value="contain">Contain</option>
+                <option value="auto">Auto</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Position</label>
+              <select
+                value={component.props?.backgroundPosition || 'center'}
+                onChange={(e) => updateProp('backgroundPosition', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="center">Center</option>
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title Color</label>
+              <input
+                type="color"
+                value={component.props?.titleColor || '#ffffff'}
+                onChange={(e) => updateProp('titleColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description Color</label>
+              <input
+                type="color"
+                value={component.props?.descriptionColor || '#ffffff'}
+                onChange={(e) => updateProp('descriptionColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Button Background Color</label>
+              <input
+                type="color"
+                value={component.props?.buttonBackgroundColor || '#ffffff'}
+                onChange={(e) => updateProp('buttonBackgroundColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Button Text Color</label>
+              <input
+                type="color"
+                value={component.props?.buttonTextColor || '#000000'}
+                onChange={(e) => updateProp('buttonTextColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Overlay Color</label>
+              <input
+                type="color"
+                value={component.props?.overlayColor || '#000000'}
+                onChange={(e) => updateProp('overlayColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Overlay Opacity</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={component.props?.overlayOpacity || 0.5}
+                onChange={(e) => updateProp('overlayOpacity', parseFloat(e.target.value))}
+                className="w-full"
+              />
+              <span className="text-xs text-gray-500">{component.props?.overlayOpacity || 0.5}</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.autoplay !== false}
+                  onChange={(e) => updateProp('autoplay', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Autoplay</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showArrows !== false}
+                  onChange={(e) => updateProp('showArrows', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Arrows</span>
+              </label>
+            </div>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showDots !== false}
+                  onChange={(e) => updateProp('showDots', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Dots</span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Banner Component Properties */}
+        {component.type === 'banner' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Content (HTML)</label>
+              <textarea
+                value={component.props?.content || component.content || ''}
+                onChange={(e) => {
+                  updateProp('content', e.target.value);
+                  updateContent(e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                rows={6}
+                placeholder="Enter banner content (HTML supported)"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Desktop)</label>
+              <input
+                type="text"
+                value={component.props?.height || '300px'}
+                onChange={(e) => updateProp('height', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="300px"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Tablet)</label>
+              <input
+                type="text"
+                value={component.props?.heightTablet || '250px'}
+                onChange={(e) => updateProp('heightTablet', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="250px"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Mobile)</label>
+              <input
+                type="text"
+                value={component.props?.heightMobile || '200px'}
+                onChange={(e) => updateProp('heightMobile', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="200px"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Image</label>
+              {component.props?.backgroundImage && (
+                <div className="mb-2">
+                  <img src={component.props.backgroundImage} alt="Banner background" className="w-full h-32 object-cover rounded border" />
+                </div>
+              )}
+              <ImageUploadButton
+                onUploadSuccess={(imageUrl) => updateProp('backgroundImage', imageUrl)}
+                currentImageUrl={component.props?.backgroundImage}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+              <input
+                type="color"
+                value={component.props?.backgroundColor || '#4f46e5'}
+                onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Gradient (CSS)</label>
+              <input
+                type="text"
+                value={component.props?.backgroundGradient || ''}
+                onChange={(e) => updateProp('backgroundGradient', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                placeholder="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              />
+              <p className="text-xs text-gray-500 mt-1">CSS gradient string (overrides background color if set)</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Size</label>
+              <select
+                value={component.props?.backgroundSize || 'cover'}
+                onChange={(e) => updateProp('backgroundSize', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="cover">Cover</option>
+                <option value="contain">Contain</option>
+                <option value="auto">Auto</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Position</label>
+              <select
+                value={component.props?.backgroundPosition || 'center'}
+                onChange={(e) => updateProp('backgroundPosition', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="center">Center</option>
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Text Align</label>
+              <select
+                value={component.props?.textAlign || 'center'}
+                onChange={(e) => updateProp('textAlign', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Vertical Align</label>
+              <select
+                value={component.props?.verticalAlign || 'center'}
+                onChange={(e) => updateProp('verticalAlign', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="top">Top</option>
+                <option value="center">Center</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+              <input
+                type="color"
+                value={component.props?.textColor || '#ffffff'}
+                onChange={(e) => updateProp('textColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Overlay Color</label>
+              <input
+                type="color"
+                value={component.props?.overlayColor || '#000000'}
+                onChange={(e) => updateProp('overlayColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Overlay Opacity</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={component.props?.overlayOpacity || 0.3}
+                onChange={(e) => updateProp('overlayOpacity', parseFloat(e.target.value))}
+                className="w-full"
+              />
+              <span className="text-xs text-gray-500">{component.props?.overlayOpacity || 0.3}</span>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Content Padding</label>
+              <input
+                type="text"
+                value={component.props?.contentPadding || '2rem'}
+                onChange={(e) => updateProp('contentPadding', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="2rem"
+              />
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.overlay !== false}
+                  onChange={(e) => updateProp('overlay', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Overlay</span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Nav Menu Component Properties */}
+        {component.type === 'nav-menu' && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">Menu Items</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentItems = component.props?.items || [];
+                    const newItem = {
+                      id: `menu-${Date.now()}`,
+                      label: 'New Menu Item',
+                      link: '#',
+                      icon: '',
+                      iconType: 'heroicon',
+                      openInNewTab: false,
+                    };
+                    updateProp('items', [...currentItems, newItem]);
+                  }}
+                  className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                >
+                  + Add Item
+                </button>
+              </div>
+              <div className="space-y-3">
+                {(component.props?.items || [
+                  {
+                    id: '1',
+                    label: 'Home',
+                    link: '/',
+                    icon: 'home',
+                    iconType: 'heroicon',
+                    openInNewTab: false,
+                  },
+                ]).map((item: any, index: number) => (
+                  <div key={item.id || index} className="border border-gray-300 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-700">Item {index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentItems = component.props?.items || [];
+                          updateProp('items', currentItems.filter((_: any, i: number) => i !== index));
+                        }}
+                        className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    
+                    {/* Label */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Label</label>
+                      <input
+                        type="text"
+                        value={item.label || ''}
+                        onChange={(e) => {
+                          const currentItems = component.props?.items || [];
+                          const updatedItems = [...currentItems];
+                          updatedItems[index] = { ...updatedItems[index], label: e.target.value };
+                          updateProp('items', updatedItems);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="Menu item label"
+                      />
+                    </div>
+                    
+                    {/* Link */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Link</label>
+                      <input
+                        type="text"
+                        value={item.link || '#'}
+                        onChange={(e) => {
+                          const currentItems = component.props?.items || [];
+                          const updatedItems = [...currentItems];
+                          updatedItems[index] = { ...updatedItems[index], link: e.target.value };
+                          updateProp('items', updatedItems);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="/page"
+                      />
+                    </div>
+                    
+                    {/* Icon Type */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Icon Type</label>
+                      <select
+                        value={item.iconType || 'heroicon'}
+                        onChange={(e) => {
+                          const currentItems = component.props?.items || [];
+                          const updatedItems = [...currentItems];
+                          updatedItems[index] = { ...updatedItems[index], iconType: e.target.value };
+                          updateProp('items', updatedItems);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="heroicon">Heroicon</option>
+                        <option value="emoji">Emoji</option>
+                        <option value="image">Image URL</option>
+                        <option value="">None</option>
+                      </select>
+                    </div>
+                    
+                    {/* Icon */}
+                    {item.iconType && item.iconType !== '' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {item.iconType === 'heroicon' ? 'Icon Name' : item.iconType === 'emoji' ? 'Emoji' : 'Image URL'}
+                        </label>
+                        <input
+                          type="text"
+                          value={item.icon || ''}
+                          onChange={(e) => {
+                            const currentItems = component.props?.items || [];
+                            const updatedItems = [...currentItems];
+                            updatedItems[index] = { ...updatedItems[index], icon: e.target.value };
+                            updateProp('items', updatedItems);
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder={item.iconType === 'heroicon' ? 'home, about, contact, etc.' : item.iconType === 'emoji' ? '🏠' : 'https://example.com/icon.png'}
+                        />
+                        {item.iconType === 'heroicon' && (
+                          <p className="text-xs text-gray-500 mt-1">Available: home, about, contact, services, products, blog</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Open in New Tab */}
+                    <div className="flex items-center">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={item.openInNewTab || false}
+                          onChange={(e) => {
+                            const currentItems = component.props?.items || [];
+                            const updatedItems = [...currentItems];
+                            updatedItems[index] = { ...updatedItems[index], openInNewTab: e.target.checked };
+                            updateProp('items', updatedItems);
+                          }}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-xs text-gray-700">Open in new tab</span>
+                      </label>
+                    </div>
+                    
+                    {/* Submenu Items */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-700">Submenu Items</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentItems = component.props?.items || [];
+                            const updatedItems = [...currentItems];
+                            if (!updatedItems[index].children) {
+                              updatedItems[index].children = [];
+                            }
+                            updatedItems[index].children.push({
+                              id: `submenu-${Date.now()}`,
+                              label: 'Submenu Item',
+                              link: '#',
+                              icon: '',
+                              iconType: 'heroicon',
+                              openInNewTab: false,
+                            });
+                            updateProp('items', updatedItems);
+                          }}
+                          className="text-xs px-2 py-0.5 bg-gray-600 text-white rounded hover:bg-gray-700"
+                        >
+                          + Add Submenu
+                        </button>
+                      </div>
+                      {item.children && item.children.length > 0 && (
+                        <div className="ml-4 space-y-2 mt-2">
+                          {item.children.map((child: any, childIndex: number) => (
+                            <div key={child.id || childIndex} className="border border-gray-200 rounded p-2 bg-gray-50 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-600">Submenu {childIndex + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const currentItems = component.props?.items || [];
+                                    const updatedItems = [...currentItems];
+                                    updatedItems[index].children = updatedItems[index].children.filter((_: any, i: number) => i !== childIndex);
+                                    updateProp('items', updatedItems);
+                                  }}
+                                  className="text-xs px-1 py-0.5 bg-red-500 text-white rounded hover:bg-red-600"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <input
+                                type="text"
+                                value={child.label || ''}
+                                onChange={(e) => {
+                                  const currentItems = component.props?.items || [];
+                                  const updatedItems = [...currentItems];
+                                  updatedItems[index].children[childIndex].label = e.target.value;
+                                  updateProp('items', updatedItems);
+                                }}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="Label"
+                              />
+                              <input
+                                type="text"
+                                value={child.link || '#'}
+                                onChange={(e) => {
+                                  const currentItems = component.props?.items || [];
+                                  const updatedItems = [...currentItems];
+                                  updatedItems[index].children[childIndex].link = e.target.value;
+                                  updateProp('items', updatedItems);
+                                }}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="Link"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Orientation */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Orientation</label>
+              <select
+                value={component.props?.orientation || 'horizontal'}
+                onChange={(e) => updateProp('orientation', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+              </select>
+            </div>
+            
+            {/* Alignment */}
+            {component.props?.orientation !== 'vertical' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alignment</label>
+                <select
+                  value={component.props?.alignment || 'left'}
+                  onChange={(e) => updateProp('alignment', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+            )}
+            
+            {/* Colors */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+              <input
+                type="color"
+                value={component.props?.backgroundColor || '#ffffff'}
+                onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+              <input
+                type="color"
+                value={component.props?.textColor || '#374151'}
+                onChange={(e) => updateProp('textColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Hover Color</label>
+              <input
+                type="color"
+                value={component.props?.hoverColor || '#4f46e5'}
+                onChange={(e) => updateProp('hoverColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Active Color</label>
+              <input
+                type="color"
+                value={component.props?.activeColor || '#4f46e5'}
+                onChange={(e) => updateProp('activeColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            
+            {/* Typography */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
+              <input
+                type="text"
+                value={component.props?.fontSize || '1rem'}
+                onChange={(e) => updateProp('fontSize', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="1rem"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+              <select
+                value={component.props?.fontWeight || '500'}
+                onChange={(e) => updateProp('fontWeight', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="300">Light (300)</option>
+                <option value="400">Normal (400)</option>
+                <option value="500">Medium (500)</option>
+                <option value="600">Semibold (600)</option>
+                <option value="700">Bold (700)</option>
+              </select>
+            </div>
+            
+            {/* Spacing */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
+              <input
+                type="text"
+                value={component.props?.padding || '0.75rem 1rem'}
+                onChange={(e) => updateProp('padding', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="0.75rem 1rem"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Gap</label>
+              <input
+                type="text"
+                value={component.props?.gap || '0.5rem'}
+                onChange={(e) => updateProp('gap', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="0.5rem"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Border Radius</label>
+              <input
+                type="text"
+                value={component.props?.borderRadius || '0.375rem'}
+                onChange={(e) => updateProp('borderRadius', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="0.375rem"
+              />
+            </div>
+            
+            {/* Mobile Settings */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Mobile Settings</h4>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Breakpoint (px)</label>
+                <input
+                  type="number"
+                  value={component.props?.mobileBreakpoint || 768}
+                  onChange={(e) => updateProp('mobileBreakpoint', parseInt(e.target.value) || 768)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  placeholder="768"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Menu Style</label>
+                <select
+                  value={component.props?.mobileMenuStyle || 'dropdown'}
+                  onChange={(e) => updateProp('mobileMenuStyle', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="dropdown">Dropdown</option>
+                  <option value="sidebar">Sidebar</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Menu Background</label>
+                <input
+                  type="color"
+                  value={component.props?.mobileMenuBackgroundColor || '#ffffff'}
+                  onChange={(e) => updateProp('mobileMenuBackgroundColor', e.target.value)}
+                  className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+            
+            {/* Options */}
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showIcons !== false}
+                  onChange={(e) => updateProp('showIcons', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Icons</span>
+              </label>
             </div>
           </div>
         )}

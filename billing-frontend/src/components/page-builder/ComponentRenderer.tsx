@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Component, ComponentType } from './types';
 import {
   DomainSearchComponent,
@@ -16,6 +16,10 @@ import CartComponent from './CartComponent';
 import ResponsiveContainer from './ResponsiveContainer';
 import ResponsiveGrid from './ResponsiveGrid';
 import ResponsiveShowcase from './ResponsiveShowcase';
+import ElementorGrid from './ElementorGrid';
+import SliderComponent from './SliderComponent';
+import BannerComponent from './BannerComponent';
+import NavMenuComponent from './NavMenuComponent';
 
 interface ComponentRendererProps {
   component: Component;
@@ -297,12 +301,20 @@ export default function ComponentRenderer({
 
       case 'grid':
         return (
-          <ResponsiveGrid
+          <ElementorGrid
             component={component}
+            isSelected={isSelected}
+            isHovered={isHovered}
                 onAddToContainer={onAddToContainer}
                 onColumnClick={onColumnClick}
+            onColumnAddClick={onColumnAddClick}
                 onAddColumn={onAddColumn}
                 onRemoveColumn={onRemoveColumn}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+            onAddAfter={onAddAfter}
+            isEditor={isEditor}
+            selectedComponent={selectedComponent}
               />
         );
 
@@ -379,6 +391,135 @@ export default function ComponentRenderer({
 
       case 'newsletter':
         return <NewsletterComponent style={component.style} />;
+
+      case 'slider': {
+        const slides = component.props?.slides || [
+          {
+            id: '1',
+            image: 'https://via.placeholder.com/1200x600?text=Slide+1',
+            title: 'Slide 1 Title',
+            description: 'Slide 1 description text',
+            buttonText: 'Learn More',
+            buttonLink: '#',
+            overlay: true,
+            overlayOpacity: 0.5,
+          },
+          {
+            id: '2',
+            image: 'https://via.placeholder.com/1200x600?text=Slide+2',
+            title: 'Slide 2 Title',
+            description: 'Slide 2 description text',
+            buttonText: 'Get Started',
+            buttonLink: '#',
+            overlay: true,
+            overlayOpacity: 0.5,
+          },
+        ];
+        
+        const autoplay = component.props?.autoplay !== false;
+        const autoplayInterval = component.props?.autoplayInterval || 5000;
+        const showArrows = component.props?.showArrows !== false;
+        const showDots = component.props?.showDots !== false;
+        const height = component.props?.height || '600px';
+        const heightMobile = component.props?.heightMobile || '400px';
+        const heightTablet = component.props?.heightTablet || '500px';
+        const transition = component.props?.transition || 'slide';
+        const animationSpeed = component.props?.animationSpeed || 500;
+        
+        return (
+          <SliderComponent
+            slides={slides}
+            autoplay={autoplay}
+            autoplayInterval={autoplayInterval}
+            showArrows={showArrows}
+            showDots={showDots}
+            height={height}
+            heightMobile={heightMobile}
+            heightTablet={heightTablet}
+            transition={transition}
+            animationSpeed={animationSpeed}
+            style={component.style}
+            props={component.props}
+          />
+        );
+      }
+
+      case 'banner': {
+        const bannerContent = component.props?.content || component.content || 'Banner Content';
+        const height = component.props?.height || '300px';
+        const heightMobile = component.props?.heightMobile || '200px';
+        const heightTablet = component.props?.heightTablet || '250px';
+        const backgroundImage = component.props?.backgroundImage || '';
+        const backgroundColor = component.props?.backgroundColor || '#4f46e5';
+        const backgroundGradient = component.props?.backgroundGradient || '';
+        const overlay = component.props?.overlay !== false;
+        const overlayOpacity = component.props?.overlayOpacity || 0.3;
+        const overlayColor = component.props?.overlayColor || '#000000';
+        const textAlign = component.props?.textAlign || 'center';
+        const verticalAlign = component.props?.verticalAlign || 'center';
+        
+        return (
+          <BannerComponent
+            content={bannerContent}
+            height={height}
+            heightMobile={heightMobile}
+            heightTablet={heightTablet}
+            backgroundImage={backgroundImage}
+            backgroundColor={backgroundColor}
+            backgroundGradient={backgroundGradient}
+            overlay={overlay}
+            overlayOpacity={overlayOpacity}
+            overlayColor={overlayColor}
+            textAlign={textAlign}
+            verticalAlign={verticalAlign}
+            style={component.style}
+            props={component.props}
+          />
+        );
+      }
+
+      case 'nav-menu': {
+        const menuItems = component.props?.items || [
+          {
+            id: '1',
+            label: 'Home',
+            link: '/',
+            icon: 'home',
+            iconType: 'heroicon',
+            openInNewTab: false,
+          },
+          {
+            id: '2',
+            label: 'About',
+            link: '/about',
+            icon: 'about',
+            iconType: 'heroicon',
+            openInNewTab: false,
+          },
+        ];
+        
+        return (
+          <NavMenuComponent
+            items={menuItems}
+            orientation={component.props?.orientation || 'horizontal'}
+            alignment={component.props?.alignment || 'left'}
+            backgroundColor={component.props?.backgroundColor || 'transparent'}
+            textColor={component.props?.textColor || '#374151'}
+            hoverColor={component.props?.hoverColor || '#4f46e5'}
+            activeColor={component.props?.activeColor || '#4f46e5'}
+            fontSize={component.props?.fontSize || '1rem'}
+            fontWeight={component.props?.fontWeight || '500'}
+            padding={component.props?.padding || '0.75rem 1rem'}
+            gap={component.props?.gap || '0.5rem'}
+            borderRadius={component.props?.borderRadius || '0.375rem'}
+            showIcons={component.props?.showIcons !== false}
+            mobileBreakpoint={component.props?.mobileBreakpoint || 768}
+            mobileMenuStyle={component.props?.mobileMenuStyle || 'dropdown'}
+            style={component.style}
+            props={component.props}
+          />
+        );
+      }
 
       case 'header':
         return (

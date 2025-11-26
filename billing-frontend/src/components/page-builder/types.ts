@@ -26,7 +26,10 @@ export type ComponentType =
   | 'shortcode'
   | 'alert'
   | 'social-icons'
-  | 'showcase';
+  | 'showcase'
+  | 'slider'
+  | 'banner'
+  | 'nav-menu';
 
 export interface Component {
   id: string;

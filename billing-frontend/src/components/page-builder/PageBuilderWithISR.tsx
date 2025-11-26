@@ -11,6 +11,7 @@ import ComponentRenderer from './ComponentRenderer';
 import PropertiesPanel from './PropertiesPanel';
 import { DropZone } from './DropZone';
 import { ContextMenu } from './ContextMenu';
+import { RulerSystem } from './RulerSystem';
 import { Component, ComponentType } from './types';
 import {
   DocumentTextIcon,
@@ -51,6 +52,8 @@ import {
   PlusIcon,
   RocketLaunchIcon,
   XMarkIcon,
+  PencilIcon,
+  ArrowsUpDownIcon,
 } from '@heroicons/react/24/outline';
 
 // Local components array for the modal
@@ -82,6 +85,9 @@ const availableComponents = [
   { type: 'alert' as ComponentType, label: 'Alert', icon: ExclamationTriangleIcon, color: 'text-red-500' },
   { type: 'social-icons' as ComponentType, label: 'Social Icons', icon: ShareIcon, color: 'text-blue-500' },
   { type: 'showcase' as ComponentType, label: 'Showcase', icon: StarIcon, color: 'text-yellow-500' },
+  { type: 'slider' as ComponentType, label: 'Slider', icon: FilmIcon, color: 'text-rose-600' },
+  { type: 'banner' as ComponentType, label: 'Banner', icon: RectangleStackIcon, color: 'text-indigo-500' },
+  { type: 'nav-menu' as ComponentType, label: 'Nav Menu', icon: Bars3Icon, color: 'text-blue-500' },
 ];
 
 interface PageBuilderWithISRProps {
@@ -107,6 +113,7 @@ function SortableComponent({
   onAddAfter,
   onContextMenu,
   onUpdate,
+  onDelete,
 }: {
   component: Component;
   isSelected: boolean;
@@ -121,6 +128,7 @@ function SortableComponent({
   onAddAfter: (componentId: string, type: ComponentType) => void;
   onContextMenu?: (e: React.MouseEvent, componentId: string) => void;
   onUpdate?: (component: Component) => void;
+  onDelete?: (componentId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
@@ -251,12 +259,17 @@ function SortableComponent({
       const initialLeftEdgeX = rect.left;
       const initialBottomEdgeY = rect.bottom;
       const initialTopEdgeY = rect.top;
+      // Calculate offset of mouse from the element's top-left within the bounding rect
+      const edgeOffsetX = mouseX - rect.left;
+      const edgeOffsetY = mouseY - rect.top;
 
       resizeStartPos.current = {
         x: mouseX, // Initial mouse position for delta calculation
         y: mouseY,
         width: initialWidth, // Use the parsed initial width (from style or computed)
         height: initialHeight, // Use the parsed initial height (from style or computed)
+        edgeOffsetX,
+        edgeOffsetY,
         left: rect.left - parentRect.left,
         top: rect.top - parentRect.top,
         initialLeft,
@@ -554,6 +567,54 @@ function SortableComponent({
             <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
           </div>
         </div>
+
+        {/* Widget Toolbar - Top Center */}
+        {(isHovered || isSelected) && (
+          <div 
+            className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-white border border-gray-300 rounded-md shadow-lg px-1 py-1 z-50"
+            style={{ top: '-36px' }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Edit Icon */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+              className="p-1.5 hover:bg-indigo-50 rounded text-gray-600 hover:text-indigo-600 transition-colors"
+              title="Edit"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
+            
+            {/* Move Icon */}
+            <div
+              {...listeners}
+              {...attributes}
+              className="p-1.5 hover:bg-indigo-50 rounded text-gray-600 hover:text-indigo-600 transition-colors cursor-grab active:cursor-grabbing"
+              title="Move"
+            >
+              <ArrowsUpDownIcon className="w-4 h-4" />
+            </div>
+            
+            {/* Delete Icon */}
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm('Are you sure you want to delete this component?')) {
+                    onDelete(component.id);
+                  }
+                }}
+                className="p-1.5 hover:bg-red-50 rounded text-gray-600 hover:text-red-600 transition-colors"
+                title="Delete"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
         
         <div 
           onClick={(e) => {
@@ -813,6 +874,13 @@ export function PageBuilderWithISR({
     return true;
   });
   const [canvasRef, setCanvasRef] = useState<HTMLDivElement | null>(null);
+  const canvasRefObj = useRef<HTMLDivElement | null>(null);
+  
+  useEffect(() => {
+    if (canvasRef) {
+      canvasRefObj.current = canvasRef;
+    }
+  }, [canvasRef]);
   const [showAfterComponentPicker, setShowAfterComponentPicker] = useState(false);
   const [afterComponentId, setAfterComponentId] = useState<string | null>(null);
   const [customWidth, setCustomWidth] = useState(() => {
@@ -832,6 +900,30 @@ export function PageBuilderWithISR({
       return localStorage.getItem('pageBuilderUseCustomDimensions') === 'true';
     }
     return false;
+  });
+  const [showRulers, setShowRulers] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pageBuilderShowRulers') !== 'false';
+    }
+    return true;
+  });
+  const [showGuides, setShowGuides] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pageBuilderShowGuides') !== 'false';
+    }
+    return true;
+  });
+  const [snapToGrid, setSnapToGrid] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pageBuilderSnapToGrid') === 'true';
+    }
+    return false;
+  });
+  const [gridSize, setGridSize] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('pageBuilderGridSize') || '10');
+    }
+    return 10;
   });
 
   // Default templates for each page type
@@ -1895,18 +1987,59 @@ export function PageBuilderWithISR({
     addToHistory(newComponents);
   };
 
-  const handleAddComponent = (type: ComponentType, containerId?: string) => {
+  const handleAddComponent = (type: ComponentType, containerId?: string, columnIndex?: number) => {
     const newComponent = createComponent(type);
     
-    if (containerId) {
-      // Add to specific container
+    if (containerId !== undefined) {
+      // Add to specific container, grid column, or grid cell
       const addToContainer = (comps: Component[]): Component[] => {
         return comps.map(comp => {
           if (comp.id === containerId) {
-            return {
-              ...comp,
-              children: [...(comp.children || []), newComponent]
-            };
+            if (comp.type === 'grid' && columnIndex !== undefined) {
+              // Grid component - columnIndex encodes row*1000 + col
+              const rowIndex = Math.floor(columnIndex / 1000);
+              const colIndex = columnIndex % 1000;
+              const gridData = comp.props?.gridData || {};
+              const cellKey = `${rowIndex}-${colIndex}`;
+              
+              // If cell already has content, replace it
+              return {
+                ...comp,
+                props: {
+                  ...comp.props,
+                  gridData: {
+                    ...gridData,
+                    [cellKey]: newComponent,
+                  },
+                },
+              };
+            } else if (columnIndex !== undefined) {
+              // Add to specific column in container
+              const currentChildren = comp.children || [];
+              const newChildren = [...currentChildren];
+              // Ensure we have enough columns
+              while (newChildren.length <= columnIndex) {
+                newChildren.push(null as any);
+              }
+              // Replace or add at column index
+              if (newChildren[columnIndex]) {
+                // If column already has content, add after it
+                newChildren.splice(columnIndex + 1, 0, newComponent);
+              } else {
+                // Empty column, add directly
+                newChildren[columnIndex] = newComponent;
+              }
+              return {
+                ...comp,
+                children: newChildren.filter(c => c !== null)
+              };
+            } else {
+              // Add to container (not specific column)
+              return {
+                ...comp,
+                children: [...(comp.children || []), newComponent]
+              };
+            }
           }
           if (comp.children) {
             return {
@@ -2757,6 +2890,61 @@ export function PageBuilderWithISR({
           <div className="h-6 w-px bg-gray-300" />
           <div className="flex items-center space-x-2">
             <button
+              onClick={() => {
+                const newValue = !showRulers;
+                setShowRulers(newValue);
+                localStorage.setItem('pageBuilderShowRulers', String(newValue));
+              }}
+              className={`px-3 py-2 rounded transition-colors flex items-center space-x-1 ${
+                showRulers 
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={showRulers ? "Hide Rulers" : "Show Rulers"}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="text-xs font-medium">{showRulers ? 'Rulers On' : 'Rulers Off'}</span>
+            </button>
+            <button
+              onClick={() => {
+                const newValue = !showGuides;
+                setShowGuides(newValue);
+                localStorage.setItem('pageBuilderShowGuides', String(newValue));
+              }}
+              className={`p-2 rounded transition-colors ${
+                showGuides 
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={showGuides ? "Hide Alignment Guides" : "Show Alignment Guides"}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                const newValue = !snapToGrid;
+                setSnapToGrid(newValue);
+                localStorage.setItem('pageBuilderSnapToGrid', String(newValue));
+              }}
+              className={`p-2 rounded transition-colors ${
+                snapToGrid 
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={snapToGrid ? "Disable Grid" : "Enable Grid"}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              </svg>
+            </button>
+          </div>
+          <div className="h-6 w-px bg-gray-300" />
+          <div className="flex items-center space-x-2">
+            <button
               onClick={() => setAutoZoom(!autoZoom)}
               className={`px-3 py-1 text-xs rounded transition-colors ${
                 autoZoom 
@@ -3075,10 +3263,21 @@ export function PageBuilderWithISR({
           {/* Canvas */}
           <div 
             ref={setCanvasRef}
-            className="flex-1 overflow-auto bg-gray-100"
+            className="flex-1 overflow-auto bg-gray-100 relative"
           >
+            {/* Ruler System */}
+            {canvasRef && (
+              <RulerSystem
+                canvasRef={canvasRefObj as React.RefObject<HTMLDivElement>}
+                zoom={canvasZoom}
+                showRulers={showRulers}
+                showGuides={showGuides}
+                snapToGrid={snapToGrid}
+                gridSize={gridSize}
+              />
+            )}
             <div
-              className="bg-white shadow-lg transition-all duration-300"
+              className="bg-white shadow-lg transition-all duration-300 relative"
               style={{
                 width: useCustomDimensions ? `${customWidth}px` : deviceWidths[deviceView],
                 height: useCustomDimensions ? `${customHeight}px` : 'auto',
@@ -3086,6 +3285,8 @@ export function PageBuilderWithISR({
                 minHeight: useCustomDimensions ? `${customHeight}px` : '400px',
                 transform: `scale(${canvasZoom})`,
                 transformOrigin: 'top center',
+                marginTop: showRulers ? '20px' : '0',
+                marginLeft: showRulers ? '20px' : '0',
               }}
             >
               <SortableContext
@@ -3105,13 +3306,14 @@ export function PageBuilderWithISR({
                       <DropZone id="drop-zone-0" index={0} />
                       {components.map((component, index) => (
                         <React.Fragment key={component.id}>
-                          <SortableComponent
-                            component={component}
-                            isSelected={selectedComponent === component.id}
-                            isHovered={hoveredComponent === component.id}
-                            onClick={() => setSelectedComponent(component.id)}
-                            onMouseEnter={() => setHoveredComponent(component.id)}
-                            onMouseLeave={() => setHoveredComponent(null)}
+                          <div data-component-id={component.id} data-selected={selectedComponent === component.id ? 'true' : 'false'}>
+                            <SortableComponent
+                              component={component}
+                              isSelected={selectedComponent === component.id}
+                              isHovered={hoveredComponent === component.id}
+                              onClick={() => setSelectedComponent(component.id)}
+                              onMouseEnter={() => setHoveredComponent(component.id)}
+                              onMouseLeave={() => setHoveredComponent(null)}
                             onAddToContainer={handleAddComponent}
                             onColumnClick={handleColumnClick}
                             onAddColumn={handleAddColumn}
@@ -3119,7 +3321,9 @@ export function PageBuilderWithISR({
                             onAddAfter={handleAddAfter}
                             onContextMenu={handleContextMenu}
                             onUpdate={handleUpdateComponent}
+                            onDelete={handleDeleteComponent}
                           />
+                          </div>
                           {/* Drop zone after each component */}
                           <DropZone id={`drop-zone-${index + 1}`} index={index + 1} />
                         </React.Fragment>
