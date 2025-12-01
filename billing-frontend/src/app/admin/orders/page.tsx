@@ -8,6 +8,8 @@ import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
 import OrderFilters from '@/components/orders/OrderFilters';
 import ChargingControls from '@/components/orders/ChargingControls';
 import PaymentHistoryModal from '@/components/orders/PaymentHistoryModal';
+import EmailAutomationModal from '@/components/orders/EmailAutomationModal';
+import PaymentAutomationModal from '@/components/orders/PaymentAutomationModal';
 
 interface Customer {
   id: string;
@@ -72,6 +74,10 @@ export default function OrdersPage() {
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const [paymentHistoryOrderId, setPaymentHistoryOrderId] = useState<string | null>(null);
   const [isCharging, setIsCharging] = useState(false);
+  const [showEmailAutomationModal, setShowEmailAutomationModal] = useState(false);
+  const [showPaymentAutomationModal, setShowPaymentAutomationModal] = useState(false);
+  const [emailAutomationOrderId, setEmailAutomationOrderId] = useState<string | null>(null);
+  const [paymentAutomationOrderId, setPaymentAutomationOrderId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     status: '',
     start_date: '',
@@ -598,6 +604,30 @@ export default function OrdersPage() {
                             </svg>
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            setEmailAutomationOrderId(order.id);
+                            setShowEmailAutomationModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900 transition-colors"
+                          title="Email Automation"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPaymentAutomationOrderId(order.id);
+                            setShowPaymentAutomationModal(true);
+                          }}
+                          className="text-green-600 hover:text-green-900 transition-colors"
+                          title="Payment Automation"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                        </button>
                         {order.status !== 'void' && order.status !== 'cancelled' && order.status !== 'completed' && order.status !== 'paid' && (
                           <button
                             onClick={() => voidOrder(order)}
@@ -647,6 +677,32 @@ export default function OrdersPage() {
             setPaymentHistoryOrderId(null);
           }}
           onRetryPayment={handleRetryPayment}
+        />
+      )}
+
+      {/* Email Automation Modal */}
+      {showEmailAutomationModal && emailAutomationOrderId && (
+        <EmailAutomationModal
+          orderId={emailAutomationOrderId}
+          orderNumber={orders.find(o => o.id === emailAutomationOrderId)?.invoice_number || orders.find(o => o.id === emailAutomationOrderId)?.order_number}
+          isOpen={showEmailAutomationModal}
+          onClose={() => {
+            setShowEmailAutomationModal(false);
+            setEmailAutomationOrderId(null);
+          }}
+        />
+      )}
+
+      {/* Payment Automation Modal */}
+      {showPaymentAutomationModal && paymentAutomationOrderId && (
+        <PaymentAutomationModal
+          orderId={paymentAutomationOrderId}
+          orderNumber={orders.find(o => o.id === paymentAutomationOrderId)?.invoice_number || orders.find(o => o.id === paymentAutomationOrderId)?.order_number}
+          isOpen={showPaymentAutomationModal}
+          onClose={() => {
+            setShowPaymentAutomationModal(false);
+            setPaymentAutomationOrderId(null);
+          }}
         />
       )}
     </div>

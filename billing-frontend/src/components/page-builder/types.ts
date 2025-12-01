@@ -29,7 +29,10 @@ export type ComponentType =
   | 'showcase'
   | 'slider'
   | 'banner'
-  | 'nav-menu';
+  | 'nav-menu'
+  | 'pricing-table'
+  | 'testimonials'
+  | 'faq';
 
 export interface Component {
   id: string;

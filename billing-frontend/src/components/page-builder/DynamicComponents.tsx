@@ -948,6 +948,15 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     showButtons?: boolean;
     title?: string;
     subtitle?: string;
+    cardStyle?: string;
+    backgroundColor?: string;
+    cardBackgroundColor?: string;
+    borderColor?: string;
+    textColor?: string;
+    priceColor?: string;
+    buttonColor?: string;
+    buttonTextColor?: string;
+    spacing?: string;
   };
 }) {
   // ALL HOOKS MUST BE AT THE TOP
@@ -964,6 +973,17 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
   const showButtons = props?.showButtons !== false; // Default to true
   const title = props?.title || "Our Products";
   const subtitle = props?.subtitle || "Choose from our range of hosting solutions designed to meet your needs";
+  
+  // Style properties
+  const cardStyle = props?.cardStyle || 'default';
+  const backgroundColor = props?.backgroundColor || '#ffffff';
+  const cardBackgroundColor = props?.cardBackgroundColor || '#ffffff';
+  const borderColor = props?.borderColor || '#e5e7eb';
+  const textColor = props?.textColor || '#374151';
+  const priceColor = props?.priceColor || '#4f46e5';
+  const buttonColor = props?.buttonColor || '#4f46e5';
+  const buttonTextColor = props?.buttonTextColor || '#ffffff';
+  const spacing = props?.spacing || '1rem';
 
   // Limit products based on productCount
   const displayProducts = products.slice(0, productCount);
@@ -1073,6 +1093,16 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     return () => resizeObserver.disconnect();
   }, [columns]);
 
+  // Helper function to convert hex to RGB
+  const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  };
+
   // Function definitions AFTER all hooks
   const handleAddToCart = (product: any) => {
     addItem({
@@ -1099,27 +1129,58 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
     );
   }
 
+  // Card style classes based on cardStyle prop
+  const getCardClasses = () => {
+    const baseClasses = "transition-all duration-300";
+    switch (cardStyle) {
+      case 'minimal':
+        return `${baseClasses} rounded-lg border`;
+      case 'elevated':
+        return `${baseClasses} rounded-xl shadow-lg hover:shadow-xl border`;
+      case 'outlined':
+        return `${baseClasses} rounded-lg border-2`;
+      default: // 'default'
+        return `${baseClasses} rounded-xl shadow-lg hover:shadow-xl border`;
+    }
+  };
+
+  // Container style with backgroundColor
+  const containerStyle = {
+    ...style,
+    backgroundColor: backgroundColor,
+  };
+
   return (
-    <div ref={containerRef} className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8" style={style}>
+    <div ref={containerRef} className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8" style={containerStyle}>
       <div className="text-center mb-12">
-        <h2 className="text-4xl font-bold text-gray-900 mb-4">{title}</h2>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+        <h2 className="text-4xl font-bold mb-4" style={{ color: textColor }}>{title}</h2>
+        <p className="text-xl max-w-3xl mx-auto" style={{ color: textColor, opacity: 0.8 }}>
           {subtitle}
         </p>
       </div>
 
-      <div className="grid gap-8" style={{ gridTemplateColumns: `repeat(${actualColumns}, 1fr)` }}>
+      <div className="grid" style={{ 
+        gridTemplateColumns: `repeat(${actualColumns}, 1fr)`,
+        gap: spacing
+      }}>
         {displayProducts.map((product: any) => (
-          <div key={product.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200">
+          <div 
+            key={product.id} 
+            className={getCardClasses()}
+            style={{
+              backgroundColor: cardBackgroundColor,
+              borderColor: borderColor,
+            }}
+          >
             <div className="p-6">
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">{product.name}</h3>
-              <p className="text-gray-600 mb-4">{product.description}</p>
+              <h3 className="text-2xl font-bold mb-3" style={{ color: textColor }}>{product.name}</h3>
+              <p className="mb-4" style={{ color: textColor, opacity: 0.7 }}>{product.description}</p>
 
               {showPrices && (
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <span className="text-3xl font-bold text-indigo-600">${product.price_monthly || product.price || 0}</span>
-                    <span className="text-gray-600 ml-1">/month</span>
+                    <span className="text-3xl font-bold" style={{ color: priceColor }}>${product.price_monthly || product.price || 0}</span>
+                    <span className="ml-1" style={{ color: textColor, opacity: 0.7 }}>/month</span>
                   </div>
                 </div>
               )}
@@ -1128,7 +1189,23 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
                 <button
                   onClick={() => handleAddToCart(product)}
                   disabled={addedToCart === product.id}
-                  className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 px-6 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: buttonColor,
+                    color: buttonTextColor,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!e.currentTarget.disabled) {
+                      // Darken button on hover (10% darker)
+                      const rgb = hexToRgb(buttonColor);
+                      if (rgb) {
+                        e.currentTarget.style.backgroundColor = `rgb(${Math.max(0, rgb.r - 25)}, ${Math.max(0, rgb.g - 25)}, ${Math.max(0, rgb.b - 25)})`;
+                      }
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = buttonColor;
+                  }}
                 >
                   {addedToCart === product.id ? 'Added to Cart!' : 'Add to Cart'}
                 </button>

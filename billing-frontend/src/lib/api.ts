@@ -280,7 +280,34 @@ export const ordersAPI = {
   
   void: (id: string) =>
     api.post(`/orders/${id}/void`),
+};
+
+// Order Automation API
+export const orderAutomationAPI = {
+  list: (orderId: string) =>
+    api.get(`/orders/${orderId}/automation`),
   
+  get: (orderId: string, ruleId: string) =>
+    api.get(`/orders/${orderId}/automation/${ruleId}`),
+  
+  create: (orderId: string, data: any) =>
+    api.post(`/orders/${orderId}/automation`, data),
+  
+  update: (orderId: string, ruleId: string, data: any) =>
+    api.patch(`/orders/${orderId}/automation/${ruleId}`, data),
+  
+  delete: (orderId: string, ruleId: string) =>
+    api.delete(`/orders/${orderId}/automation/${ruleId}`),
+  
+  execute: (orderId: string, ruleId: string) =>
+    api.post(`/orders/${orderId}/automation/${ruleId}/execute`),
+  
+  getPaymentMethods: (orderId: string) =>
+    api.get(`/orders/${orderId}/automation/payment-methods`),
+};
+
+// Orders Partial Payment API
+export const ordersPartialPaymentAPI = {
   partialPayment: (id: string, data: any) =>
     api.post(`/orders/${id}/partial-payment`, data),
   

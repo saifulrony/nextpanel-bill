@@ -423,6 +423,86 @@ class Order(Base):
     # Relationships
     customer = relationship("User", back_populates="orders")
     payments = relationship("Payment", back_populates="order")
+    automation_rules = relationship("OrderAutomationRule", back_populates="order", cascade="all, delete-orphan")
+
+
+class AutomationAction(str, enum.Enum):
+    """Types of automation actions"""
+    SEND_EMAIL = "send_email"
+    CHARGE_PAYMENT = "charge_payment"
+    SEND_REMINDER = "send_reminder"
+    UPDATE_STATUS = "update_status"
+
+
+class AutomationTrigger(str, enum.Enum):
+    """When to trigger automation"""
+    ON_DUE_DATE = "on_due_date"
+    BEFORE_DUE_DATE = "before_due_date"
+    AFTER_DUE_DATE = "after_due_date"
+    ON_CREATE = "on_create"
+    CUSTOM_INTERVAL = "custom_interval"
+    RECURRING = "recurring"
+
+
+class AutomationRuleStatus(str, enum.Enum):
+    """Status of automation rule"""
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    DISABLED = "disabled"
+
+
+class OrderAutomationRule(Base):
+    """Automation rules for orders - individual rules per order"""
+    __tablename__ = "order_automation_rules"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    order_id = Column(String(36), ForeignKey("orders.id"), nullable=False, index=True)
+    
+    # Rule configuration
+    name = Column(String(255), nullable=False)  # User-friendly name for the rule
+    description = Column(Text)  # Optional description
+    
+    # Trigger configuration
+    trigger_type = Column(Enum(AutomationTrigger), nullable=False)
+    trigger_value = Column(Integer)  # Days before/after, or interval in days/hours
+    trigger_unit = Column(String(20))  # "days", "hours", "minutes"
+    
+    # Action configuration
+    action_type = Column(Enum(AutomationAction), nullable=False)
+    action_config = Column(JSON)  # Action-specific configuration
+    
+    # Email action config: {subject, body, template, attachments}
+    # Charge action config: {payment_method_id, amount, retry_attempts}
+    # Reminder action config: {subject, body, template}
+    # Status action config: {new_status}
+    
+    # Schedule configuration
+    is_recurring = Column(Boolean, default=False)
+    recurring_interval = Column(Integer)  # Interval in days/hours
+    recurring_unit = Column(String(20))  # "days", "hours"
+    max_executions = Column(Integer)  # Max times to execute (null = unlimited)
+    execution_count = Column(Integer, default=0)  # How many times executed
+    
+    # Next execution time
+    next_execution = Column(DateTime(timezone=True), index=True)
+    last_execution = Column(DateTime(timezone=True))
+    
+    # Status
+    status = Column(Enum(AutomationRuleStatus), default=AutomationRuleStatus.ACTIVE)
+    is_enabled = Column(Boolean, default=True)
+    
+    # Execution tracking
+    last_result = Column(JSON)  # Last execution result
+    error_count = Column(Integer, default=0)
+    last_error = Column(Text)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    order = relationship("Order", back_populates="automation_rules")
 
 
 class TicketStatus(str, enum.Enum):

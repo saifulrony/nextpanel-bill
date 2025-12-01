@@ -11,6 +11,77 @@ interface PropertiesPanelProps {
 }
 
 export default function PropertiesPanel({ component, onUpdate, onClose }: PropertiesPanelProps) {
+  // Auto-initialize pricing table plans if missing
+  React.useEffect(() => {
+    if (component && component.type === 'pricing-table' && (!component.props?.plans || component.props.plans.length === 0)) {
+      const defaultPlans = [
+        {
+          id: '1',
+          name: 'Basic',
+          price: '9.99',
+          period: 'month',
+          description: 'Perfect for getting started',
+          features: [
+            '10GB Storage',
+            '100GB Bandwidth',
+            'Email Support',
+            'Basic Analytics'
+          ],
+          buttonText: 'Get Started',
+          buttonLink: '#',
+          popular: false,
+        },
+        {
+          id: '2',
+          name: 'Professional',
+          price: '29.99',
+          period: 'month',
+          description: 'Best for growing businesses',
+          features: [
+            '100GB Storage',
+            '1TB Bandwidth',
+            'Priority Support',
+            'Advanced Analytics',
+            'API Access',
+            'Custom Domain'
+          ],
+          buttonText: 'Get Started',
+          buttonLink: '#',
+          popular: true,
+          badge: 'Most Popular'
+        },
+        {
+          id: '3',
+          name: 'Enterprise',
+          price: '99.99',
+          period: 'month',
+          description: 'For large organizations',
+          features: [
+            'Unlimited Storage',
+            'Unlimited Bandwidth',
+            '24/7 Support',
+            'Custom Analytics',
+            'Full API Access',
+            'White Label',
+            'Dedicated Server',
+            'SLA Guarantee'
+          ],
+          buttonText: 'Contact Sales',
+          buttonLink: '#',
+          popular: false,
+        },
+      ];
+      onUpdate({
+        ...component,
+        props: {
+          ...component.props,
+          plans: defaultPlans,
+          popularPlanId: '2',
+        },
+      });
+    }
+  }, [component?.id]); // Only run once when component changes
+
   if (!component) {
     return (
       <div className="w-80 bg-white border-l border-gray-200 h-full flex items-center justify-center">
@@ -76,6 +147,9 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
     slider: 'Slider',
     banner: 'Banner',
     'nav-menu': 'Navigation Menu',
+    'pricing-table': 'Pricing Table',
+    testimonials: 'Testimonials',
+    faq: 'FAQ',
   };
 
   return (
@@ -2959,6 +3033,747 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
               <label className="ml-2 block text-sm text-gray-700">Show Subtitle</label>
+            </div>
+          </div>
+        )}
+
+        {/* Pricing Table Component Properties */}
+        {component.type === 'pricing-table' && (
+          <div className="space-y-4">
+            {/* General Settings */}
+            <div className="border-b border-gray-200 pb-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">General Settings</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                  <input
+                    type="text"
+                    value={component.props?.title || 'Choose Your Plan'}
+                    onChange={(e) => updateProp('title', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="Choose Your Plan"
+                  />
+        </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
+                  <input
+                    type="text"
+                    value={component.props?.subtitle || 'Select the perfect plan for your needs'}
+                    onChange={(e) => updateProp('subtitle', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="Select the perfect plan for your needs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Layout</label>
+                  <select
+                    value={component.props?.layout || 'default'}
+                    onChange={(e) => updateProp('layout', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="default">Default</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="modern">Modern</option>
+                    <option value="classic">Classic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Columns</label>
+                  <select
+                    value={component.props?.columns || 3}
+                    onChange={(e) => updateProp('columns', parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value={1}>1 Column</option>
+                    <option value={2}>2 Columns</option>
+                    <option value={3}>3 Columns</option>
+                    <option value={4}>4 Columns</option>
+                  </select>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showToggle !== false}
+                    onChange={(e) => updateProp('showToggle', e.target.checked)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-700">Show Monthly/Yearly Toggle</label>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+                  <input
+                    type="text"
+                    value={component.props?.currency || '$'}
+                    onChange={(e) => updateProp('currency', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="$"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Pricing Plans */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-gray-900">Pricing Plans</h4>
+                <div className="flex items-center gap-2">
+                  {(!component.props?.plans || component.props.plans.length === 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultPlans = [
+                          {
+                            id: '1',
+                            name: 'Basic',
+                            price: '9.99',
+                            period: 'month',
+                            description: 'Perfect for getting started',
+                            features: [
+                              '10GB Storage',
+                              '100GB Bandwidth',
+                              'Email Support',
+                              'Basic Analytics'
+                            ],
+                            buttonText: 'Get Started',
+                            buttonLink: '#',
+                            popular: false,
+                          },
+                          {
+                            id: '2',
+                            name: 'Professional',
+                            price: '29.99',
+                            period: 'month',
+                            description: 'Best for growing businesses',
+                            features: [
+                              '100GB Storage',
+                              '1TB Bandwidth',
+                              'Priority Support',
+                              'Advanced Analytics',
+                              'API Access',
+                              'Custom Domain'
+                            ],
+                            buttonText: 'Get Started',
+                            buttonLink: '#',
+                            popular: true,
+                            badge: 'Most Popular'
+                          },
+                          {
+                            id: '3',
+                            name: 'Enterprise',
+                            price: '99.99',
+                            period: 'month',
+                            description: 'For large organizations',
+                            features: [
+                              'Unlimited Storage',
+                              'Unlimited Bandwidth',
+                              '24/7 Support',
+                              'Custom Analytics',
+                              'Full API Access',
+                              'White Label',
+                              'Dedicated Server',
+                              'SLA Guarantee'
+                            ],
+                            buttonText: 'Contact Sales',
+                            buttonLink: '#',
+                            popular: false,
+                          },
+                        ];
+                        updateProp('plans', defaultPlans);
+                        updateProp('popularPlanId', '2');
+                      }}
+                      className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                      title="Initialize with default 3 plans"
+                    >
+                      Load Default Plans
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentPlans = component.props?.plans || [];
+                      const newPlan = {
+                        id: `plan-${Date.now()}`,
+                        name: 'New Plan',
+                        price: '0.00',
+                        period: 'month',
+                        description: '',
+                        features: ['Feature 1', 'Feature 2'],
+                        buttonText: 'Get Started',
+                        buttonLink: '#',
+                        popular: false,
+                      };
+                      updateProp('plans', [...currentPlans, newPlan]);
+                    }}
+                    className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  >
+                    + Add Plan
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                {(component.props?.plans && component.props.plans.length > 0 ? component.props.plans : [
+                  {
+                    id: '1',
+                    name: 'Basic',
+                    price: '9.99',
+                    period: 'month',
+                    description: 'Perfect for getting started',
+                    features: [
+                      '10GB Storage',
+                      '100GB Bandwidth',
+                      'Email Support',
+                      'Basic Analytics'
+                    ],
+                    buttonText: 'Get Started',
+                    buttonLink: '#',
+                    popular: false,
+                  },
+                  {
+                    id: '2',
+                    name: 'Professional',
+                    price: '29.99',
+                    period: 'month',
+                    description: 'Best for growing businesses',
+                    features: [
+                      '100GB Storage',
+                      '1TB Bandwidth',
+                      'Priority Support',
+                      'Advanced Analytics',
+                      'API Access',
+                      'Custom Domain'
+                    ],
+                    buttonText: 'Get Started',
+                    buttonLink: '#',
+                    popular: true,
+                    badge: 'Most Popular'
+                  },
+                  {
+                    id: '3',
+                    name: 'Enterprise',
+                    price: '99.99',
+                    period: 'month',
+                    description: 'For large organizations',
+                    features: [
+                      'Unlimited Storage',
+                      'Unlimited Bandwidth',
+                      '24/7 Support',
+                      'Custom Analytics',
+                      'Full API Access',
+                      'White Label',
+                      'Dedicated Server',
+                      'SLA Guarantee'
+                    ],
+                    buttonText: 'Contact Sales',
+                    buttonLink: '#',
+                    popular: false,
+                  },
+                ]).map((plan: any, index: number) => (
+                  <div key={plan.id || index} className="border border-gray-300 rounded-lg p-3 space-y-3 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-900">Plan {index + 1}: {plan.name || 'Unnamed'}</span>
+                      <div className="flex items-center gap-2">
+                        {index > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentPlans = component.props?.plans || [];
+                              const newPlans = [...currentPlans];
+                              [newPlans[index - 1], newPlans[index]] = [newPlans[index], newPlans[index - 1]];
+                              updateProp('plans', newPlans);
+                            }}
+                            className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+                            title="Move Up"
+                          >
+                            ↑
+                          </button>
+                        )}
+                        {index < (component.props?.plans || []).length - 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentPlans = component.props?.plans || [];
+                              const newPlans = [...currentPlans];
+                              [newPlans[index], newPlans[index + 1]] = [newPlans[index + 1], newPlans[index]];
+                              updateProp('plans', newPlans);
+                            }}
+                            className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+                            title="Move Down"
+                          >
+                            ↓
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentPlans = component.props?.plans || [];
+                            updateProp('plans', currentPlans.filter((_: any, i: number) => i !== index));
+                          }}
+                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Plan Name */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Plan Name</label>
+                      <input
+                        type="text"
+                        value={plan.name || ''}
+                        onChange={(e) => {
+                          const currentPlans = component.props?.plans || [];
+                          const updatedPlans = [...currentPlans];
+                          updatedPlans[index] = { ...updatedPlans[index], name: e.target.value };
+                          updateProp('plans', updatedPlans);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="Basic"
+                      />
+                    </div>
+
+                    {/* Price and Period */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Price</label>
+                        <input
+                          type="text"
+                          value={plan.price || '0.00'}
+                          onChange={(e) => {
+                            const currentPlans = component.props?.plans || [];
+                            const updatedPlans = [...currentPlans];
+                            updatedPlans[index] = { ...updatedPlans[index], price: e.target.value };
+                            updateProp('plans', updatedPlans);
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="9.99"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Period</label>
+                        <input
+                          type="text"
+                          value={plan.period || 'month'}
+                          onChange={(e) => {
+                            const currentPlans = component.props?.plans || [];
+                            const updatedPlans = [...currentPlans];
+                            updatedPlans[index] = { ...updatedPlans[index], period: e.target.value };
+                            updateProp('plans', updatedPlans);
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="month"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Original Price (for yearly) */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Original Price (Optional - for yearly discount)</label>
+                      <input
+                        type="text"
+                        value={plan.originalPrice || ''}
+                        onChange={(e) => {
+                          const currentPlans = component.props?.plans || [];
+                          const updatedPlans = [...currentPlans];
+                          updatedPlans[index] = { ...updatedPlans[index], originalPrice: e.target.value };
+                          updateProp('plans', updatedPlans);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="19.99"
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={plan.description || ''}
+                        onChange={(e) => {
+                          const currentPlans = component.props?.plans || [];
+                          const updatedPlans = [...currentPlans];
+                          updatedPlans[index] = { ...updatedPlans[index], description: e.target.value };
+                          updateProp('plans', updatedPlans);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="Perfect for getting started"
+                      />
+                    </div>
+
+                    {/* Features */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Features (one per line)</label>
+                      <textarea
+                        value={(plan.features || []).join('\n')}
+                        onChange={(e) => {
+                          const currentPlans = component.props?.plans || [];
+                          const updatedPlans = [...currentPlans];
+                          const features = e.target.value.split('\n').filter(f => f.trim());
+                          updatedPlans[index] = { ...updatedPlans[index], features: features.length > 0 ? features : ['Feature 1'] };
+                          updateProp('plans', updatedPlans);
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        rows={4}
+                        placeholder="10GB Storage&#10;100GB Bandwidth&#10;Email Support"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Enter each feature on a new line</p>
+                    </div>
+
+                    {/* Button */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Button Text</label>
+                        <input
+                          type="text"
+                          value={plan.buttonText || 'Get Started'}
+                          onChange={(e) => {
+                            const currentPlans = component.props?.plans || [];
+                            const updatedPlans = [...currentPlans];
+                            updatedPlans[index] = { ...updatedPlans[index], buttonText: e.target.value };
+                            updateProp('plans', updatedPlans);
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="Get Started"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Button Link</label>
+                        <input
+                          type="text"
+                          value={plan.buttonLink || '#'}
+                          onChange={(e) => {
+                            const currentPlans = component.props?.plans || [];
+                            const updatedPlans = [...currentPlans];
+                            updatedPlans[index] = { ...updatedPlans[index], buttonLink: e.target.value };
+                            updateProp('plans', updatedPlans);
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="#"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Plan Colors */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Button Color</label>
+                        <input
+                          type="color"
+                          value={plan.buttonColor || component.props?.popularBadgeColor || '#4f46e5'}
+                          onChange={(e) => {
+                            const currentPlans = component.props?.plans || [];
+                            const updatedPlans = [...currentPlans];
+                            updatedPlans[index] = { ...updatedPlans[index], buttonColor: e.target.value };
+                            updateProp('plans', updatedPlans);
+                          }}
+                          className="w-full h-8 border border-gray-300 rounded-md"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Button Text Color</label>
+                        <input
+                          type="color"
+                          value={plan.buttonTextColor || '#ffffff'}
+                          onChange={(e) => {
+                            const currentPlans = component.props?.plans || [];
+                            const updatedPlans = [...currentPlans];
+                            updatedPlans[index] = { ...updatedPlans[index], buttonTextColor: e.target.value };
+                            updateProp('plans', updatedPlans);
+                          }}
+                          className="w-full h-8 border border-gray-300 rounded-md"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Popular Plan */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={plan.popular || false}
+                        onChange={(e) => {
+                          const currentPlans = component.props?.plans || [];
+                          const updatedPlans = [...currentPlans];
+                          // Unset other popular plans
+                          if (e.target.checked) {
+                            updatedPlans.forEach((p: any, i: number) => {
+                              if (i !== index) p.popular = false;
+                            });
+                          }
+                          updatedPlans[index] = { ...updatedPlans[index], popular: e.target.checked };
+                          updateProp('plans', updatedPlans);
+                          // Also update popularPlanId
+                          if (e.target.checked) {
+                            updateProp('popularPlanId', plan.id);
+                          }
+                        }}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label className="ml-2 block text-xs text-gray-700">Mark as Popular Plan</label>
+                    </div>
+
+                    {/* Popular Badge Text */}
+                    {plan.popular && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Popular Badge Text</label>
+                        <input
+                          type="text"
+                          value={plan.badge || component.props?.popularBadgeText || 'Popular'}
+                          onChange={(e) => {
+                            const currentPlans = component.props?.plans || [];
+                            const updatedPlans = [...currentPlans];
+                            updatedPlans[index] = { ...updatedPlans[index], badge: e.target.value };
+                            updateProp('plans', updatedPlans);
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="Popular"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Style Settings */}
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">Style Settings</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Card Background Color</label>
+                  <input
+                    type="color"
+                    value={component.props?.cardBackgroundColor || '#ffffff'}
+                    onChange={(e) => updateProp('cardBackgroundColor', e.target.value)}
+                    className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Popular Badge Color</label>
+                  <input
+                    type="color"
+                    value={component.props?.popularBadgeColor || '#4f46e5'}
+                    onChange={(e) => updateProp('popularBadgeColor', e.target.value)}
+                    className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Button Style</label>
+                  <select
+                    value={component.props?.buttonStyle || 'solid'}
+                    onChange={(e) => updateProp('buttonStyle', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="solid">Solid</option>
+                    <option value="outline">Outline</option>
+                    <option value="ghost">Ghost</option>
+                    <option value="gradient">Gradient</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Testimonials Component Properties */}
+        {component.type === 'testimonials' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+              <input
+                type="text"
+                value={component.props?.title || 'What Our Customers Say'}
+                onChange={(e) => updateProp('title', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="What Our Customers Say"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
+              <input
+                type="text"
+                value={component.props?.subtitle || "Don't just take our word for it"}
+                onChange={(e) => updateProp('subtitle', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Don't just take our word for it"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Layout</label>
+              <select
+                value={component.props?.layout || 'carousel'}
+                onChange={(e) => updateProp('layout', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="carousel">Carousel</option>
+                <option value="grid">Grid</option>
+                <option value="list">List</option>
+                <option value="masonry">Masonry</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>
+              <select
+                value={component.props?.columns || 3}
+                onChange={(e) => updateProp('columns', parseInt(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value={1}>1 Column</option>
+                <option value={2}>2 Columns</option>
+                <option value={3}>3 Columns</option>
+                <option value={4}>4 Columns</option>
+              </select>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={component.props?.showRating !== false}
+                onChange={(e) => updateProp('showRating', e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">Show Rating</label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={component.props?.showAvatar !== false}
+                onChange={(e) => updateProp('showAvatar', e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">Show Avatar</label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={component.props?.autoplay || false}
+                onChange={(e) => updateProp('autoplay', e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">Autoplay Carousel</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Card Background Color</label>
+              <input
+                type="color"
+                value={component.props?.cardBackgroundColor || '#ffffff'}
+                onChange={(e) => updateProp('cardBackgroundColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Rating Color</label>
+              <input
+                type="color"
+                value={component.props?.ratingColor || '#fbbf24'}
+                onChange={(e) => updateProp('ratingColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* FAQ Component Properties */}
+        {component.type === 'faq' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+              <input
+                type="text"
+                value={component.props?.title || 'Frequently Asked Questions'}
+                onChange={(e) => updateProp('title', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Frequently Asked Questions"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
+              <input
+                type="text"
+                value={component.props?.subtitle || 'Find answers to common questions'}
+                onChange={(e) => updateProp('subtitle', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Find answers to common questions"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Icon</label>
+              <select
+                value={component.props?.icon || 'chevron'}
+                onChange={(e) => updateProp('icon', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="chevron">Chevron</option>
+                <option value="plus">Plus/Minus</option>
+                <option value="arrow">Arrow</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Icon Position</label>
+              <select
+                value={component.props?.iconPosition || 'right'}
+                onChange={(e) => updateProp('iconPosition', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={component.props?.allowMultiple !== false}
+                onChange={(e) => updateProp('allowMultiple', e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">Allow Multiple Items Open</label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={component.props?.defaultOpenFirst || false}
+                onChange={(e) => updateProp('defaultOpenFirst', e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">Open First Item by Default</label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={component.props?.showSearch || false}
+                onChange={(e) => updateProp('showSearch', e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">Show Search</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Animation</label>
+              <select
+                value={component.props?.animation || 'slide'}
+                onChange={(e) => updateProp('animation', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="slide">Slide</option>
+                <option value="fade">Fade</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Item Background Color</label>
+              <input
+                type="color"
+                value={component.props?.itemBackgroundColor || '#ffffff'}
+                onChange={(e) => updateProp('itemBackgroundColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Icon Color</label>
+              <input
+                type="color"
+                value={component.props?.iconColor || '#6b7280'}
+                onChange={(e) => updateProp('iconColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
             </div>
           </div>
         )}

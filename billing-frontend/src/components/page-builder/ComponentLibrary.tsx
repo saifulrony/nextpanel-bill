@@ -25,6 +25,9 @@ import {
   XMarkIcon,
   PencilIcon,
   TrashIcon,
+  CurrencyDollarIcon,
+  ChatBubbleLeftRightIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
 import { ComponentType } from './types';
 
@@ -59,6 +62,9 @@ export const components = [
   { type: 'slider' as ComponentType, label: 'Slider', icon: FilmIcon, color: 'text-rose-600' },
   { type: 'banner' as ComponentType, label: 'Banner', icon: RectangleStackIcon, color: 'text-indigo-500' },
   { type: 'nav-menu' as ComponentType, label: 'Nav Menu', icon: Bars3Icon, color: 'text-blue-500' },
+  { type: 'pricing-table' as ComponentType, label: 'Pricing Table', icon: CurrencyDollarIcon, color: 'text-green-600' },
+  { type: 'testimonials' as ComponentType, label: 'Testimonials', icon: ChatBubbleLeftRightIcon, color: 'text-purple-600' },
+  { type: 'faq' as ComponentType, label: 'FAQ', icon: QuestionMarkCircleIcon, color: 'text-orange-600' },
 ];
 
 // Draggable Component Item

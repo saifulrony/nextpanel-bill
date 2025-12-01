@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ordersAPI, api, plansAPI } from '@/lib/api';
+import AutomationRules from './AutomationRules';
 
 interface Customer {
   id: string;
@@ -754,6 +755,11 @@ NextPanel Team
               )}
             </div>
           )}
+
+          {/* Automation Rules */}
+          <div className="pt-4 border-t">
+            <AutomationRules orderId={order.id} />
+          </div>
 
           {/* Close Button */}
           <div className="flex justify-end pt-4 border-t">

@@ -37,6 +37,9 @@ import {
   CommandLineIcon,
   ExclamationTriangleIcon,
   ShareIcon,
+  CurrencyDollarIcon,
+  ChatBubbleLeftRightIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
 import {
   DevicePhoneMobileIcon,
@@ -88,6 +91,9 @@ const availableComponents = [
   { type: 'slider' as ComponentType, label: 'Slider', icon: FilmIcon, color: 'text-rose-600' },
   { type: 'banner' as ComponentType, label: 'Banner', icon: RectangleStackIcon, color: 'text-indigo-500' },
   { type: 'nav-menu' as ComponentType, label: 'Nav Menu', icon: Bars3Icon, color: 'text-blue-500' },
+  { type: 'pricing-table' as ComponentType, label: 'Pricing Table', icon: CurrencyDollarIcon, color: 'text-green-600' },
+  { type: 'testimonials' as ComponentType, label: 'Testimonials', icon: ChatBubbleLeftRightIcon, color: 'text-purple-600' },
+  { type: 'faq' as ComponentType, label: 'FAQ', icon: QuestionMarkCircleIcon, color: 'text-orange-600' },
 ];
 
 interface PageBuilderWithISRProps {
@@ -153,12 +159,53 @@ function SortableComponent({
   const resizeTransformRef = useRef({ x: 0, y: 0 });
   const mousePositionRef = useRef({ x: 0, y: 0 });
   const componentRef = useRef<HTMLDivElement>(null);
+  const [hoveredBorder, setHoveredBorder] = useState<string | null>(null);
+  const BORDER_THRESHOLD = 8; // pixels from edge to consider as border
 
   // Ensure component is mounted for portal
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  // Detect which part of the border is being hovered
+  const detectBorderHandle = (e: React.MouseEvent<HTMLDivElement>): string | null => {
+    if (!componentRef.current) return null;
+    
+    const rect = componentRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const width = rect.width;
+    const height = rect.height;
+
+    // Check if mouse is near any border
+    const nearLeft = x <= BORDER_THRESHOLD;
+    const nearRight = x >= width - BORDER_THRESHOLD;
+    const nearTop = y <= BORDER_THRESHOLD;
+    const nearBottom = y >= height - BORDER_THRESHOLD;
+
+    // Determine handle based on position
+    if (nearTop && nearLeft) return 'top-left';
+    if (nearTop && nearRight) return 'top-right';
+    if (nearBottom && nearLeft) return 'bottom-left';
+    if (nearBottom && nearRight) return 'bottom-right';
+    if (nearTop) return 'top';
+    if (nearBottom) return 'bottom';
+    if (nearLeft) return 'left';
+    if (nearRight) return 'right';
+
+    return null;
+  };
+
+  // Get cursor style based on border handle
+  const getCursorForHandle = (handle: string | null): string => {
+    if (!handle) return 'default';
+    if (handle === 'top-left' || handle === 'bottom-right') return 'nwse-resize';
+    if (handle === 'top-right' || handle === 'bottom-left') return 'nesw-resize';
+    if (handle === 'top' || handle === 'bottom') return 'ns-resize';
+    if (handle === 'left' || handle === 'right') return 'ew-resize';
+    return 'default';
+  };
   const resizeStartPos = useRef({ 
     x: 0, 
     y: 0, 
@@ -291,36 +338,7 @@ function SortableComponent({
   useEffect(() => {
     if (!isResizing || !resizeHandle || !onUpdate) return;
 
-    let rafId: number | null = null;
-    let pendingUpdate: { width: number; height: number; transformX: number; transformY: number } | null = null;
-    const lastAppliedDimensions = { width: resizeStartPos.current.width, height: resizeStartPos.current.height };
-
-    const applyUpdate = () => {
-      if (!pendingUpdate) return;
-      
-      const { width, height, transformX, transformY } = pendingUpdate;
-      pendingUpdate = null;
-      
-      // Store the last applied dimensions for mouseup
-      lastAppliedDimensions.width = width;
-      lastAppliedDimensions.height = height;
-
-      // During drag, update transform and store dimensions
-      // Dimensions are applied via tempDimensions in the component style (not via onUpdate to avoid re-render issues)
-      setResizeTransform({ x: transformX, y: transformY });
-      resizeTransformRef.current = { x: transformX, y: transformY };
-      setTempDimensions({ width, height });
-      
-      // Directly update the element's style to trigger ResizeObserver immediately
-      // This ensures responsive elements update instantly during drag
-      if (componentRef.current) {
-        // Apply dimensions directly to DOM to trigger ResizeObserver immediately
-        componentRef.current.style.width = `${width}px`;
-        componentRef.current.style.height = `${height}px`;
-        // Force a reflow to ensure ResizeObserver fires
-        void componentRef.current.offsetWidth;
-      }
-    };
+    // Removed batching - apply updates immediately for smooth resize like sidebar
 
     const handleMouseMove = (e: MouseEvent) => {
       // Always update mouse position for handle tracking - update immediately for smooth tracking
@@ -333,15 +351,9 @@ function SortableComponent({
       const currentMouseX = e.clientX;
       const currentMouseY = e.clientY;
       
-      // Calculate delta from initial mouse position for threshold check
+      // Calculate delta from initial mouse position
       const deltaX = currentMouseX - resizeStartPos.current.x;
       const deltaY = currentMouseY - resizeStartPos.current.y;
-      
-      // Small threshold to prevent jitter on initial click
-      // Only update if mouse has moved at least 1px to avoid initial blink
-      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
-        return; // Don't update on tiny movements - prevents initial blink
-      }
       
       let newWidth = resizeStartPos.current.width;
       let newHeight = resizeStartPos.current.height;
@@ -388,32 +400,55 @@ function SortableComponent({
         newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
         transformX = resizeStartPos.current.width - newWidth;
       } else if (resizeHandle === 'right') {
-        // Right edge: moving right (positive deltaX) increases width
-        newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+        // Right edge: calculate width based on distance from initial right edge
+        const widthChange = currentMouseX - resizeStartPos.current.initialRightEdgeX;
+        newWidth = Math.max(100, resizeStartPos.current.width + widthChange);
         // No transform needed for right edge - only width changes
       }
 
-      // Batch updates using requestAnimationFrame to prevent jitter
-      pendingUpdate = { width: newWidth, height: newHeight, transformX, transformY };
+      // Apply updates immediately for smooth resize (like sidebar) - no batching
+      setResizeTransform({ x: transformX, y: transformY });
+      resizeTransformRef.current = { x: transformX, y: transformY };
+      setTempDimensions({ width: newWidth, height: newHeight });
       
-      if (rafId === null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          applyUpdate();
-        });
+      // Directly update DOM immediately for smooth resize (like sidebar)
+      // No batching - updates happen synchronously on every mouse move
+      if (componentRef.current) {
+        componentRef.current.style.width = `${newWidth}px`;
+        componentRef.current.style.height = `${newHeight}px`;
+        if (transformX !== 0 || transformY !== 0) {
+          componentRef.current.style.transform = `translate(${transformX}px, ${transformY}px)`;
+        } else {
+          componentRef.current.style.transform = '';
+        }
       }
     };
 
     const handleMouseUp = (e?: MouseEvent) => {
-      // Apply any pending update first to ensure lastAppliedDimensions is up to date
-      if (pendingUpdate) {
-        applyUpdate();
+      // Check if this was just a click (no significant movement)
+      if (e && componentRef.current) {
+        const currentMouseX = e.clientX;
+        const currentMouseY = e.clientY;
+        const finalDeltaX = currentMouseX - resizeStartPos.current.x;
+        const finalDeltaY = currentMouseY - resizeStartPos.current.y;
+        const movementThreshold = 3; // pixels
+        
+        // If mouse didn't move significantly, this was just a click - do nothing
+        if (Math.abs(finalDeltaX) < movementThreshold && Math.abs(finalDeltaY) < movementThreshold) {
+          // Just reset state without applying any changes
+          setIsResizing(false);
+          setResizeHandle(null);
+          setResizeTransform({ x: 0, y: 0 });
+          resizeTransformRef.current = { x: 0, y: 0 };
+          setMousePosition({ x: 0, y: 0 });
+          setTempDimensions({});
+          return;
+        }
       }
       
-      // Recalculate final dimensions based on current mouse position to ensure accuracy
-      // This ensures we use the exact position where the user released the mouse
-      let finalWidth = lastAppliedDimensions.width;
-      let finalHeight = lastAppliedDimensions.height;
+      // Get current dimensions from tempDimensions or component style
+      let finalWidth = tempDimensions.width || resizeStartPos.current.width;
+      let finalHeight = tempDimensions.height || resizeStartPos.current.height;
       let finalTransformX = resizeTransformRef.current.x;
       let finalTransformY = resizeTransformRef.current.y;
       
@@ -517,14 +552,6 @@ function SortableComponent({
       : 'ns-resize';
 
     return () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-      // Apply any pending update before cleanup
-      if (pendingUpdate) {
-        applyUpdate();
-      }
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUpWrapper);
       document.body.style.userSelect = '';
@@ -533,7 +560,15 @@ function SortableComponent({
   }, [isResizing, resizeHandle, component, onUpdate]);
 
   return (
-    <div ref={setDroppableRef} className={isOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}>
+    <div 
+      ref={setDroppableRef} 
+      className={isOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
+      style={{
+        // Always reserve space at the top for the toolbar to prevent height changes
+        paddingTop: '40px',
+        boxSizing: 'border-box',
+      }}
+    >
       <div ref={setNodeRef} style={style}>
         <div 
           ref={componentRef}
@@ -543,16 +578,48 @@ function SortableComponent({
             // Apply temporary dimensions during resize so border moves in real-time
             ...(isResizing && tempDimensions.width ? { width: `${tempDimensions.width}px` } : {}),
             ...(isResizing && tempDimensions.height ? { height: `${tempDimensions.height}px` } : {}),
-            border: isSelected || isHovered ? '2px solid #6366f1' : '2px solid transparent',
+            // Always reserve border space to prevent layout shift
+            border: '2px solid',
+            borderColor: isSelected || isHovered ? '#6366f1' : 'transparent',
             position: 'relative',
-            boxSizing: component.style?.boxSizing || 'border-box', // Ensure consistent box-sizing
+            boxSizing: 'border-box', // Always use border-box to include border in width/height
             // Apply transform during resize for smooth handling (for left/top edges)
             ...(isResizing && (resizeTransform.x !== 0 || resizeTransform.y !== 0) 
               ? { transform: `translate(${resizeTransform.x}px, ${resizeTransform.y}px)` }
               : {}),
+            // Disable transitions during resize for smooth movement (like sidebar)
+            transition: isResizing ? 'none' : component.style?.transition,
+            // Set cursor based on border position when selected/hovered
+            cursor: (isSelected || isHovered) && !isResizing && onUpdate
+              ? getCursorForHandle(hoveredBorder)
+              : 'default',
           }}
           onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
+          onMouseLeave={(e) => {
+            setHoveredBorder(null);
+            onMouseLeave();
+          }}
+          onMouseMove={(e) => {
+            if ((isSelected || isHovered) && !isResizing && onUpdate) {
+              const handle = detectBorderHandle(e);
+              setHoveredBorder(handle);
+              // Update cursor dynamically
+              if (handle) {
+                e.currentTarget.style.cursor = getCursorForHandle(handle);
+              } else {
+                e.currentTarget.style.cursor = 'default';
+              }
+            }
+          }}
+          onMouseDown={(e) => {
+            if ((isSelected || isHovered) && !isResizing && onUpdate) {
+              const handle = detectBorderHandle(e);
+              if (handle) {
+                e.stopPropagation();
+                handleResizeMouseDown(e, handle);
+              }
+            }
+          }}
         >
         {/* Drag Handle */}
         <div 
@@ -568,11 +635,12 @@ function SortableComponent({
           </div>
         </div>
 
-        {/* Widget Toolbar - Top Center */}
-        {(isHovered || isSelected) && (
+        {/* Widget Toolbar - Top Center - Always reserve space, only show on hover */}
           <div 
-            className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-white border border-gray-300 rounded-md shadow-lg px-1 py-1 z-50"
-            style={{ top: '-36px' }}
+          className={`absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-white border border-gray-300 rounded-md shadow-lg px-1 py-1 z-50 transition-opacity duration-150 ${
+            (isHovered || isSelected) ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{ top: '-40px' }}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -614,7 +682,6 @@ function SortableComponent({
               </button>
             )}
           </div>
-        )}
         
         <div 
           onClick={(e) => {
@@ -644,104 +711,9 @@ function SortableComponent({
             onAddAfter={onAddAfter}
           />
         </div>
-
-        {/* Resize Handles - Always visible when hovered or selected */}
-        {(isHovered || isSelected) && onUpdate && (
-          <>
-            {/* Corner Handles */}
-            <div
-              className={`absolute -top-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'top-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'top-left' ? { pointerEvents: 'none' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'top-left');
-              }}
-              title="Resize from top-left"
-            />
-            <div
-              className={`absolute -top-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'top-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'top-right' ? { pointerEvents: 'none' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'top-right');
-              }}
-              title="Resize from top-right"
-            />
-            <div
-              className={`absolute -bottom-3 -left-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nesw-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'bottom-left' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'bottom-left' ? { pointerEvents: 'none' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'bottom-left');
-              }}
-              title="Resize from bottom-left"
-            />
-            <div
-              className={`absolute -bottom-3 -right-3 w-6 h-6 bg-indigo-500 border-2 border-white rounded-full cursor-nwse-resize z-50 hover:bg-indigo-600 hover:scale-150 shadow-xl ${
-                isResizing && resizeHandle === 'bottom-right' ? 'bg-indigo-700 scale-150 ring-2 ring-indigo-300' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'bottom-right' ? { pointerEvents: 'none' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'bottom-right');
-              }}
-              title="Resize from bottom-right"
-            />
-            
-            {/* Edge Handles */}
-            <div
-              className={`absolute -top-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
-                isResizing && resizeHandle === 'top' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'top' ? { pointerEvents: 'none' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'top');
-              }}
-              title="Resize height from top"
-            />
-            <div
-              className={`absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-16 h-5 bg-indigo-500 border-2 border-white rounded-full cursor-ns-resize z-50 hover:bg-indigo-600 hover:scale-y-150 shadow-xl ${
-                isResizing && resizeHandle === 'bottom' ? 'bg-indigo-700 scale-y-150 ring-2 ring-indigo-300' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'bottom' ? { pointerEvents: 'none' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'bottom');
-              }}
-              title="Resize height from bottom"
-            />
-            <div
-              className={`absolute -left-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
-                isResizing && resizeHandle === 'left' ? 'bg-indigo-700 scale-x-150 ring-2 ring-indigo-300' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'left' ? { pointerEvents: 'none' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'left');
-              }}
-              title="Resize width from left"
-            />
-            <div
-              className={`absolute -right-3 top-1/2 transform -translate-y-1/2 w-5 h-16 bg-indigo-500 border-2 border-white rounded-full cursor-ew-resize z-50 hover:bg-indigo-600 hover:scale-x-150 shadow-xl ${
-                isResizing && resizeHandle === 'right' ? 'opacity-0' : 'transition-all'
-              }`}
-              style={isResizing && resizeHandle === 'right' ? { pointerEvents: 'none', visibility: 'hidden' } : {}}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleResizeMouseDown(e, 'right');
-              }}
-              title="Resize width from right"
-            />
             
             {/* Ghost handle that follows the component edge during resize - rendered via portal to persist through re-renders */}
-            {mounted && isResizing && resizeHandle && componentRef.current && createPortal(
+        {(isHovered || isSelected) && onUpdate && mounted && isResizing && resizeHandle && componentRef.current && createPortal(
               <>
                 {(() => {
                   // Get actual current edge positions from the component (now that dimensions are applied)
@@ -802,8 +774,6 @@ function SortableComponent({
                 })()}
               </>,
               document.body
-            )}
-          </>
         )}
         </div>
       </div>
@@ -823,6 +793,41 @@ export function PageBuilderWithISR({
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Use ref to track hover timeout to prevent blinking when moving between components
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Debounced hover handlers to prevent blinking when moving between components
+  const handleMouseEnterComponent = useCallback((componentId: string) => {
+    // Clear any pending hover clear
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    // Set hover immediately
+    setHoveredComponent(componentId);
+  }, []);
+  
+  const handleMouseLeaveComponent = useCallback(() => {
+    // Clear any pending hover clear
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    // Delay clearing hover to prevent blinking when moving between components
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredComponent(null);
+      hoverTimeoutRef.current = null;
+    }, 50); // Small delay (50ms) to smooth transitions
+  }, []);
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+    };
+  }, []);
   const [previewMode, setPreviewMode] = useState(false);
   const [deviceView, setDeviceView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [history, setHistory] = useState<Component[][]>([initialComponents]);
@@ -1933,6 +1938,243 @@ export function PageBuilderWithISR({
             columns: 3,
             showTitle: true,
             showSubtitle: true
+          }
+        };
+      case 'pricing-table':
+        return {
+          ...baseComponent,
+          props: {
+            title: 'Choose Your Plan',
+            subtitle: 'Select the perfect plan for your needs',
+            columns: 3,
+            layout: 'default',
+            showToggle: true,
+            toggleLabel1: 'Monthly',
+            toggleLabel2: 'Yearly',
+            currency: '$',
+            currencyPosition: 'before',
+            plans: [
+              {
+                id: '1',
+                name: 'Basic',
+                price: '9.99',
+                period: 'month',
+                description: 'Perfect for getting started',
+                features: [
+                  '10GB Storage',
+                  '100GB Bandwidth',
+                  'Email Support',
+                  'Basic Analytics'
+                ],
+                buttonText: 'Get Started',
+                buttonLink: '#',
+                popular: false,
+              },
+              {
+                id: '2',
+                name: 'Professional',
+                price: '29.99',
+                period: 'month',
+                description: 'Best for growing businesses',
+                features: [
+                  '100GB Storage',
+                  '1TB Bandwidth',
+                  'Priority Support',
+                  'Advanced Analytics',
+                  'API Access',
+                  'Custom Domain'
+                ],
+                buttonText: 'Get Started',
+                buttonLink: '#',
+                popular: true,
+                badge: 'Most Popular'
+              },
+              {
+                id: '3',
+                name: 'Enterprise',
+                price: '99.99',
+                period: 'month',
+                description: 'For large organizations',
+                features: [
+                  'Unlimited Storage',
+                  'Unlimited Bandwidth',
+                  '24/7 Support',
+                  'Custom Analytics',
+                  'Full API Access',
+                  'White Label',
+                  'Dedicated Server',
+                  'SLA Guarantee'
+                ],
+                buttonText: 'Contact Sales',
+                buttonLink: '#',
+                popular: false,
+              },
+            ],
+            cardBackgroundColor: '#ffffff',
+            cardBorderColor: '#e5e7eb',
+            cardBorderWidth: '1px',
+            cardBorderRadius: '0.5rem',
+            cardPadding: '2rem',
+            cardShadow: 'md',
+            popularPlanId: '2',
+            popularBadgeText: 'Popular',
+            popularBadgeColor: '#4f46e5',
+            popularBadgeTextColor: '#ffffff',
+            popularCardColor: '#ffffff',
+            popularCardBorderColor: '#4f46e5',
+            titleColor: '#111827',
+            priceColor: '#111827',
+            priceFontSize: '3rem',
+            periodColor: '#6b7280',
+            descriptionColor: '#6b7280',
+            featureIcon: 'check',
+            featureIconColor: '#10b981',
+            featureColor: '#374151',
+            featureFontSize: '1rem',
+            buttonStyle: 'solid',
+            buttonBorderRadius: '0.5rem',
+            buttonPadding: '0.75rem 1.5rem',
+            buttonFontSize: '1rem',
+            buttonFontWeight: '600',
+            spacing: '3rem',
+            gap: '1.5rem',
+            alignment: 'center',
+            backgroundColor: '#ffffff',
+          }
+        };
+      case 'testimonials':
+        return {
+          ...baseComponent,
+          props: {
+            title: 'What Our Customers Say',
+            subtitle: "Don't just take our word for it",
+            layout: 'carousel',
+            columns: 3,
+            showRating: true,
+            showAvatar: true,
+            showCompany: true,
+            showDate: false,
+            autoplay: false,
+            autoplayInterval: 5000,
+            showNavigation: true,
+            showDots: true,
+            testimonials: [
+              {
+                id: '1',
+                name: 'John Doe',
+                role: 'CEO',
+                company: 'Tech Corp',
+                avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=4f46e5&color=fff',
+                rating: 5,
+                text: 'This service has completely transformed our business. The quality and support are outstanding!',
+                date: '2024-01-15',
+                verified: true,
+              },
+              {
+                id: '2',
+                name: 'Jane Smith',
+                role: 'Marketing Director',
+                company: 'Creative Agency',
+                avatar: 'https://ui-avatars.com/api/?name=Jane+Smith&background=10b981&color=fff',
+                rating: 5,
+                text: 'Incredible value for money. The features are exactly what we needed, and the team is always responsive.',
+                date: '2024-01-10',
+                verified: true,
+              },
+              {
+                id: '3',
+                name: 'Mike Johnson',
+                role: 'CTO',
+                company: 'Startup Inc',
+                avatar: 'https://ui-avatars.com/api/?name=Mike+Johnson&background=f59e0b&color=fff',
+                rating: 5,
+                text: 'The best investment we\'ve made this year. Highly recommend to anyone looking for quality solutions.',
+                date: '2024-01-05',
+                verified: true,
+              },
+            ],
+            backgroundColor: '#ffffff',
+            cardBackgroundColor: '#ffffff',
+            cardBorderColor: '#e5e7eb',
+            cardBorderRadius: '0.5rem',
+            cardPadding: '1.5rem',
+            cardShadow: 'md',
+            titleColor: '#111827',
+            textColor: '#374151',
+            authorColor: '#111827',
+            roleColor: '#6b7280',
+            ratingColor: '#fbbf24',
+            quoteIcon: false,
+            quoteIconColor: '#e5e7eb',
+            quoteStyle: 'left',
+            spacing: '3rem',
+            gap: '1.5rem',
+            alignment: 'center',
+          }
+        };
+      case 'faq':
+        return {
+          ...baseComponent,
+          props: {
+            title: 'Frequently Asked Questions',
+            subtitle: 'Find answers to common questions',
+            layout: 'accordion',
+            allowMultiple: false,
+            defaultOpenFirst: false,
+            icon: 'chevron',
+            iconPosition: 'right',
+            items: [
+              {
+                id: '1',
+                question: 'What is your refund policy?',
+                answer: 'We offer a 30-day money-back guarantee on all our plans. If you\'re not satisfied with our service, you can request a full refund within 30 days of your purchase.',
+                defaultOpen: false,
+              },
+              {
+                id: '2',
+                question: 'How do I cancel my subscription?',
+                answer: 'You can cancel your subscription at any time from your account settings. Simply go to the "Billing" section and click "Cancel Subscription". Your access will continue until the end of your current billing period.',
+                defaultOpen: false,
+              },
+              {
+                id: '3',
+                question: 'Do you offer customer support?',
+                answer: 'Yes, we offer 24/7 customer support via email, live chat, and phone. Our support team is always ready to help you with any questions or issues you may have.',
+                defaultOpen: false,
+              },
+              {
+                id: '4',
+                question: 'Can I upgrade or downgrade my plan?',
+                answer: 'Yes, you can upgrade or downgrade your plan at any time from your account dashboard. Changes will be prorated, and you\'ll only pay the difference for the remaining billing period.',
+                defaultOpen: false,
+              },
+              {
+                id: '5',
+                question: 'Is there a setup fee?',
+                answer: 'No, there are no setup fees. All plans include instant setup and activation. You can start using our service immediately after signing up.',
+                defaultOpen: false,
+              },
+            ],
+            backgroundColor: '#ffffff',
+            itemBackgroundColor: '#ffffff',
+            itemHoverColor: '#f9fafb',
+            itemBorderColor: '#e5e7eb',
+            itemBorderRadius: '0.5rem',
+            itemPadding: '1.5rem',
+            titleColor: '#111827',
+            questionColor: '#111827',
+            questionFontSize: '1.125rem',
+            questionFontWeight: '600',
+            answerColor: '#6b7280',
+            answerFontSize: '1rem',
+            iconColor: '#6b7280',
+            spacing: '3rem',
+            gap: '1rem',
+            alignment: 'left',
+            showSearch: false,
+            searchPlaceholder: 'Search FAQs...',
+            animation: 'slide',
+            animationDuration: 300,
           }
         };
       default:
@@ -3264,6 +3506,7 @@ export function PageBuilderWithISR({
           <div 
             ref={setCanvasRef}
             className="flex-1 overflow-auto bg-gray-100 relative"
+            onMouseLeave={handleMouseLeaveComponent}
           >
             {/* Ruler System */}
             {canvasRef && (
@@ -3312,8 +3555,8 @@ export function PageBuilderWithISR({
                               isSelected={selectedComponent === component.id}
                               isHovered={hoveredComponent === component.id}
                               onClick={() => setSelectedComponent(component.id)}
-                              onMouseEnter={() => setHoveredComponent(component.id)}
-                              onMouseLeave={() => setHoveredComponent(null)}
+                              onMouseEnter={() => handleMouseEnterComponent(component.id)}
+                              onMouseLeave={handleMouseLeaveComponent}
                             onAddToContainer={handleAddComponent}
                             onColumnClick={handleColumnClick}
                             onAddColumn={handleAddColumn}

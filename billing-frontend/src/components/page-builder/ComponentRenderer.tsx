@@ -20,6 +20,9 @@ import ElementorGrid from './ElementorGrid';
 import SliderComponent from './SliderComponent';
 import BannerComponent from './BannerComponent';
 import NavMenuComponent from './NavMenuComponent';
+import { PricingTableComponent } from './PricingTableComponent';
+import { TestimonialsComponent } from './TestimonialsComponent';
+import { FAQComponent } from './FAQComponent';
 
 interface ComponentRendererProps {
   component: Component;
@@ -319,10 +322,44 @@ export default function ComponentRenderer({
         );
 
       case 'video':
+        // Helper function to convert YouTube URLs to embed format
+        const getEmbedUrl = (url: string): string => {
+          if (!url) return 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+          
+          // If already an embed URL, return as is
+          if (url.includes('youtube.com/embed/')) {
+            return url;
+          }
+          
+          // Extract video ID from various YouTube URL formats
+          let videoId = '';
+          
+          // Handle watch URLs: https://www.youtube.com/watch?v=VIDEO_ID
+          const watchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+          if (watchMatch) {
+            videoId = watchMatch[1];
+          } else if (url.includes('youtube.com/embed/')) {
+            // Already embed format
+            videoId = url.split('youtube.com/embed/')[1]?.split('?')[0] || '';
+          } else if (url.includes('youtu.be/')) {
+            // Short URL format
+            videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
+          }
+          
+          if (videoId) {
+            return `https://www.youtube.com/embed/${videoId}`;
+          }
+          
+          // If we can't parse it, try to use it directly (might be other video providers)
+          return url;
+        };
+
+        const embedUrl = getEmbedUrl(component.props?.src || '');
+        
         return (
           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
             <iframe
-              src={component.props.src || 'https://www.youtube.com/embed/dQw4w9WgXcQ'}
+              src={embedUrl}
               className="absolute top-0 left-0 w-full h-full rounded-lg"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -829,6 +866,30 @@ export default function ComponentRenderer({
             component={component}
             isEditor={isEditor}
             isHovered={isHovered}
+          />
+        );
+
+      case 'pricing-table':
+        return (
+          <PricingTableComponent
+            style={component.style}
+            props={component.props}
+          />
+        );
+
+      case 'testimonials':
+        return (
+          <TestimonialsComponent
+            style={component.style}
+            props={component.props}
+          />
+        );
+
+      case 'faq':
+        return (
+          <FAQComponent
+            style={component.style}
+            props={component.props}
           />
         );
 
