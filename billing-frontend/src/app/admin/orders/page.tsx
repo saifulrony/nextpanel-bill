@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ordersAPI, paymentsAPI } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { getDemoData } from '@/lib/demoData';
 import CreateOrderModal from '@/components/orders/CreateOrderModal';
 import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
@@ -10,6 +11,8 @@ import ChargingControls from '@/components/orders/ChargingControls';
 import PaymentHistoryModal from '@/components/orders/PaymentHistoryModal';
 import EmailAutomationModal from '@/components/orders/EmailAutomationModal';
 import PaymentAutomationModal from '@/components/orders/PaymentAutomationModal';
+import AutomationSelectorModal from '@/components/orders/AutomationSelectorModal';
+import ChargePaymentModal from '@/components/orders/ChargePaymentModal';
 
 interface Customer {
   id: string;
@@ -65,6 +68,9 @@ interface OrderStats {
 }
 
 export default function OrdersPage() {
+  const { user } = useAuth();
+  const isAdmin = (user as any)?.is_admin === true;
+  
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,10 +80,15 @@ export default function OrdersPage() {
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const [paymentHistoryOrderId, setPaymentHistoryOrderId] = useState<string | null>(null);
   const [isCharging, setIsCharging] = useState(false);
+  const [showAutomationSelector, setShowAutomationSelector] = useState(false);
+  const [selectedOrderForAutomation, setSelectedOrderForAutomation] = useState<string | null>(null);
   const [showEmailAutomationModal, setShowEmailAutomationModal] = useState(false);
   const [showPaymentAutomationModal, setShowPaymentAutomationModal] = useState(false);
   const [emailAutomationOrderId, setEmailAutomationOrderId] = useState<string | null>(null);
   const [paymentAutomationOrderId, setPaymentAutomationOrderId] = useState<string | null>(null);
+  const [showChargePaymentModal, setShowChargePaymentModal] = useState(false);
+  const [chargePaymentOrderId, setChargePaymentOrderId] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     status: '',
     start_date: '',
@@ -106,9 +117,22 @@ export default function OrdersPage() {
         const ordersResponse = await ordersAPI.list(params);
         
         // Check if API returned empty data (no orders in database)
+        // Only use demo data if no filters are applied (to avoid confusion)
+        const hasFilters = filters.status || filters.start_date || filters.end_date || filters.min_amount || filters.max_amount;
+        
         if (ordersResponse.data && ordersResponse.data.length === 0) {
-          console.log('📋 API returned empty data, using demo orders...');
-          throw new Error('No orders in database');
+          if (hasFilters) {
+            // If filters are applied and no results, show empty list (don't use demo data)
+            console.log('📋 No orders match the applied filters');
+            setOrders([]);
+            setIsUsingDemoData(false);
+            setIsLoading(false);
+            return;
+          } else {
+            // Only use demo data when no filters are applied
+            console.log('📋 API returned empty data, using demo orders...');
+            throw new Error('No orders in database');
+          }
         }
         
         setOrders(ordersResponse.data);
@@ -255,6 +279,24 @@ export default function OrdersPage() {
     }
   };
 
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    setUpdatingStatus(orderId);
+    try {
+      await ordersAPI.updateStatus(orderId, newStatus);
+      // Update the order in the local state
+      setOrders(orders.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ));
+      alert('Order status updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update status:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to update order status';
+      alert(errorMessage);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   const handleManualCharge = async (orderId: string, amount: number, paymentMethod: string) => {
     try {
       setIsCharging(true);
@@ -310,22 +352,22 @@ export default function OrdersPage() {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       // Backend statuses
-      pending: 'bg-yellow-100 text-yellow-800',
-      processing: 'bg-blue-100 text-blue-800',
-      completed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-gray-100 text-gray-600',
-      failed: 'bg-red-100 text-red-800',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      processing: 'bg-blue-100 text-blue-800 border-blue-300',
+      completed: 'bg-green-100 text-green-800 border-green-300',
+      cancelled: 'bg-gray-100 text-gray-600 border-gray-300',
+      failed: 'bg-red-100 text-red-800 border-red-300',
       
       // Legacy/alternative statuses
-      draft: 'bg-gray-100 text-gray-800',
-      open: 'bg-blue-100 text-blue-800',
-      paid: 'bg-green-100 text-green-800',
-      partially_paid: 'bg-yellow-100 text-yellow-800',
-      overdue: 'bg-red-100 text-red-800',
-      void: 'bg-gray-100 text-gray-600',
-      uncollectible: 'bg-red-100 text-red-900',
+      draft: 'bg-gray-100 text-gray-800 border-gray-300',
+      open: 'bg-blue-100 text-blue-800 border-blue-300',
+      paid: 'bg-green-100 text-green-800 border-green-300',
+      partially_paid: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      overdue: 'bg-red-100 text-red-800 border-red-300',
+      void: 'bg-gray-100 text-gray-600 border-gray-300',
+      uncollectible: 'bg-red-100 text-red-900 border-red-300',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const formatDate = (dateString: string) => {
@@ -522,6 +564,9 @@ export default function OrdersPage() {
                     Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment Method
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -547,10 +592,39 @@ export default function OrdersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${order.total.toFixed(2)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.payment_method ? (
+                        <span className="capitalize">{order.payment_method}</span>
+                      ) : (
+                        <span className="text-gray-400 italic">N/A</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                        {order.status.replace('_', ' ')}
-                      </span>
+                      {isAdmin ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={order.status}
+                            onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                            disabled={updatingStatus === order.id}
+                            className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full border-2 ${getStatusColor(order.status)} ${
+                              updatingStatus === order.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                            }`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="failed">Failed</option>
+                          </select>
+                          {updatingStatus === order.id && (
+                            <span className="text-xs text-gray-500">Updating...</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                          {order.status.replace('_', ' ')}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <ChargingControls
@@ -604,28 +678,31 @@ export default function OrdersPage() {
                             </svg>
                           </button>
                         )}
+                        {order.amount_due > 0 && (
+                          <button
+                            onClick={() => {
+                              setChargePaymentOrderId(order.id);
+                              setShowChargePaymentModal(true);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                            title="Charge Payment"
+                          >
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
-                            setEmailAutomationOrderId(order.id);
-                            setShowEmailAutomationModal(true);
+                            setSelectedOrderForAutomation(order.id);
+                            setShowAutomationSelector(true);
                           }}
-                          className="text-blue-600 hover:text-blue-900 transition-colors"
-                          title="Email Automation"
+                          className="text-gray-600 hover:text-gray-900 transition-colors"
+                          title="Automation Settings"
                         >
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPaymentAutomationOrderId(order.id);
-                            setShowPaymentAutomationModal(true);
-                          }}
-                          className="text-green-600 hover:text-green-900 transition-colors"
-                          title="Payment Automation"
-                        >
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                         </button>
                         {order.status !== 'void' && order.status !== 'cancelled' && order.status !== 'completed' && order.status !== 'paid' && (
@@ -680,6 +757,25 @@ export default function OrdersPage() {
         />
       )}
 
+      {/* Automation Selector Modal */}
+      {showAutomationSelector && selectedOrderForAutomation && (
+        <AutomationSelectorModal
+          isOpen={showAutomationSelector}
+          onClose={() => {
+            setShowAutomationSelector(false);
+            setSelectedOrderForAutomation(null);
+          }}
+          onSelectEmail={() => {
+            setEmailAutomationOrderId(selectedOrderForAutomation);
+            setShowEmailAutomationModal(true);
+          }}
+          onSelectPayment={() => {
+            setPaymentAutomationOrderId(selectedOrderForAutomation);
+            setShowPaymentAutomationModal(true);
+          }}
+        />
+      )}
+
       {/* Email Automation Modal */}
       {showEmailAutomationModal && emailAutomationOrderId && (
         <EmailAutomationModal
@@ -703,6 +799,24 @@ export default function OrdersPage() {
             setShowPaymentAutomationModal(false);
             setPaymentAutomationOrderId(null);
           }}
+        />
+      )}
+
+      {/* Charge Payment Modal */}
+      {showChargePaymentModal && chargePaymentOrderId && (
+        <ChargePaymentModal
+          isOpen={showChargePaymentModal}
+          onClose={() => {
+            setShowChargePaymentModal(false);
+            setChargePaymentOrderId(null);
+          }}
+          onCharge={async (amount: number, paymentMethod: string) => {
+            await handleManualCharge(chargePaymentOrderId, amount, paymentMethod);
+          }}
+          orderId={chargePaymentOrderId}
+          maxAmount={orders.find(o => o.id === chargePaymentOrderId)?.amount_due || 0}
+          orderNumber={orders.find(o => o.id === chargePaymentOrderId)?.invoice_number || orders.find(o => o.id === chargePaymentOrderId)?.order_number}
+          isLoading={isCharging}
         />
       )}
     </div>

@@ -57,12 +57,11 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
             className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="open">Open</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
-            <option value="partially_paid">Partially Paid</option>
-            <option value="void">Void</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="failed">Failed</option>
           </select>
         </div>
 

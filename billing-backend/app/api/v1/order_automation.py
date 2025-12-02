@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import List, Optional
 from datetime import datetime, timedelta
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 import logging
 
 from app.core.database import get_db
@@ -88,6 +88,35 @@ class AutomationRuleResponse(BaseModel):
     updated_at: Optional[str]
     
     model_config = {"from_attributes": True}
+
+
+def rule_to_response(rule: OrderAutomationRule) -> AutomationRuleResponse:
+    """Convert OrderAutomationRule to AutomationRuleResponse with proper datetime serialization"""
+    return AutomationRuleResponse(
+        id=rule.id,
+        order_id=rule.order_id,
+        name=rule.name,
+        description=rule.description,
+        trigger_type=rule.trigger_type.value if hasattr(rule.trigger_type, 'value') else str(rule.trigger_type),
+        trigger_value=rule.trigger_value,
+        trigger_unit=rule.trigger_unit,
+        action_type=rule.action_type.value if hasattr(rule.action_type, 'value') else str(rule.action_type),
+        action_config=rule.action_config or {},
+        is_recurring=rule.is_recurring,
+        recurring_interval=rule.recurring_interval,
+        recurring_unit=rule.recurring_unit,
+        max_executions=rule.max_executions,
+        execution_count=rule.execution_count,
+        next_execution=rule.next_execution.isoformat() if rule.next_execution else None,
+        last_execution=rule.last_execution.isoformat() if rule.last_execution else None,
+        status=rule.status.value if hasattr(rule.status, 'value') else str(rule.status),
+        is_enabled=rule.is_enabled,
+        last_result=rule.last_result,
+        error_count=rule.error_count,
+        last_error=rule.last_error,
+        created_at=rule.created_at.isoformat() if rule.created_at else "",
+        updated_at=rule.updated_at.isoformat() if rule.updated_at else None,
+    )
 
 
 def calculate_next_execution(
@@ -203,7 +232,7 @@ async def create_automation_rule(
     
     logger.info(f"Created automation rule {new_rule.id} for order {order_id}")
     
-    return AutomationRuleResponse.model_validate(new_rule)
+    return rule_to_response(new_rule)
 
 
 @router.get("", response_model=List[AutomationRuleResponse])
@@ -234,7 +263,7 @@ async def list_automation_rules(
     )
     rules = result.scalars().all()
     
-    return [AutomationRuleResponse.model_validate(rule) for rule in rules]
+    return [rule_to_response(rule) for rule in rules]
 
 
 @router.get("/payment-methods", response_model=List[dict])
@@ -347,7 +376,7 @@ async def get_automation_rule(
     if not rule:
         raise HTTPException(status_code=404, detail="Automation rule not found")
     
-    return AutomationRuleResponse.model_validate(rule)
+    return rule_to_response(rule)
 
 
 @router.patch("/{rule_id}", response_model=AutomationRuleResponse)
@@ -412,7 +441,7 @@ async def update_automation_rule(
     
     logger.info(f"Updated automation rule {rule_id} for order {order_id}")
     
-    return AutomationRuleResponse.model_validate(rule)
+    return rule_to_response(rule)
 
 
 @router.delete("/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)

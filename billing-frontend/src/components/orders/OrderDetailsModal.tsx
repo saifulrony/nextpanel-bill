@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ordersAPI, api, plansAPI } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import AutomationRules from './AutomationRules';
 
 interface Customer {
@@ -59,6 +60,9 @@ interface OrderDetailsModalProps {
 }
 
 export default function OrderDetailsModal({ order, onClose, onUpdate }: OrderDetailsModalProps) {
+  const { user } = useAuth();
+  const isAdmin = (user as any)?.is_admin === true;
+  
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -68,14 +72,17 @@ export default function OrderDetailsModal({ order, onClose, onUpdate }: OrderDet
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState(order.status);
 
   useEffect(() => {
     loadCustomerDetails();
     setEditedItems(order.items || []);
+    setCurrentStatus(order.status);
     if (isEditing) {
       loadProducts();
     }
-  }, [order.id, isEditing]);
+  }, [order.id, isEditing, order.status]);
 
   const loadCustomerDetails = async () => {
     try {
@@ -238,6 +245,24 @@ NextPanel Team
     }
   };
 
+  const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === currentStatus) return;
+    
+    setUpdatingStatus(true);
+    try {
+      await ordersAPI.updateStatus(order.id, newStatus);
+      setCurrentStatus(newStatus);
+      onUpdate(); // Refresh the order list
+      alert('Order status updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update status:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to update order status';
+      alert(errorMessage);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const handleSaveOrder = async () => {
     setSaving(true);
     try {
@@ -343,13 +368,19 @@ NextPanel Team
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800';
-      case 'open': return 'bg-blue-100 text-blue-800';
-      case 'overdue': return 'bg-red-100 text-red-800';
-      case 'partially_paid': return 'bg-yellow-100 text-yellow-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'void': return 'bg-gray-100 text-gray-600';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'processing': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'cancelled': return 'bg-gray-100 text-gray-600 border-gray-300';
+      case 'failed': return 'bg-red-100 text-red-800 border-red-300';
+      // Legacy statuses for backward compatibility
+      case 'paid': return 'bg-green-100 text-green-800 border-green-300';
+      case 'open': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'overdue': return 'bg-red-100 text-red-800 border-red-300';
+      case 'partially_paid': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'draft': return 'bg-gray-100 text-gray-800 border-gray-300';
+      case 'void': return 'bg-gray-100 text-gray-600 border-gray-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
@@ -381,9 +412,31 @@ NextPanel Team
         <div className="space-y-6">
           {/* Status and Actions */}
           <div className="flex items-center justify-between pb-4 border-b">
-            <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
-              {order.status.replace('_', ' ').toUpperCase()}
-            </span>
+            <div className="flex items-center gap-3">
+              {isAdmin ? (
+                <select
+                  value={currentStatus}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  disabled={updatingStatus}
+                  className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full border-2 ${getStatusColor(currentStatus)} ${
+                    updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                >
+                  <option value="pending">PENDING</option>
+                  <option value="processing">PROCESSING</option>
+                  <option value="completed">COMPLETED</option>
+                  <option value="cancelled">CANCELLED</option>
+                  <option value="failed">FAILED</option>
+                </select>
+              ) : (
+                <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusColor(currentStatus)}`}>
+                  {currentStatus.replace('_', ' ').toUpperCase()}
+                </span>
+              )}
+              {updatingStatus && (
+                <span className="text-sm text-gray-500">Updating...</span>
+              )}
+            </div>
             <div className="flex space-x-2">
               {!isEditing ? (
                 <>

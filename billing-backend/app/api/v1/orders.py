@@ -3,7 +3,7 @@ Orders API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, Date, text
 from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
@@ -434,19 +434,45 @@ async def list_orders(
             raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
     
     # Date range filters
+    from datetime import timezone
+    
     if start_date:
         try:
-            start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            query = query.where(Order.created_at >= start)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid start_date format")
+            # Handle both date-only (YYYY-MM-DD) and datetime formats
+            if len(start_date) == 10:  # Date only format YYYY-MM-DD
+                # Use func.date() which works with SQLite and extracts date part
+                # Compare date part as string (YYYY-MM-DD format)
+                query = query.where(func.date(Order.created_at) >= start_date)
+                logger.info(f"Date filter: start_date '{start_date}' filtering orders from {start_date}")
+            else:
+                # Full datetime format
+                start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=timezone.utc)
+                query = query.where(Order.created_at >= start)
+                logger.info(f"Date filter: start_date '{start_date}' parsed as {start}")
+        except (ValueError, AttributeError) as e:
+            logger.error(f"Error parsing start_date '{start_date}': {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid start_date format: {str(e)}")
     
     if end_date:
         try:
-            end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            query = query.where(Order.created_at <= end)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid end_date format")
+            # Handle both date-only (YYYY-MM-DD) and datetime formats
+            if len(end_date) == 10:  # Date only format YYYY-MM-DD
+                # Use func.date() which works with SQLite and extracts date part
+                # Compare date part as string (YYYY-MM-DD format)
+                query = query.where(func.date(Order.created_at) <= end_date)
+                logger.info(f"Date filter: end_date '{end_date}' filtering orders until {end_date}")
+            else:
+                # Full datetime format
+                end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                if end.tzinfo is None:
+                    end = end.replace(tzinfo=timezone.utc)
+                query = query.where(Order.created_at <= end)
+                logger.info(f"Date filter: end_date '{end_date}' parsed as {end}")
+        except (ValueError, AttributeError) as e:
+            logger.error(f"Error parsing end_date '{end_date}': {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid end_date format: {str(e)}")
     
     # Amount range filters
     if min_amount is not None:

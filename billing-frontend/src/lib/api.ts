@@ -263,6 +263,9 @@ export const ordersAPI = {
   update: (id: string, data: any) =>
     api.put(`/orders/${id}`, data),
   
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/orders/${id}?status=${encodeURIComponent(status)}`),
+  
   delete: (id: string) =>
     api.delete(`/orders/${id}`),
   

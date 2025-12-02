@@ -61,12 +61,12 @@ class AutoChargeConfig(BaseModel):
 
 class PaymentHistoryResponse(BaseModel):
     id: str
-    order_id: str
+    order_id: Optional[str] = None
     amount: float
     currency: str
     status: str
-    payment_method: str
-    gateway_transaction_id: Optional[str]
+    payment_method: Optional[str] = None
+    gateway_transaction_id: Optional[str] = None
     created_at: datetime
     failure_reason: Optional[str] = None
 
