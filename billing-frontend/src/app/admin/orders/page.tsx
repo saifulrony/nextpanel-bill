@@ -89,6 +89,10 @@ export default function OrdersPage() {
   const [showChargePaymentModal, setShowChargePaymentModal] = useState(false);
   const [chargePaymentOrderId, setChargePaymentOrderId] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState<'update_status' | 'mark_paid' | 'send' | 'delete'>('update_status');
+  const [bulkSelectedStatus, setBulkSelectedStatus] = useState<string>('');
   const [filters, setFilters] = useState({
     status: '',
     start_date: '',
@@ -130,8 +134,8 @@ export default function OrdersPage() {
             return;
           } else {
             // Only use demo data when no filters are applied
-            console.log('📋 API returned empty data, using demo orders...');
-            throw new Error('No orders in database');
+          console.log('📋 API returned empty data, using demo orders...');
+          throw new Error('No orders in database');
           }
         }
         
@@ -412,6 +416,15 @@ export default function OrdersPage() {
             Manage customer orders and payments
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {selectedOrders.length > 0 && (
+            <button
+              onClick={() => setShowBulkActionsModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Bulk Actions ({selectedOrders.length})
+            </button>
+          )}
         <button
           onClick={() => setShowCreateModal(true)}
           className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -421,6 +434,7 @@ export default function OrdersPage() {
           </svg>
           Create Order
         </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -552,6 +566,20 @@ export default function OrdersPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.length === orders.length && orders.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedOrders(orders.map(o => o.id));
+                        } else {
+                          setSelectedOrders([]);
+                        }
+                      }}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Order #
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -580,6 +608,20 @@ export default function OrdersPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {orders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrders.includes(order.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedOrders([...selectedOrders, order.id]);
+                          } else {
+                            setSelectedOrders(selectedOrders.filter(id => id !== order.id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {order.invoice_number || order.order_number || order.id}
                     </td>
@@ -621,9 +663,9 @@ export default function OrdersPage() {
                           )}
                         </div>
                       ) : (
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                          {order.status.replace('_', ' ')}
-                        </span>
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                        {order.status.replace('_', ' ')}
+                      </span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -803,6 +845,128 @@ export default function OrdersPage() {
       )}
 
       {/* Charge Payment Modal */}
+      {/* Bulk Actions Modal */}
+      {showBulkActionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">
+              Bulk Actions ({selectedOrders.length} order{selectedOrders.length !== 1 ? 's' : ''})
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Action
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkOrderAction"
+                      value="update_status"
+                      checked={bulkActionType === 'update_status'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'update_status')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Update Status</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkOrderAction"
+                      value="mark_paid"
+                      checked={bulkActionType === 'mark_paid'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'mark_paid')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Mark as Paid</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkOrderAction"
+                      value="send"
+                      checked={bulkActionType === 'send'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'send')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Send to Customers</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkOrderAction"
+                      value="delete"
+                      checked={bulkActionType === 'delete'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'delete')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Delete/Void Orders</span>
+                  </label>
+                </div>
+              </div>
+
+              {bulkActionType === 'update_status' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select New Status
+                  </label>
+                  <select
+                    value={bulkSelectedStatus}
+                    onChange={(e) => setBulkSelectedStatus(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">-- Select status --</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  This action will be applied to <strong>{selectedOrders.length}</strong> selected order{selectedOrders.length !== 1 ? 's' : ''}.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowBulkActionsModal(false);
+                  setBulkActionType('update_status');
+                  setBulkSelectedStatus('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (bulkActionType === 'update_status') {
+                    handleBulkUpdateStatus();
+                  } else if (bulkActionType === 'mark_paid') {
+                    handleBulkMarkAsPaid();
+                  } else if (bulkActionType === 'send') {
+                    handleBulkSend();
+                  } else if (bulkActionType === 'delete') {
+                    handleBulkDelete();
+                  }
+                }}
+                disabled={bulkActionType === 'update_status' && !bulkSelectedStatus}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bulkActionType === 'update_status' && 'Update Status'}
+                {bulkActionType === 'mark_paid' && 'Mark as Paid'}
+                {bulkActionType === 'send' && 'Send Orders'}
+                {bulkActionType === 'delete' && 'Delete Orders'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showChargePaymentModal && chargePaymentOrderId && (
         <ChargePaymentModal
           isOpen={showChargePaymentModal}

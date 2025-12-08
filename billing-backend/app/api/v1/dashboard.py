@@ -129,8 +129,8 @@ async def verify_user_or_admin(
 @router.get("/stats", response_model=DashboardStatsResponse)
 async def get_dashboard_stats(
     period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     user_info: tuple = Depends(verify_user_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -161,8 +161,19 @@ async def get_dashboard_stats(
     elif period == "custom":
         if not start_date or not end_date:
             raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
-        period_start = start_date
-        period_end = end_date
+        try:
+            # Parse date strings - handle both ISO format and simple date format
+            if 'T' in start_date:
+                period_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                period_start = datetime.fromisoformat(f"{start_date}T00:00:00+00:00")
+            
+            if 'T' in end_date:
+                period_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                period_end = datetime.fromisoformat(f"{end_date}T23:59:59+00:00")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     else:
         period_start = now - timedelta(days=7)
         period_end = now
@@ -465,8 +476,8 @@ async def get_dashboard_stats(
 @router.get("/revenue/time-series")
 async def get_revenue_time_series(
     period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     user_info: tuple = Depends(verify_user_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -495,8 +506,19 @@ async def get_revenue_time_series(
     elif period == "custom":
         if not start_date or not end_date:
             raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
-        period_start = start_date
-        period_end = end_date
+        try:
+            # Parse date strings - handle both ISO format and simple date format
+            if 'T' in start_date:
+                period_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                period_start = datetime.fromisoformat(f"{start_date}T00:00:00+00:00")
+            
+            if 'T' in end_date:
+                period_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                period_end = datetime.fromisoformat(f"{end_date}T23:59:59+00:00")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     else:
         period_start = now - timedelta(days=7)
         period_end = now
@@ -671,11 +693,212 @@ async def get_revenue_time_series(
     return {"data": data}
 
 
+@router.get("/orders/time-series")
+async def get_orders_time_series(
+    period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    user_info: tuple = Depends(verify_user_or_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get time-series orders data for charts - Real data from orders"""
+    user_id, is_admin = user_info
+    
+    # Calculate date ranges based on selected period
+    now = datetime.utcnow()
+    
+    if period == "today":
+        period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = now
+    elif period == "yesterday":
+        yesterday = now - timedelta(days=1)
+        period_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif period == "week":
+        period_start = now - timedelta(days=7)
+        period_end = now
+    elif period == "month":
+        period_start = now - timedelta(days=30)
+        period_end = now
+    elif period == "year":
+        period_start = now - timedelta(days=365)
+        period_end = now
+    elif period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
+        try:
+            # Parse date strings - handle both ISO format and simple date format
+            if 'T' in start_date:
+                period_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                period_start = datetime.fromisoformat(f"{start_date}T00:00:00+00:00")
+            
+            if 'T' in end_date:
+                period_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                period_end = datetime.fromisoformat(f"{end_date}T23:59:59+00:00")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    else:
+        period_start = now - timedelta(days=7)
+        period_end = now
+    
+    # Get all orders in the period (all statuses, not just completed)
+    result = await db.execute(
+        select(Order.created_at)
+        .where(
+            Order.created_at.between(period_start, period_end)
+        )
+        .order_by(Order.created_at)
+    )
+    orders = result.all()
+    
+    # Group by time period based on selected period
+    data = []
+    if period in ["today", "yesterday"]:
+        # Group by hour
+        hourly_orders = {}
+        for order in orders:
+            hour = order.created_at.hour
+            hourly_orders[hour] = hourly_orders.get(hour, 0) + 1
+        
+        # Fill in all hours for the period
+        if period == "today":
+            start_hour = 0
+            end_hour = period_end.hour
+        else:  # yesterday
+            start_hour = 0
+            end_hour = 23
+        
+        for hour in range(start_hour, end_hour + 1):
+            data.append({
+                "period": f"{hour:02d}:00",
+                "orders": hourly_orders.get(hour, 0)
+            })
+    elif period == "week":
+        # Group by day (last 7 days)
+        daily_orders = {}
+        day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        for order in orders:
+            date_key = order.created_at.date()
+            daily_orders[date_key] = daily_orders.get(date_key, 0) + 1
+        
+        # Fill in all 7 days, even if no orders
+        for i in range(7):
+            check_date = (period_end - timedelta(days=6-i)).date()
+            day_name = day_names[check_date.weekday()]
+            orders_count = daily_orders.get(check_date, 0)
+            data.append({
+                "period": day_name,
+                "orders": orders_count
+            })
+    elif period == "month":
+        # Group by day - fill all days in the month period
+        daily_orders = {}
+        for order in orders:
+            date_key = order.created_at.date()
+            daily_orders[date_key] = daily_orders.get(date_key, 0) + 1
+        
+        # Fill in all days in the period
+        current_date = period_start.date()
+        end_date = period_end.date()
+        while current_date <= end_date:
+            orders_count = daily_orders.get(current_date, 0)
+            data.append({
+                "period": current_date.strftime('%m/%d'),
+                "orders": orders_count
+            })
+            current_date += timedelta(days=1)
+    elif period == "year":
+        # Group by month - fill all 12 months
+        monthly_orders = {}
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        for order in orders:
+            month_key = order.created_at.month
+            monthly_orders[month_key] = monthly_orders.get(month_key, 0) + 1
+        
+        # Fill in all months in the year period
+        current_date = period_start
+        while current_date <= period_end:
+            month_key = current_date.month
+            month_name = month_names[month_key - 1]
+            # Only add if not already added
+            if not any(d['period'] == month_name for d in data):
+                data.append({
+                    "period": month_name,
+                    "orders": monthly_orders.get(month_key, 0)
+                })
+            # Move to next month
+            if current_date.month == 12:
+                current_date = current_date.replace(year=current_date.year + 1, month=1)
+            else:
+                current_date = current_date.replace(month=current_date.month + 1)
+    else:  # custom
+        # Determine grouping based on date range
+        days_diff = (period_end - period_start).days
+        if days_diff <= 1:
+            # Group by hour
+            hourly_orders = {}
+            for order in orders:
+                hour = order.created_at.hour
+                hourly_orders[hour] = hourly_orders.get(hour, 0) + 1
+            
+            for hour in range(24):
+                data.append({
+                    "period": f"{hour:02d}:00",
+                    "orders": hourly_orders.get(hour, 0)
+                })
+        elif days_diff <= 30:
+            # Group by day
+            daily_orders = {}
+            for order in orders:
+                date_key = order.created_at.date()
+                daily_orders[date_key] = daily_orders.get(date_key, 0) + 1
+            
+            current_date = period_start.date()
+            end_date = period_end.date()
+            while current_date <= end_date:
+                orders_count = daily_orders.get(current_date, 0)
+                data.append({
+                    "period": current_date.strftime('%m/%d'),
+                    "orders": orders_count
+                })
+                current_date += timedelta(days=1)
+        else:
+            # Group by month
+            monthly_orders = {}
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            for order in orders:
+                month_key = order.created_at.month
+                year_key = order.created_at.year
+                key = (year_key, month_key)
+                monthly_orders[key] = monthly_orders.get(key, 0) + 1
+            
+            current_date = period_start
+            while current_date <= period_end:
+                month_name = month_names[current_date.month - 1]
+                key = (current_date.year, current_date.month)
+                orders_count = monthly_orders.get(key, 0)
+                period_label = f"{month_name} {current_date.year}"
+                if not any(d['period'] == period_label for d in data):
+                    data.append({
+                        "period": period_label,
+                        "orders": orders_count
+                    })
+                # Move to next month
+                if current_date.month == 12:
+                    current_date = current_date.replace(year=current_date.year + 1, month=1)
+                else:
+                    current_date = current_date.replace(month=current_date.month + 1)
+    
+    return {"data": data}
+
+
 @router.get("/products/analytics", response_model=ProductAnalyticsResponse)
 async def get_product_analytics(
     period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     user_info: tuple = Depends(verify_user_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -705,8 +928,19 @@ async def get_product_analytics(
     elif period == "custom":
         if not start_date or not end_date:
             raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
-        start = start_date
-        end = end_date
+        try:
+            # Parse date strings - handle both ISO format and simple date format
+            if 'T' in start_date:
+                start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                start = datetime.fromisoformat(f"{start_date}T00:00:00+00:00")
+            
+            if 'T' in end_date:
+                end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                end = datetime.fromisoformat(f"{end_date}T23:59:59+00:00")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     else:
         start = now - timedelta(days=7)
         end = now
@@ -796,8 +1030,8 @@ async def get_product_analytics(
 @router.get("/customers/analytics", response_model=CustomerAnalyticsResponse)
 async def get_customer_analytics(
     period: str = Query("week", regex="^(today|yesterday|week|month|year|custom)$"),
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     user_info: tuple = Depends(verify_user_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -827,8 +1061,19 @@ async def get_customer_analytics(
     elif period == "custom":
         if not start_date or not end_date:
             raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
-        start = start_date
-        end = end_date
+        try:
+            # Parse date strings - handle both ISO format and simple date format
+            if 'T' in start_date:
+                start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                start = datetime.fromisoformat(f"{start_date}T00:00:00+00:00")
+            
+            if 'T' in end_date:
+                end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                end = datetime.fromisoformat(f"{end_date}T23:59:59+00:00")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     else:
         start = now - timedelta(days=7)
         end = now

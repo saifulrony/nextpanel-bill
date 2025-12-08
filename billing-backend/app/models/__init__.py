@@ -737,3 +737,162 @@ from app.models.nextpanel_server import NextPanelServer, NextPanelAccount
 from app.models.page import Page
 
 
+class StaffRole(Base):
+    """Staff roles like manager, support, editor, etc."""
+    __tablename__ = "staff_roles"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(100), unique=True, nullable=False, index=True)  # manager, support, editor, etc.
+    display_name = Column(String(100), nullable=False)  # Manager, Support Staff, Editor, etc.
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    level = Column(Integer, default=0)  # Role hierarchy level (0 = lowest, higher = more privileged)
+    parent_role_id = Column(String(36), ForeignKey("staff_roles.id"), nullable=True)  # Parent role for inheritance
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    permissions = relationship("StaffRolePermission", back_populates="role", cascade="all, delete-orphan")
+    user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")
+    parent_role = relationship("StaffRole", remote_side=[id], backref="child_roles")
+
+
+class StaffPermission(Base):
+    """Available permissions/abilities in the system"""
+    __tablename__ = "staff_permissions"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(100), unique=True, nullable=False, index=True)  # access_chat, access_tickets, etc.
+    display_name = Column(String(100), nullable=False)  # Access Chat, Access Tickets, etc.
+    description = Column(Text)
+    category = Column(String(50))  # support, billing, products, etc.
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    role_permissions = relationship("StaffRolePermission", back_populates="permission", cascade="all, delete-orphan")
+
+
+class StaffRolePermission(Base):
+    """Many-to-many relationship between roles and permissions"""
+    __tablename__ = "staff_role_permissions"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    role_id = Column(String(36), ForeignKey("staff_roles.id"), nullable=False, index=True)
+    permission_id = Column(String(36), ForeignKey("staff_permissions.id"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    role = relationship("StaffRole", back_populates="permissions")
+    permission = relationship("StaffPermission", back_populates="role_permissions")
+    
+    # Unique constraint to prevent duplicate role-permission pairs
+    __table_args__ = (
+        {'sqlite_autoincrement': True},
+    )
+
+
+class UserRole(Base):
+    """Assign roles to users"""
+    __tablename__ = "user_roles"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    role_id = Column(String(36), ForeignKey("staff_roles.id"), nullable=False, index=True)
+    assigned_by = Column(String(36), ForeignKey("users.id"))  # Admin who assigned this role
+    assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # For temporary permissions
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    role = relationship("StaffRole", back_populates="user_roles")
+    assigned_by_user = relationship("User", foreign_keys=[assigned_by])
+
+
+class UserPermissionOverride(Base):
+    """User-specific permission overrides (override role permissions)"""
+    __tablename__ = "user_permission_overrides"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    permission_id = Column(String(36), ForeignKey("staff_permissions.id"), nullable=False, index=True)
+    is_allowed = Column(Boolean, nullable=False)  # True = allow, False = deny
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # For temporary overrides
+    created_by = Column(String(36), ForeignKey("users.id"))  # Admin who created this override
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    permission = relationship("StaffPermission")
+    created_by_user = relationship("User", foreign_keys=[created_by])
+
+
+class PermissionGroup(Base):
+    """Groups of related permissions for easier management"""
+    __tablename__ = "permission_groups"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(100), unique=True, nullable=False)
+    display_name = Column(String(100), nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    permissions = relationship("PermissionGroupPermission", back_populates="group", cascade="all, delete-orphan")
+
+
+class PermissionGroupPermission(Base):
+    """Many-to-many relationship between permission groups and permissions"""
+    __tablename__ = "permission_group_permissions"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    group_id = Column(String(36), ForeignKey("permission_groups.id"), nullable=False, index=True)
+    permission_id = Column(String(36), ForeignKey("staff_permissions.id"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    group = relationship("PermissionGroup", back_populates="permissions")
+    permission = relationship("StaffPermission")
+
+
+class StaffAuditLog(Base):
+    """Audit log for staff management actions"""
+    __tablename__ = "staff_audit_logs"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    action_type = Column(String(50), nullable=False, index=True)  # role_assigned, role_removed, permission_changed, user_edited, etc.
+    performed_by = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    target_user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
+    target_role_id = Column(String(36), ForeignKey("staff_roles.id"), nullable=True)
+    target_permission_id = Column(String(36), ForeignKey("staff_permissions.id"), nullable=True)
+    details = Column(JSON)  # Additional action details
+    ip_address = Column(String(50))
+    user_agent = Column(String(500))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Relationships
+    performer = relationship("User", foreign_keys=[performed_by])
+    target_user = relationship("User", foreign_keys=[target_user_id])
+    target_role = relationship("StaffRole")
+    target_permission = relationship("StaffPermission")
+
+
+class StaffActivityLog(Base):
+    """Activity log for tracking staff actions (orders modified, tickets handled, etc.)"""
+    __tablename__ = "staff_activity_logs"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    action_type = Column(String(50), nullable=False, index=True)  # order_modified, ticket_handled, customer_edited, etc.
+    entity_type = Column(String(50), nullable=True)  # order, ticket, customer, etc.
+    entity_id = Column(String(36), nullable=True, index=True)
+    description = Column(Text)
+    action_metadata = Column(JSON)  # Additional action metadata (renamed from 'metadata' - reserved in SQLAlchemy)
+    ip_address = Column(String(50))
+    user_agent = Column(String(500))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+
+

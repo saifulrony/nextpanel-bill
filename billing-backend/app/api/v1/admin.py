@@ -20,6 +20,7 @@ from app.schemas import (
     PlanUpdateRequest,
     LicenseResponse,
     AdminStatsResponse,
+    AdminUserCreateRequest,
     AdminUserUpdateRequest
 )
 import logging
@@ -113,10 +114,44 @@ async def update_user(
     if request.company_name is not None:
         user.company_name = request.company_name
     
+    if request.password is not None:
+        user.password_hash = hash_password(request.password)
+    
     await db.commit()
     await db.refresh(user)
     
     return user
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    request: AdminUserCreateRequest,
+    admin_id: str = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new user (admin only)"""
+    # Check if email already exists
+    result = await db.execute(select(User).where(User.email == request.email))
+    existing_user = result.scalars().first()
+    
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create new user
+    new_user = User(
+        email=request.email,
+        password_hash=hash_password(request.password),
+        full_name=request.full_name,
+        company_name=request.company_name,
+        is_active=request.is_active if request.is_active is not None else True,
+        is_admin=request.is_admin if request.is_admin is not None else False
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    return new_user
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

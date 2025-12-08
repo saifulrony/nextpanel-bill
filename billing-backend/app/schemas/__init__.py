@@ -535,11 +535,21 @@ class UsageReportResponse(BaseModel):
 
 
 # Admin Schemas
+class AdminUserCreateRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    full_name: str
+    company_name: Optional[str] = None
+    is_active: Optional[bool] = True
+    is_admin: Optional[bool] = False
+
+
 class AdminUserUpdateRequest(BaseModel):
     is_active: Optional[bool] = None
     is_admin: Optional[bool] = None
     full_name: Optional[str] = None
     company_name: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=8)
 
 
 class AdminStatsResponse(BaseModel):
@@ -761,4 +771,102 @@ from app.schemas.domain_providers import (
     NamecomConfig,
     EnomConfig
 )
+
+
+# Staff Management Schemas
+class StaffRoleBase(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    is_active: bool = True
+
+
+class StaffRoleCreate(StaffRoleBase):
+    pass
+
+
+class StaffRoleUpdate(BaseModel):
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class StaffRoleResponse(StaffRoleBase):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class StaffPermissionBase(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    category: Optional[str] = None
+
+
+class StaffPermissionCreate(StaffPermissionBase):
+    pass
+
+
+class StaffPermissionResponse(StaffPermissionBase):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class StaffRolePermissionResponse(BaseModel):
+    id: str
+    role_id: str
+    permission_id: str
+    permission: StaffPermissionResponse
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class StaffRoleWithPermissions(StaffRoleResponse):
+    permissions: List[StaffPermissionResponse] = []
+    
+    class Config:
+        from_attributes = True
+
+
+class AssignPermissionRequest(BaseModel):
+    permission_ids: List[str]
+
+
+class AssignRoleRequest(BaseModel):
+    role_id: str
+    user_id: str
+    expires_at: Optional[datetime] = None  # For temporary permissions
+
+
+class UserRoleResponse(BaseModel):
+    id: str
+    user_id: str
+    role_id: str
+    role: StaffRoleResponse
+    user: Optional[UserResponse] = None
+    assigned_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class BulkAssignRoleRequest(BaseModel):
+    user_ids: List[str]
+    role_id: str
+    expires_at: Optional[datetime] = None
+
+
+class BulkUpdateStatusRequest(BaseModel):
+    user_ids: List[str]
+    is_active: bool
 

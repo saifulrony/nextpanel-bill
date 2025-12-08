@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/contexts/PermissionContext';
 import AdminProtectedRoute from '@/components/auth/AdminProtectedRoute';
 import {
   HomeIcon,
@@ -82,6 +83,7 @@ const getBaseNavigation = () => [
   },
   { name: 'Marketplace', href: '/admin/marketplace', icon: PuzzlePieceIcon },
   { name: 'Customization', href: '/admin/customization', icon: PaintBrushIcon },
+  { name: 'Stuffs', href: '/admin/stuffs', icon: UsersIcon },
   { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
 ];
 
@@ -114,6 +116,34 @@ const buildNavigation = (hasModule: (moduleName: string) => boolean) => {
   return baseNavigation;
 };
 
+// Permission mapping for navigation items
+const navigationPermissions: Record<string, string> = {
+  '/admin/dashboard': 'access_dashboard_page',
+  '/admin/customers': 'access_customers_page',
+  '/admin/products': 'access_products_page',
+  '/admin/orders': 'access_orders_page',
+  '/admin/licenses': 'access_licenses_page',
+  '/admin/domains': 'access_domains_search_page',
+  '/admin/domain-providers': 'access_domains_providers_page',
+  '/admin/domain-pricing': 'access_domains_pricing_page',
+  '/admin/subscriptions': 'access_subscriptions_page',
+  '/admin/payments': 'access_payments_transactions_page',
+  '/admin/payments/gateways': 'access_payments_gateways_page',
+  '/admin/server': 'access_server_page',
+  '/admin/backup': 'access_backup_page',
+  '/admin/analytics': 'access_analytics_overview_page',
+  '/admin/analytics/sales': 'access_analytics_sales_page',
+  '/admin/analytics/clients': 'access_analytics_clients_page',
+  '/admin/analytics/orders': 'access_analytics_orders_page',
+  '/admin/analytics/tickets': 'access_analytics_tickets_page',
+  '/admin/support': 'access_support_tickets_page',
+  '/admin/support/chats': 'access_support_chats_page',
+  '/admin/marketplace': 'access_marketplace_page',
+  '/admin/customization': 'access_customization_page',
+  '/admin/stuffs': 'access_stuffs_page',
+  '/admin/settings': 'access_settings_page',
+};
+
 export default function DashboardLayout({
   children,
 }: {
@@ -123,9 +153,42 @@ export default function DashboardLayout({
   const router = useRouter();
   const { hasModule } = useInstalledModules();
   const { user, logout, isLoading } = useAuth();
+  const { hasPermission } = usePermissions();
   
   // Build dynamic navigation based on installed modules
-  const navigation = buildNavigation(hasModule);
+  const baseNavigation = buildNavigation(hasModule);
+  
+  // Filter navigation based on permissions
+  const navigation = baseNavigation.filter(item => {
+    // Super admins see everything
+    if (user?.is_admin) {
+      return true;
+    }
+    
+    // Check main item permission
+    const mainPermission = navigationPermissions[item.href];
+    if (mainPermission && !hasPermission(mainPermission)) {
+      return false;
+    }
+    
+    // Filter children if they exist
+    if (item.children) {
+      item.children = item.children.filter(child => {
+        const childPermission = navigationPermissions[child.href];
+        if (childPermission && !hasPermission(childPermission)) {
+          return false;
+        }
+        return true;
+      });
+      
+      // If no children left, hide parent too
+      if (item.children.length === 0) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]); // All menus closed by default

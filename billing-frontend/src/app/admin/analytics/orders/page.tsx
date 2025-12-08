@@ -22,12 +22,27 @@ export default function OrderNumbersPage() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [notification, setNotification] = useState<string | null>(null);
   const [timePeriod, setTimePeriod] = useState<string>('month');
+  const [showCustomDate, setShowCustomDate] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   const loadOrderData = useCallback(async () => {
+    // Build query params (declare outside try for error handling)
+    let params = `period=${timePeriod}`;
+    if (timePeriod === 'custom' && customStartDate && customEndDate) {
+      // Convert date strings to ISO datetime format for FastAPI
+      const startDateTime = `${customStartDate}T00:00:00Z`;
+      const endDateTime = `${customEndDate}T23:59:59Z`;
+      params += `&start_date=${encodeURIComponent(startDateTime)}&end_date=${encodeURIComponent(endDateTime)}`;
+    } else if (timePeriod === 'custom') {
+      console.warn('Custom period selected but dates are missing');
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       console.log('📦 Loading order data...');
-      
-      let params = `period=${timePeriod}`;
+      console.log('Request params:', params);
       
       const response = await api.get(`/dashboard/stats?${params}`);
       
@@ -43,7 +58,7 @@ export default function OrderNumbersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [timePeriod]);
+  }, [timePeriod, customStartDate, customEndDate]);
 
   // Real-time updates hook
   const { isConnected } = useRealtimeUpdates({
@@ -85,6 +100,11 @@ export default function OrderNumbersPage() {
     let dataPoints = 7;
     
     switch (timePeriod) {
+      case 'today':
+      case 'yesterday':
+        periods = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+        dataPoints = 24;
+        break;
       case 'week':
         periods = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         dataPoints = 7;
@@ -196,10 +216,13 @@ export default function OrderNumbersPage() {
           <div className="flex items-center space-x-4">
             <label className="text-sm font-medium text-gray-700">Time Period:</label>
             <div className="flex items-center space-x-2">
-              {['week', 'month', 'year'].map((period) => (
+              {['today', 'yesterday', 'week', 'month', 'year', 'custom'].map((period) => (
                 <button
                   key={period}
-                  onClick={() => setTimePeriod(period)}
+                  onClick={() => {
+                    setTimePeriod(period);
+                    setShowCustomDate(period === 'custom');
+                  }}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                     timePeriod === period
                       ? 'bg-indigo-600 text-white'
@@ -210,6 +233,31 @@ export default function OrderNumbersPage() {
                 </button>
               ))}
             </div>
+            
+            {showCustomDate && (
+              <div className="flex items-center space-x-2 ml-4">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+                <span className="text-gray-500">to</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+                <button
+                  onClick={loadOrderData}
+                  disabled={!customStartDate || !customEndDate}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

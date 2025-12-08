@@ -3,9 +3,9 @@ Support Ticket System API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
-from typing import List
-from datetime import datetime
+from sqlalchemy import select, and_, or_, func
+from typing import List, Optional
+from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.core.security import get_current_user_id
 from app.models import SupportTicket, TicketReply, User, TicketStatus, TicketPriority
@@ -410,4 +410,326 @@ async def admin_update_ticket_status(
     logger.info(f"Ticket {ticket.ticket_number} status updated to {new_status}")
     
     return ticket
+
+
+@router.get("/admin/stats")
+async def get_admin_support_stats(
+    period: str = "month",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get comprehensive support ticket statistics for admin analytics"""
+    await verify_admin(user_id, db)
+    
+    # Calculate date range based on period
+    now = datetime.utcnow()
+    
+    if period == "today":
+        period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = now
+    elif period == "yesterday":
+        yesterday = now - timedelta(days=1)
+        period_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif period == "week":
+        period_start = now - timedelta(days=7)
+        period_end = now
+    elif period == "month":
+        period_start = now - timedelta(days=30)
+        period_end = now
+    elif period == "year":
+        period_start = now - timedelta(days=365)
+        period_end = now
+    elif period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
+        try:
+            if 'T' in start_date:
+                period_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                period_start = datetime.fromisoformat(f"{start_date}T00:00:00+00:00")
+            
+            if 'T' in end_date:
+                period_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                period_end = datetime.fromisoformat(f"{end_date}T23:59:59+00:00")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    else:
+        period_start = now - timedelta(days=30)
+        period_end = now
+    
+    # Total tickets in period
+    result = await db.execute(
+        select(func.count(SupportTicket.id))
+        .where(SupportTicket.created_at.between(period_start, period_end))
+    )
+    total_tickets = result.scalar() or 0
+    
+    # Tickets by status
+    result = await db.execute(
+        select(SupportTicket.status, func.count(SupportTicket.id))
+        .where(SupportTicket.created_at.between(period_start, period_end))
+        .group_by(SupportTicket.status)
+    )
+    by_status = {}
+    for row in result:
+        by_status[row[0].value] = row[1]
+    
+    # Open tickets (OPEN + IN_PROGRESS)
+    open_tickets = by_status.get('open', 0) + by_status.get('in_progress', 0)
+    
+    # Resolved tickets
+    resolved_tickets = by_status.get('resolved', 0) + by_status.get('closed', 0)
+    
+    # Pending tickets
+    pending_tickets = by_status.get('waiting_for_customer', 0)
+    
+    # Tickets by priority
+    result = await db.execute(
+        select(SupportTicket.priority, func.count(SupportTicket.id))
+        .where(SupportTicket.created_at.between(period_start, period_end))
+        .group_by(SupportTicket.priority)
+    )
+    by_priority = {}
+    for row in result:
+        by_priority[row[0].value] = row[1]
+    
+    high_priority = by_priority.get('high', 0)
+    medium_priority = by_priority.get('medium', 0)
+    low_priority = by_priority.get('low', 0)
+    
+    # Calculate average response time (simplified - time from ticket creation to first staff reply)
+    # Get first staff reply for each ticket
+    subquery = (
+        select(
+            TicketReply.ticket_id,
+            func.min(TicketReply.created_at).label('first_reply')
+        )
+        .where(TicketReply.is_staff == True)
+        .group_by(TicketReply.ticket_id)
+        .subquery()
+    )
+    
+    result = await db.execute(
+        select(
+            func.avg(
+                func.extract('epoch', subquery.c.first_reply - SupportTicket.created_at) / 3600
+            )
+        )
+        .select_from(SupportTicket)
+        .join(subquery, subquery.c.ticket_id == SupportTicket.id)
+        .where(SupportTicket.created_at.between(period_start, period_end))
+    )
+    avg_response_time = result.scalar() or 0.0
+    
+    # Calculate average resolution time
+    result = await db.execute(
+        select(
+            func.avg(
+                func.extract('epoch', SupportTicket.resolved_at - SupportTicket.created_at) / 3600
+            )
+        )
+        .where(
+            and_(
+                SupportTicket.created_at.between(period_start, period_end),
+                SupportTicket.resolved_at.isnot(None)
+            )
+        )
+    )
+    avg_resolution_time = result.scalar() or 0.0
+    
+    # Tickets this month
+    first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    result = await db.execute(
+        select(func.count(SupportTicket.id))
+        .where(SupportTicket.created_at >= first_day_of_month)
+    )
+    tickets_this_month = result.scalar() or 0
+    
+    # Tickets this week
+    week_ago = now - timedelta(days=7)
+    result = await db.execute(
+        select(func.count(SupportTicket.id))
+        .where(SupportTicket.created_at >= week_ago)
+    )
+    tickets_this_week = result.scalar() or 0
+    
+    return {
+        "total_tickets": total_tickets,
+        "open_tickets": open_tickets,
+        "resolved_tickets": resolved_tickets,
+        "pending_tickets": pending_tickets,
+        "high_priority": high_priority,
+        "medium_priority": medium_priority,
+        "low_priority": low_priority,
+        "avg_response_time": round(avg_response_time, 1),
+        "avg_resolution_time": round(avg_resolution_time, 1),
+        "tickets_this_month": tickets_this_month,
+        "tickets_this_week": tickets_this_week,
+        "customer_satisfaction": 4.2,  # Placeholder - would need rating system
+    }
+
+
+@router.get("/admin/stats")
+async def get_admin_support_stats(
+    period: str = "month",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get comprehensive support ticket statistics for admin analytics"""
+    await verify_admin(user_id, db)
+    
+    # Calculate date range based on period
+    now = datetime.utcnow()
+    
+    if period == "today":
+        period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = now
+    elif period == "yesterday":
+        yesterday = now - timedelta(days=1)
+        period_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif period == "week":
+        period_start = now - timedelta(days=7)
+        period_end = now
+    elif period == "month":
+        period_start = now - timedelta(days=30)
+        period_end = now
+    elif period == "year":
+        period_start = now - timedelta(days=365)
+        period_end = now
+    elif period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="start_date and end_date required for custom period")
+        try:
+            if 'T' in start_date:
+                period_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                period_start = datetime.fromisoformat(f"{start_date}T00:00:00+00:00")
+            
+            if 'T' in end_date:
+                period_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                period_end = datetime.fromisoformat(f"{end_date}T23:59:59+00:00")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    else:
+        period_start = now - timedelta(days=30)
+        period_end = now
+    
+    # Total tickets in period
+    result = await db.execute(
+        select(func.count(SupportTicket.id))
+        .where(SupportTicket.created_at.between(period_start, period_end))
+    )
+    total_tickets = result.scalar() or 0
+    
+    # Tickets by status
+    result = await db.execute(
+        select(SupportTicket.status, func.count(SupportTicket.id))
+        .where(SupportTicket.created_at.between(period_start, period_end))
+        .group_by(SupportTicket.status)
+    )
+    by_status = {}
+    for row in result:
+        by_status[row[0].value] = row[1]
+    
+    # Open tickets (OPEN + IN_PROGRESS)
+    open_tickets = by_status.get('open', 0) + by_status.get('in_progress', 0)
+    
+    # Resolved tickets
+    resolved_tickets = by_status.get('resolved', 0) + by_status.get('closed', 0)
+    
+    # Pending tickets
+    pending_tickets = by_status.get('waiting_for_customer', 0)
+    
+    # Tickets by priority
+    result = await db.execute(
+        select(SupportTicket.priority, func.count(SupportTicket.id))
+        .where(SupportTicket.created_at.between(period_start, period_end))
+        .group_by(SupportTicket.priority)
+    )
+    by_priority = {}
+    for row in result:
+        by_priority[row[0].value] = row[1]
+    
+    high_priority = by_priority.get('high', 0)
+    medium_priority = by_priority.get('medium', 0)
+    low_priority = by_priority.get('low', 0)
+    
+    # Calculate average response time (time from ticket creation to first staff reply)
+    # Get first staff reply for each ticket
+    from sqlalchemy import distinct
+    subquery = (
+        select(
+            TicketReply.ticket_id,
+            func.min(TicketReply.created_at).label('first_reply_time')
+        )
+        .where(TicketReply.is_staff == True)
+        .group_by(TicketReply.ticket_id)
+    ).subquery()
+    
+    result = await db.execute(
+        select(
+            func.avg(
+                func.extract('epoch', subquery.c.first_reply_time - SupportTicket.created_at) / 3600
+            )
+        )
+        .select_from(SupportTicket)
+        .join(subquery, subquery.c.ticket_id == SupportTicket.id)
+        .where(SupportTicket.created_at.between(period_start, period_end))
+    )
+    avg_response_time = result.scalar() or 0.0
+    
+    # Calculate average resolution time
+    result = await db.execute(
+        select(
+            func.avg(
+                func.extract('epoch', SupportTicket.resolved_at - SupportTicket.created_at) / 3600
+            )
+        )
+        .where(
+            and_(
+                SupportTicket.created_at.between(period_start, period_end),
+                SupportTicket.resolved_at.isnot(None)
+            )
+        )
+    )
+    avg_resolution_time = result.scalar() or 0.0
+    
+    # Tickets this month
+    first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    result = await db.execute(
+        select(func.count(SupportTicket.id))
+        .where(SupportTicket.created_at >= first_day_of_month)
+    )
+    tickets_this_month = result.scalar() or 0
+    
+    # Tickets this week
+    week_ago = now - timedelta(days=7)
+    result = await db.execute(
+        select(func.count(SupportTicket.id))
+        .where(SupportTicket.created_at >= week_ago)
+    )
+    tickets_this_week = result.scalar() or 0
+    
+    return {
+        "total_tickets": total_tickets,
+        "open_tickets": open_tickets,
+        "resolved_tickets": resolved_tickets,
+        "pending_tickets": pending_tickets,
+        "high_priority": high_priority,
+        "medium_priority": medium_priority,
+        "low_priority": low_priority,
+        "avg_response_time": round(avg_response_time, 1),
+        "avg_resolution_time": round(avg_resolution_time, 1),
+        "tickets_this_month": tickets_this_month,
+        "tickets_this_week": tickets_this_week,
+        "customer_satisfaction": 4.2,  # Placeholder - would need rating system
+    }
 

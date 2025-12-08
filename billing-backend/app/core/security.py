@@ -9,7 +9,9 @@ import base64
 import json
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
+from app.core.database import get_db
 
 # HTTP Bearer for JWT
 security = HTTPBearer()
@@ -160,4 +162,222 @@ async def require_admin(
         )
     
     return user_id
+
+
+async def check_permission(
+    permission_name: str,
+    user_id: str,
+    db: AsyncSession
+) -> bool:
+    """
+    Check if a user has a specific permission.
+    Returns True if user has permission, False otherwise.
+    """
+    from app.models import User, StaffRole, StaffPermission, StaffRolePermission, UserRole, UserPermissionOverride
+    from sqlalchemy import select, and_, or_
+    from datetime import datetime
+    
+    # Get user
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalars().first()
+    
+    if not user:
+        return False
+    
+    # Super admins have all permissions
+    if user.is_admin:
+        return True
+    
+    # Check for permission override (explicit allow/deny)
+    override_result = await db.execute(
+        select(UserPermissionOverride)
+        .where(
+            and_(
+                UserPermissionOverride.user_id == user_id,
+                UserPermissionOverride.permission_id == (
+                    select(StaffPermission.id)
+                    .where(StaffPermission.name == permission_name)
+                    .scalar_subquery()
+                ),
+                or_(
+                    UserPermissionOverride.expires_at.is_(None),
+                    UserPermissionOverride.expires_at > datetime.utcnow()
+                )
+            )
+        )
+        .order_by(UserPermissionOverride.created_at.desc())
+        .limit(1)
+    )
+    override = override_result.scalars().first()
+    if override:
+        return override.is_allowed
+    
+    # Check permissions through roles
+    # Get all active roles for user
+    roles_result = await db.execute(
+        select(StaffRole)
+        .join(UserRole)
+        .where(
+            and_(
+                UserRole.user_id == user_id,
+                StaffRole.is_active == True,
+                or_(
+                    UserRole.expires_at.is_(None),
+                    UserRole.expires_at > datetime.utcnow()
+                )
+            )
+        )
+    )
+    roles = roles_result.scalars().all()
+    
+    if not roles:
+        return False
+    
+    # Get permission
+    perm_result = await db.execute(
+        select(StaffPermission).where(StaffPermission.name == permission_name)
+    )
+    permission = perm_result.scalars().first()
+    
+    if not permission:
+        return False
+    
+    # Check if any role has this permission (including inherited from parent roles)
+    for role in roles:
+        # Check direct permissions
+        perm_check = await db.execute(
+            select(StaffRolePermission)
+            .where(
+                and_(
+                    StaffRolePermission.role_id == role.id,
+                    StaffRolePermission.permission_id == permission.id
+                )
+            )
+        )
+        if perm_check.scalars().first():
+            return True
+        
+        # Check inherited permissions from parent roles
+        if role.parent_role_id:
+            parent_role_result = await db.execute(
+                select(StaffRole).where(StaffRole.id == role.parent_role_id)
+            )
+            parent_role = parent_role_result.scalars().first()
+            
+            # Recursively check parent roles
+            if parent_role:
+                parent_perm_check = await db.execute(
+                    select(StaffRolePermission)
+                    .where(
+                        and_(
+                            StaffRolePermission.role_id == parent_role.id,
+                            StaffRolePermission.permission_id == permission.id
+                        )
+                    )
+                )
+                if parent_perm_check.scalars().first():
+                    return True
+    
+    return False
+
+
+def require_permission(permission_name: str):
+    """
+    Dependency factory to require a specific permission.
+    Usage: require_permission("access_orders_page")
+    """
+    async def _require_permission(
+        user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db)
+    ) -> str:
+        has_permission = await check_permission(permission_name, user_id, db)
+        
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission required: {permission_name}",
+            )
+        
+        return user_id
+    
+    return _require_permission
+
+
+async def get_user_permissions(
+    user_id: str,
+    db: AsyncSession
+) -> list[str]:
+    """
+    Get all permissions for a user (from roles and overrides).
+    Returns list of permission names.
+    """
+    from app.models import User, StaffRole, StaffPermission, StaffRolePermission, UserRole, UserPermissionOverride
+    from sqlalchemy import select, and_, or_
+    from datetime import datetime
+    
+    permissions = set()
+    
+    # Get user
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalars().first()
+    
+    if not user:
+        return []
+    
+    # Super admins have all permissions
+    if user.is_admin:
+        all_perms_result = await db.execute(select(StaffPermission))
+        all_perms = all_perms_result.scalars().all()
+        return [perm.name for perm in all_perms]
+    
+    # Get permissions from roles
+    roles_result = await db.execute(
+        select(StaffRole)
+        .join(UserRole)
+        .where(
+            and_(
+                UserRole.user_id == user_id,
+                StaffRole.is_active == True,
+                or_(
+                    UserRole.expires_at.is_(None),
+                    UserRole.expires_at > datetime.utcnow()
+                )
+            )
+        )
+    )
+    roles = roles_result.scalars().all()
+    
+    for role in roles:
+        perms_result = await db.execute(
+            select(StaffPermission)
+            .join(StaffRolePermission)
+            .where(StaffRolePermission.role_id == role.id)
+        )
+        role_perms = perms_result.scalars().all()
+        for perm in role_perms:
+            permissions.add(perm.name)
+    
+    # Apply overrides
+    overrides_result = await db.execute(
+        select(UserPermissionOverride)
+        .join(StaffPermission)
+        .where(
+            and_(
+                UserPermissionOverride.user_id == user_id,
+                or_(
+                    UserPermissionOverride.expires_at.is_(None),
+                    UserPermissionOverride.expires_at > datetime.utcnow()
+                )
+            )
+        )
+    )
+    overrides = overrides_result.scalars().all()
+    
+    for override in overrides:
+        if override.is_allowed:
+            permissions.add(override.permission.name)
+        else:
+            permissions.discard(override.permission.name)
+    
+    return list(permissions)
 

@@ -18,43 +18,37 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function SupportTicketsPage() {
-  const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [realtimeEnabled, setRealtimeEnabled] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [notification, setNotification] = useState<string | null>(null);
   const [timePeriod, setTimePeriod] = useState<string>('month');
-
-  // Mock ticket data since we don't have support tickets in the backend yet
-  const generateMockTicketStats = useCallback(() => {
-    const totalCustomers = stats?.total_customers || 100;
-    const baseTickets = Math.floor(totalCustomers * 0.15); // 15% of customers create tickets
-    
-    return {
-      total_tickets: baseTickets,
-      open_tickets: Math.floor(baseTickets * 0.25),
-      resolved_tickets: Math.floor(baseTickets * 0.70),
-      pending_tickets: Math.floor(baseTickets * 0.05),
-      high_priority: Math.floor(baseTickets * 0.10),
-      medium_priority: Math.floor(baseTickets * 0.35),
-      low_priority: Math.floor(baseTickets * 0.55),
-      avg_response_time: 2.5, // hours
-      avg_resolution_time: 8.3, // hours
-      customer_satisfaction: 4.2, // out of 5
-      tickets_this_month: Math.floor(baseTickets * 0.4),
-      tickets_this_week: Math.floor(baseTickets * 0.1),
-    };
-  }, [stats]);
+  const [showCustomDate, setShowCustomDate] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [ticketStats, setTicketStats] = useState<any>(null);
 
   const loadSupportData = useCallback(async () => {
+    // Build query params (declare outside try for error handling)
+    let params = `period=${timePeriod}`;
+    if (timePeriod === 'custom' && customStartDate && customEndDate) {
+      // Convert date strings to ISO datetime format for FastAPI
+      const startDateTime = `${customStartDate}T00:00:00Z`;
+      const endDateTime = `${customEndDate}T23:59:59Z`;
+      params += `&start_date=${encodeURIComponent(startDateTime)}&end_date=${encodeURIComponent(endDateTime)}`;
+    } else if (timePeriod === 'custom') {
+      console.warn('Custom period selected but dates are missing');
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       console.log('🎫 Loading support ticket data...');
+      console.log('Request params:', params);
       
-      let params = `period=${timePeriod}`;
+      const response = await api.get(`/support/admin/stats?${params}`);
       
-      const response = await api.get(`/dashboard/stats?${params}`);
-      
-      setStats({
+      setTicketStats({
         ...response.data,
         _timestamp: Date.now(),
       });
@@ -63,10 +57,25 @@ export default function SupportTicketsPage() {
       console.log('✅ Support ticket data loaded');
     } catch (error) {
       console.error('Failed to load support data:', error);
+      // Set empty stats on error
+      setTicketStats({
+        total_tickets: 0,
+        open_tickets: 0,
+        resolved_tickets: 0,
+        pending_tickets: 0,
+        high_priority: 0,
+        medium_priority: 0,
+        low_priority: 0,
+        avg_response_time: 0,
+        avg_resolution_time: 0,
+        tickets_this_month: 0,
+        tickets_this_week: 0,
+        customer_satisfaction: 0,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [timePeriod]);
+  }, [timePeriod, customStartDate, customEndDate]);
 
   // Real-time updates hook
   const { isConnected } = useRealtimeUpdates({
@@ -81,45 +90,37 @@ export default function SupportTicketsPage() {
     loadSupportData();
   }, [loadSupportData]);
 
-  const ticketStats = useMemo(() => {
-    if (!stats) return null;
-    return generateMockTicketStats();
-  }, [stats, generateMockTicketStats]);
-
-  // Generate ticket trend data
+  // Generate ticket trend data - placeholder for now (would need time-series endpoint)
   const ticketTrendData = useMemo(() => {
     if (!ticketStats) return [];
     
     let periods: string[] = [];
-    let dataPoints = 7;
     
     switch (timePeriod) {
+      case 'today':
+      case 'yesterday':
+        periods = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+        break;
       case 'week':
         periods = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        dataPoints = 7;
         break;
       case 'month':
         periods = Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`);
-        dataPoints = 30;
         break;
       case 'year':
         periods = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        dataPoints = 12;
         break;
       default:
         periods = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-        dataPoints = 4;
         break;
     }
     
-    const totalTickets = ticketStats.total_tickets || 0;
-    const resolvedTickets = ticketStats.resolved_tickets || 0;
-    
-    return periods.map((period, index) => ({
+    // Return empty data for now - would need backend time-series endpoint
+    return periods.map((period) => ({
       period,
-      newTickets: Math.floor(totalTickets / dataPoints * (0.8 + Math.random() * 0.4)),
-      resolvedTickets: Math.floor(resolvedTickets / dataPoints * (0.8 + Math.random() * 0.4)),
-      responseTime: 1 + Math.random() * 4, // 1-5 hours
+      newTickets: 0,
+      resolvedTickets: 0,
+      responseTime: 0,
     }));
   }, [ticketStats, timePeriod]);
 
@@ -145,7 +146,8 @@ export default function SupportTicketsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-gray-600">No data available</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4 mx-auto"></div>
+          <p className="text-gray-600">Loading ticket data...</p>
         </div>
       </div>
     );
@@ -212,10 +214,13 @@ export default function SupportTicketsPage() {
           <div className="flex items-center space-x-4">
             <label className="text-sm font-medium text-gray-700">Time Period:</label>
             <div className="flex items-center space-x-2">
-              {['week', 'month', 'year'].map((period) => (
+              {['today', 'yesterday', 'week', 'month', 'year', 'custom'].map((period) => (
                 <button
                   key={period}
-                  onClick={() => setTimePeriod(period)}
+                  onClick={() => {
+                    setTimePeriod(period);
+                    setShowCustomDate(period === 'custom');
+                  }}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                     timePeriod === period
                       ? 'bg-indigo-600 text-white'
@@ -226,6 +231,31 @@ export default function SupportTicketsPage() {
                 </button>
               ))}
             </div>
+            
+            {showCustomDate && (
+              <div className="flex items-center space-x-2 ml-4">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+                <span className="text-gray-500">to</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+                <button
+                  onClick={loadSupportData}
+                  disabled={!customStartDate || !customEndDate}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

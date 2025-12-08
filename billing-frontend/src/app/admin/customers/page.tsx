@@ -18,7 +18,7 @@ import {
   Download
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, plansAPI } from '@/lib/api';
+import { api, plansAPI, adminAPI } from '@/lib/api';
 import { EditLicenseModal, EditSubscriptionModal } from '@/components/customers/EditModals';
 
 interface CustomerStats {
@@ -78,6 +78,9 @@ export default function CustomersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState<'activate' | 'deactivate' | 'delete'>('activate');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -148,6 +151,83 @@ export default function CustomersPage() {
     }
   };
 
+  // Bulk actions handlers
+  const handleBulkActivate = async () => {
+    if (selectedCustomers.length === 0) {
+      alert('Please select at least one customer');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to activate ${selectedCustomers.length} customer(s)?`)) {
+      return;
+    }
+
+    try {
+      const promises = selectedCustomers.map(customerId => 
+        adminAPI.users.update(customerId, { is_active: true })
+      );
+      await Promise.all(promises);
+      alert(`${selectedCustomers.length} customer(s) activated successfully!`);
+      setShowBulkActionsModal(false);
+      setSelectedCustomers([]);
+      fetchCustomers();
+      fetchStats();
+    } catch (error: any) {
+      console.error('Failed to bulk activate:', error);
+      alert('Failed to activate customers: ' + (error.response?.data?.detail || error.message));
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedCustomers.length === 0) {
+      alert('Please select at least one customer');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to deactivate ${selectedCustomers.length} customer(s)?`)) {
+      return;
+    }
+
+    try {
+      const promises = selectedCustomers.map(customerId => 
+        adminAPI.users.update(customerId, { is_active: false })
+      );
+      await Promise.all(promises);
+      alert(`${selectedCustomers.length} customer(s) deactivated successfully!`);
+      setShowBulkActionsModal(false);
+      setSelectedCustomers([]);
+      fetchCustomers();
+      fetchStats();
+    } catch (error: any) {
+      console.error('Failed to bulk deactivate:', error);
+      alert('Failed to deactivate customers: ' + (error.response?.data?.detail || error.message));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCustomers.length === 0) {
+      alert('Please select at least one customer');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedCustomers.length} customer(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const promises = selectedCustomers.map(customerId => api.delete(`/customers/${customerId}`));
+      await Promise.all(promises);
+      alert(`${selectedCustomers.length} customer(s) deleted successfully!`);
+      setShowBulkActionsModal(false);
+      setSelectedCustomers([]);
+      fetchCustomers();
+      fetchStats();
+    } catch (error: any) {
+      console.error('Failed to bulk delete:', error);
+      alert('Failed to delete customers: ' + (error.response?.data?.detail || error.message));
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -202,6 +282,15 @@ export default function CustomersPage() {
             Manage your customers, their subscriptions, and products
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {selectedCustomers.length > 0 && (
+            <button
+              onClick={() => setShowBulkActionsModal(true)}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Bulk Actions ({selectedCustomers.length})
+            </button>
+          )}
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -209,6 +298,7 @@ export default function CustomersPage() {
           <Plus className="w-5 h-5" />
           Add Customer
         </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -350,6 +440,20 @@ export default function CustomersPage() {
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      checked={selectedCustomers.length === customers.length && customers.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCustomers(customers.map(c => c.id));
+                        } else {
+                          setSelectedCustomers([]);
+                        }
+                      }}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Customer
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -378,6 +482,20 @@ export default function CustomersPage() {
                     key={customer.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomers.includes(customer.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCustomers([...selectedCustomers, customer.id]);
+                          } else {
+                            setSelectedCustomers(selectedCustomers.filter(id => id !== customer.id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -479,6 +597,96 @@ export default function CustomersPage() {
             fetchStats();
           }}
         />
+      )}
+
+      {/* Bulk Actions Modal */}
+      {showBulkActionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
+              Bulk Actions ({selectedCustomers.length} customer{selectedCustomers.length !== 1 ? 's' : ''})
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Action
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkCustomerAction"
+                      value="activate"
+                      checked={bulkActionType === 'activate'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'activate')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900 dark:text-white">Activate Customers</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkCustomerAction"
+                      value="deactivate"
+                      checked={bulkActionType === 'deactivate'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'deactivate')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900 dark:text-white">Deactivate Customers</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkCustomerAction"
+                      value="delete"
+                      checked={bulkActionType === 'delete'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'delete')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900 dark:text-white">Delete Customers</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  This action will be applied to <strong>{selectedCustomers.length}</strong> selected customer{selectedCustomers.length !== 1 ? 's' : ''}.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowBulkActionsModal(false);
+                  setBulkActionType('activate');
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (bulkActionType === 'activate') {
+                    handleBulkActivate();
+                  } else if (bulkActionType === 'deactivate') {
+                    handleBulkDeactivate();
+                  } else if (bulkActionType === 'delete') {
+                    handleBulkDelete();
+                  }
+                }}
+                className={`px-4 py-2 rounded-md text-white ${
+                  bulkActionType === 'delete'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                {bulkActionType === 'activate' && 'Activate Customers'}
+                {bulkActionType === 'deactivate' && 'Deactivate Customers'}
+                {bulkActionType === 'delete' && 'Delete Customers'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showEditModal && selectedCustomer && (

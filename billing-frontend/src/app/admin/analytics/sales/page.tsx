@@ -27,14 +27,25 @@ export default function SalesReportPage() {
   const [customEndDate, setCustomEndDate] = useState('');
 
   const loadSalesData = useCallback(async () => {
+    // Build query params (declare outside try for error handling)
+    let params = `period=${timePeriod}`;
+    if (timePeriod === 'custom' && customStartDate && customEndDate) {
+      // Convert date strings to ISO datetime format for FastAPI
+      // Start date: beginning of day (00:00:00)
+      // End date: end of day (23:59:59)
+      const startDateTime = `${customStartDate}T00:00:00Z`;
+      const endDateTime = `${customEndDate}T23:59:59Z`;
+      params += `&start_date=${encodeURIComponent(startDateTime)}&end_date=${encodeURIComponent(endDateTime)}`;
+    } else if (timePeriod === 'custom') {
+      // If custom period is selected but dates are missing, don't make the request
+      console.warn('Custom period selected but dates are missing');
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       console.log('💰 Loading sales data...');
-      
-      // Build query params
-      let params = `period=${timePeriod}`;
-      if (timePeriod === 'custom' && customStartDate && customEndDate) {
-        params += `&start_date=${customStartDate}&end_date=${customEndDate}`;
-      }
+      console.log('Request params:', params);
       
       const response = await api.get(`/dashboard/stats?${params}`);
       

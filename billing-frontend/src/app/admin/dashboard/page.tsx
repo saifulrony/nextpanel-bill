@@ -62,33 +62,67 @@ export default function DashboardPage() {
   const [revenueTimeSeries, setRevenueTimeSeries] = useState<Array<{period: string; revenue: number}>>([]);
 
   const loadDashboardData = useCallback(async () => {
+    // Build query params for all endpoints (declare outside try for error handling)
+    let params = `period=${timePeriod}`;
+    if (timePeriod === 'custom' && customStartDate && customEndDate) {
+      // Convert date strings to ISO datetime format for FastAPI
+      // Start date: beginning of day (00:00:00)
+      // End date: end of day (23:59:59)
+      const startDateTime = `${customStartDate}T00:00:00Z`;
+      const endDateTime = `${customEndDate}T23:59:59Z`;
+      params += `&start_date=${encodeURIComponent(startDateTime)}&end_date=${encodeURIComponent(endDateTime)}`;
+    } else if (timePeriod === 'custom') {
+      // If custom period is selected but dates are missing, don't make the request
+      console.warn('Custom period selected but dates are missing');
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       console.log('📊 Loading dashboard stats...');
+      console.log('Request params:', params);
       
-      // Build query params for both endpoints
-      let params = `period=${timePeriod}`;
-      if (timePeriod === 'custom' && customStartDate && customEndDate) {
-        params += `&start_date=${customStartDate}&end_date=${customEndDate}`;
-      }
-      
-      const [statsResponse, customersResponse, revenueResponse] = await Promise.all([
+      // Make requests with individual error handling
+      const [statsResponse, customersResponse, revenueResponse] = await Promise.allSettled([
           api.get(`/dashboard/stats?${params}`),
           api.get(`/dashboard/customers/analytics?${params}`),
-        api.get(`/dashboard/revenue/time-series?${params}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/dashboard/revenue/time-series?${params}`),
       ]);
+      
+      // Handle stats response
+      if (statsResponse.status === 'rejected') {
+        console.error('Failed to load stats:', statsResponse.reason);
+        throw statsResponse.reason;
+      }
+      
+      // Handle customers response
+      if (customersResponse.status === 'rejected') {
+        console.error('Failed to load customers:', customersResponse.reason);
+        throw customersResponse.reason;
+      }
+      
+      // Handle revenue response (optional, can fail silently)
+      const revenueData = revenueResponse.status === 'fulfilled' 
+        ? revenueResponse.value.data 
+        : { data: [] };
       
       // Use real data from API
         setStats({
-          ...statsResponse.data,
+          ...statsResponse.value.data,
           _timestamp: Date.now(),
         });
         
-      setTopCustomers(Array.isArray(customersResponse.data?.top_customers) ? customersResponse.data.top_customers : []);
-      setRevenueTimeSeries(Array.isArray(revenueResponse.data?.data) ? revenueResponse.data.data : []);
+      setTopCustomers(Array.isArray(customersResponse.value.data?.top_customers) ? customersResponse.value.data.top_customers : []);
+      setRevenueTimeSeries(Array.isArray(revenueData?.data) ? revenueData.data : []);
         setLastUpdate(new Date());
         console.log('✅ Dashboard stats loaded from API');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load dashboard:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.data);
+        console.error('Request URL:', error.config?.url);
+        console.error('Request params:', params);
+      }
       // Set empty stats if API fails
       setStats({
         total_customers: 0,

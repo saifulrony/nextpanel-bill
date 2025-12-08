@@ -40,20 +40,35 @@ export default function AnalyticsPage() {
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [revenueTimeSeries, setRevenueTimeSeries] = useState<any[]>([]);
+  const [ordersTimeSeries, setOrdersTimeSeries] = useState<any[]>([]);
 
   const loadDashboardData = useCallback(async () => {
+    // Build query params for all endpoints (declare outside try for error handling)
+    let params = `period=${timePeriod}`;
+    if (timePeriod === 'custom' && customStartDate && customEndDate) {
+      // Convert date strings to ISO datetime format for FastAPI
+      // Start date: beginning of day (00:00:00)
+      // End date: end of day (23:59:59)
+      const startDateTime = `${customStartDate}T00:00:00Z`;
+      const endDateTime = `${customEndDate}T23:59:59Z`;
+      params += `&start_date=${encodeURIComponent(startDateTime)}&end_date=${encodeURIComponent(endDateTime)}`;
+    } else if (timePeriod === 'custom') {
+      // If custom period is selected but dates are missing, don't make the request
+      console.warn('Custom period selected but dates are missing');
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       console.log('📊 Loading analytics data...');
+      console.log('Request params:', params);
       
-      // Build query params for both endpoints
-      let params = `period=${timePeriod}`;
-      if (timePeriod === 'custom' && customStartDate && customEndDate) {
-        params += `&start_date=${customStartDate}&end_date=${customEndDate}`;
-      }
-      
-      const [statsResponse, customersResponse] = await Promise.all([
+      const [statsResponse, customersResponse, revenueResponse, ordersResponse] = await Promise.all([
         api.get(`/dashboard/stats?${params}`),
         api.get(`/dashboard/customers/analytics?${params}`),
+        api.get(`/dashboard/revenue/time-series?${params}`),
+        api.get(`/dashboard/orders/time-series?${params}`),
       ]);
       
       // Force new object to trigger React updates
@@ -63,10 +78,18 @@ export default function AnalyticsPage() {
       });
       
       setTopCustomers(customersResponse.data.top_customers || []);
+      setRevenueTimeSeries(revenueResponse.data.data || []);
+      setOrdersTimeSeries(ordersResponse.data.data || []);
       setLastUpdate(new Date());
       console.log('✅ Analytics data loaded');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load analytics:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.data);
+      }
+      // Show user-friendly error message
+      setNotification(`Failed to load analytics: ${error.response?.data?.detail || error.message || 'Unknown error'}`);
+      setTimeout(() => setNotification(null), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -103,44 +126,54 @@ export default function AnalyticsPage() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Generate chart data based on timeframe
+  // Generate chart data from real time-series data
   const chartData = useMemo(() => {
-    let days: string[] = [];
-    let dataPoints = 7;
-    
-    switch (timePeriod) {
-      case 'today':
-      case 'yesterday':
-        days = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-        dataPoints = 24;
-        break;
-      case 'week':
-        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        dataPoints = 7;
-        break;
-      case 'month':
-        days = Array.from({ length: 30 }, (_, i) => `Day ${i + 1}`);
-        dataPoints = 30;
-        break;
-      case 'year':
-        days = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        dataPoints = 12;
-        break;
-      default:
-        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        dataPoints = 7;
-        break;
+    // Use real data from API - combine revenue and orders time-series
+    if (revenueTimeSeries.length > 0 || ordersTimeSeries.length > 0) {
+      // Match revenue and orders data by period
+      const periodMap = new Map<string, { name: string; revenue: number; orders: number }>();
+      
+      // Add revenue data
+      revenueTimeSeries.forEach((item: any) => {
+        periodMap.set(item.period, {
+          name: item.period,
+          revenue: Number(item.revenue || 0),
+          orders: 0
+        });
+      });
+      
+      // Add orders data
+      ordersTimeSeries.forEach((item: any) => {
+        const existing = periodMap.get(item.period);
+        if (existing) {
+          existing.orders = Number(item.orders || 0);
+        } else {
+          periodMap.set(item.period, {
+            name: item.period,
+            revenue: 0,
+            orders: Number(item.orders || 0)
+          });
+        }
+      });
+      
+      // Convert map to array - preserve order from API (already sorted chronologically)
+      // Use revenueTimeSeries as primary source for ordering if available, otherwise ordersTimeSeries
+      const primarySeries = revenueTimeSeries.length > 0 ? revenueTimeSeries : ordersTimeSeries;
+      const orderedData = primarySeries.map((item: any) => {
+        const combined = periodMap.get(item.period);
+        return combined || {
+          name: item.period,
+          revenue: 0,
+          orders: 0
+        };
+      });
+      
+      return orderedData;
     }
     
-    const revenueBase = stats?.total_revenue || 0;
-    const ordersBase = stats?.total_orders || 0;
-    
-    return days.map((day, index) => ({
-      name: day,
-      revenue: Number((revenueBase / dataPoints * (0.7 + Math.random() * 0.6)).toFixed(2)),
-      orders: Math.floor(ordersBase / dataPoints * (0.7 + Math.random() * 0.6))
-    }));
-  }, [stats?.total_revenue, stats?.total_orders, timePeriod]);
+    // Fallback: return empty array if no data
+    return [];
+  }, [revenueTimeSeries, ordersTimeSeries]);
 
   const revenueGrowth = stats?.monthly_revenue && stats?.total_revenue
     ? parseFloat(((stats.monthly_revenue / stats.total_revenue) * 100).toFixed(1))

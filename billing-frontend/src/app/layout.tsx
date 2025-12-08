@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { PermissionProvider } from '@/contexts/PermissionContext'
 import { CartProvider } from '@/contexts/CartContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { DefaultPageProvider } from '@/contexts/DefaultPageContext'
@@ -25,6 +26,7 @@ export default function RootLayout({
         <ThemeProvider>
         <NotificationProvider>
           <AuthProvider> 
+            <PermissionProvider>
             <CartProvider>
               <DefaultPageProvider>
                 <StripeProvider>
@@ -44,6 +46,7 @@ export default function RootLayout({
                 </StripeProvider>
               </DefaultPageProvider>
             </CartProvider>
+            </PermissionProvider>
           </AuthProvider>
         </NotificationProvider>
         </ThemeProvider>

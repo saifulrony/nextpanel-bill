@@ -431,7 +431,7 @@ NextPanel Team
               ) : (
                 <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusColor(currentStatus)}`}>
                   {currentStatus.replace('_', ' ').toUpperCase()}
-                </span>
+            </span>
               )}
               {updatingStatus && (
                 <span className="text-sm text-gray-500">Updating...</span>

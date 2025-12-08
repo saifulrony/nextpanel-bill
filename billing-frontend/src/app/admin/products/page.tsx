@@ -19,6 +19,8 @@ import {
   BoltIcon,
   StarIcon,
   CheckIcon,
+  Squares2X2Icon,
+  ListBulletIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import CreateProductModal from '@/components/products/CreateProductModal';
@@ -74,6 +76,14 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active'); // Default: show only active products
+  
+  // View mode
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // Bulk actions
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState<'activate' | 'deactivate' | 'delete' | 'feature'>('activate');
 
   useEffect(() => {
     loadData();
@@ -289,6 +299,15 @@ export default function ProductsPage() {
               Create and manage hosting, domains, licenses, and other products
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            {selectedProducts.length > 0 && (
+              <button
+                onClick={() => setShowBulkActionsModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                Bulk Actions ({selectedProducts.length})
+              </button>
+            )}
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -296,6 +315,7 @@ export default function ProductsPage() {
             <PlusIcon className="h-5 w-5 mr-2" />
             Create Product
           </button>
+          </div>
         </div>
       </div>
 
@@ -379,7 +399,7 @@ export default function ProductsPage() {
       {/* Filters */}
       <div className="bg-white shadow-sm rounded-lg border border-gray-200 mb-6">
         <div className="p-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {/* Search */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -412,41 +432,69 @@ export default function ProductsPage() {
 
             {/* Status Filter - Professional Toggle with Counts */}
             <div className="flex items-center">
-              <div className="inline-flex rounded-md shadow-sm border border-gray-300 bg-white" role="group">
+              <div className="inline-flex rounded-md shadow-sm border border-gray-300 bg-white w-full" role="group">
                 <button
                   type="button"
                   onClick={() => setStatusFilter('active')}
-                  className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-l-md focus:z-10 focus:outline-none transition-colors ${
+                  className={`relative inline-flex items-center justify-center flex-1 px-3 py-2 text-sm font-medium rounded-l-md focus:z-10 focus:outline-none transition-colors whitespace-nowrap ${
                     statusFilter === 'active'
                       ? 'bg-indigo-600 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <CheckIcon className="h-4 w-4 mr-1.5" />
-                  Active ({products.filter(p => p.is_active).length})
+                  <CheckIcon className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                  <span className="truncate">Active ({products.filter(p => p.is_active).length})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('inactive')}
-                  className={`relative inline-flex items-center px-4 py-2 text-sm font-medium border-l border-r border-gray-300 focus:z-10 focus:outline-none transition-colors ${
+                  className={`relative inline-flex items-center justify-center flex-1 px-3 py-2 text-sm font-medium border-l border-r border-gray-300 focus:z-10 focus:outline-none transition-colors whitespace-nowrap ${
                     statusFilter === 'inactive'
                       ? 'bg-indigo-600 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <EyeIcon className="h-4 w-4 mr-1.5" />
-                  Inactive ({products.filter(p => !p.is_active).length})
+                  <EyeIcon className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                  <span className="truncate">Inactive ({products.filter(p => !p.is_active).length})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
-                  className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-r-md focus:z-10 focus:outline-none transition-colors ${
+                  className={`relative inline-flex items-center justify-center flex-1 px-3 py-2 text-sm font-medium rounded-r-md focus:z-10 focus:outline-none transition-colors whitespace-nowrap ${
                     statusFilter === 'all'
                       ? 'bg-indigo-600 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  All ({products.length})
+                  <span className="truncate">All ({products.length})</span>
+                </button>
+              </div>
+            </div>
+
+            {/* View Toggle - Rightmost */}
+            <div className="flex items-center justify-end">
+              <div className="flex items-center gap-2 border border-gray-300 rounded-md bg-white">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-l-md transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title="Grid View"
+                >
+                  <Squares2X2Icon className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-r-md transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title="List View"
+                >
+                  <ListBulletIcon className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -481,7 +529,7 @@ export default function ProductsPage() {
             </div>
           )}
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProducts.map((product) => {
             const category = product.features?.category || 'other';
@@ -497,6 +545,23 @@ export default function ProductsPage() {
                 }`}
               >
                 <div className="p-5 relative">
+                  {/* Checkbox for bulk selection */}
+                  <div className="absolute top-2 left-2 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.includes(product.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProducts([...selectedProducts, product.id]);
+                        } else {
+                          setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </div>
+                  
                   {/* Inactive Overlay */}
                   {!product.is_active && (
                     <div className="absolute top-2 right-2 bg-gray-900 bg-opacity-75 text-white px-3 py-1 rounded-full text-xs font-semibold">
@@ -676,6 +741,268 @@ export default function ProductsPage() {
               </div>
             );
           })}
+        </div>
+      ) : (
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedProducts(filteredProducts.map(p => p.id));
+                      } else {
+                        setSelectedProducts([]);
+                      }
+                    }}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Product
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pricing
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Stock
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredProducts.map((product) => {
+                const category = product.features?.category || 'other';
+                const CategoryIcon = getCategoryIcon(category);
+                
+                return (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.includes(product.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedProducts([...selectedProducts, product.id]);
+                          } else {
+                            setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className={`p-2 rounded-lg ${getCategoryColor(category)}`}>
+                          <CategoryIcon className="h-5 w-5" />
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500 line-clamp-1">{product.description}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getCategoryColor(category)}`}>
+                        {category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <span className="font-semibold">${product.price_monthly?.toFixed(2) || '0.00'}</span>
+                        <span className="text-gray-500">/mo</span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        ${product.price_yearly?.toFixed(2) || '0.00'}/yr
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          product.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {product.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        {product.is_featured && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                            ⭐ Featured
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {product.stock_enabled ? (
+                        <div className="text-sm">
+                          <span className={`font-semibold ${
+                            product.stock_status === 'out_of_stock' 
+                              ? 'text-red-600' 
+                              : product.stock_status === 'low_stock' 
+                                ? 'text-yellow-600' 
+                                : 'text-green-600'
+                          }`}>
+                            {product.stock_quantity || 0}
+                          </span>
+                          <span className="text-xs text-gray-500 ml-1">
+                            ({product.stock_status?.replace('_', ' ') || 'N/A'})
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">N/A</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setShowDetailsModal(true);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-900"
+                          title="View Details"
+                        >
+                          <EyeIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setShowEditModal(true);
+                          }}
+                          className="text-green-600 hover:text-green-900"
+                          title="Edit Product"
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete Product"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Bulk Actions Modal */}
+      {showBulkActionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">
+              Bulk Actions ({selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''})
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Action
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkProductAction"
+                      value="activate"
+                      checked={bulkActionType === 'activate'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'activate')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Activate Products</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkProductAction"
+                      value="deactivate"
+                      checked={bulkActionType === 'deactivate'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'deactivate')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Deactivate Products</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkProductAction"
+                      value="feature"
+                      checked={bulkActionType === 'feature'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'feature')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Feature on Homepage</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bulkProductAction"
+                      value="delete"
+                      checked={bulkActionType === 'delete'}
+                      onChange={(e) => setBulkActionType(e.target.value as 'delete')}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-900">Delete Products</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  This action will be applied to <strong>{selectedProducts.length}</strong> selected product{selectedProducts.length !== 1 ? 's' : ''}.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowBulkActionsModal(false);
+                  setBulkActionType('activate');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (bulkActionType === 'activate') {
+                    handleBulkActivate();
+                  } else if (bulkActionType === 'deactivate') {
+                    handleBulkDeactivate();
+                  } else if (bulkActionType === 'feature') {
+                    handleBulkFeature();
+                  } else if (bulkActionType === 'delete') {
+                    handleBulkDelete();
+                  }
+                }}
+                className={`px-4 py-2 rounded-md text-white ${
+                  bulkActionType === 'delete'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                {bulkActionType === 'activate' && 'Activate Products'}
+                {bulkActionType === 'deactivate' && 'Deactivate Products'}
+                {bulkActionType === 'feature' && 'Feature Products'}
+                {bulkActionType === 'delete' && 'Delete Products'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -481,6 +481,9 @@ export const chatAPI = {
 // Admin API
 export const adminAPI = {
   users: {
+    create: (data: { email: string; password: string; full_name: string; company_name?: string; is_active?: boolean; is_admin?: boolean }) =>
+      api.post('/admin/users', data),
+    
     list: () =>
       api.get('/admin/users'),
     
@@ -489,6 +492,9 @@ export const adminAPI = {
     
     update: (id: string, data: any) =>
       api.put(`/admin/users/${id}`, data),
+    
+    delete: (id: string) =>
+      api.delete(`/admin/users/${id}`),
   },
   
   plans: {
@@ -770,6 +776,85 @@ export const customerProfileAPI = {
     const response = await api.put('/customer/settings', settings);
     return response.data;
   },
+};
+
+export const staffAPI = {
+  // Roles
+  listRoles: () => api.get('/staff/roles'),
+  getRole: (roleId: string) => api.get(`/staff/roles/${roleId}`),
+  createRole: (data: { name: string; display_name: string; description?: string; is_active?: boolean }) =>
+    api.post('/staff/roles', data),
+  updateRole: (roleId: string, data: { display_name?: string; description?: string; is_active?: boolean }) =>
+    api.patch(`/staff/roles/${roleId}`, data),
+  deleteRole: (roleId: string) => api.delete(`/staff/roles/${roleId}`),
+  
+  // Permissions
+  listPermissions: (category?: string) => {
+    const params = category ? { category } : {};
+    return api.get('/staff/permissions', { params });
+  },
+  createPermission: (data: { name: string; display_name: string; description?: string; category?: string }) =>
+    api.post('/staff/permissions', data),
+  
+  // Role-Permission Assignment
+  getRolePermissions: (roleId: string) => api.get(`/staff/roles/${roleId}/permissions`),
+  assignPermissionsToRole: (roleId: string, permissionIds: string[]) =>
+    api.post(`/staff/roles/${roleId}/permissions`, { permission_ids: permissionIds }),
+  
+  // User-Role Assignment
+  assignRoleToUser: (userId: string, roleId: string) =>
+    api.post('/staff/users/assign-role', { user_id: userId, role_id: roleId }),
+  getMyRoles: () => api.get('/staff/users/me/roles'),
+  getUserRoles: (userId: string) => api.get(`/staff/users/${userId}/roles`),
+  removeRoleFromUser: (userId: string, roleId: string) =>
+    api.delete(`/staff/users/${userId}/roles/${roleId}`),
+  
+  // Initialize defaults
+  initializeDefaults: () => api.post('/staff/initialize-defaults'),
+  
+  // Staff Users
+  listStaffUsers: () => api.get('/staff/users'),
+  
+  // Permissions
+  getMyPermissions: () => api.get('/staff/permissions/me'),
+  getUserPermissions: (userId: string) => api.get(`/staff/permissions/user/${userId}`),
+  
+  // Role Cloning
+  cloneRole: (roleId: string, newName: string, newDisplayName: string) =>
+    api.post(`/staff/roles/${roleId}/clone?new_name=${newName}&new_display_name=${newDisplayName}`),
+  
+  // Permission Groups
+  listPermissionGroups: () => api.get('/staff/permission-groups'),
+  createPermissionGroup: (data: { name: string; display_name: string; description?: string; permission_ids?: string[] }) =>
+    api.post('/staff/permission-groups', data),
+  assignPermissionsToGroup: (groupId: string, permissionIds: string[]) =>
+    api.post(`/staff/permission-groups/${groupId}/permissions`, { permission_ids: permissionIds }),
+  
+  // Permission Overrides
+  getUserPermissionOverrides: (userId: string) => api.get(`/staff/users/${userId}/permission-overrides`),
+  createPermissionOverride: (userId: string, data: { permission_id: string; is_allowed: boolean; expires_at?: string }) =>
+    api.post(`/staff/users/${userId}/permission-overrides`, data),
+  deletePermissionOverride: (userId: string, overrideId: string) =>
+    api.delete(`/staff/users/${userId}/permission-overrides/${overrideId}`),
+  
+  // Audit & Activity Logs
+  getAuditLogs: (params?: { limit?: number; offset?: number; action_type?: string; user_id?: string }) =>
+    api.get('/staff/audit-logs', { params }),
+  getActivityLogs: (params?: { user_id?: string; action_type?: string; entity_type?: string; limit?: number; offset?: number }) =>
+    api.get('/staff/activity-logs', { params }),
+  
+  // Bulk Operations
+  bulkAssignRole: (userIds: string[], roleId: string, expiresAt?: string) =>
+    api.post('/staff/users/bulk-assign-role', { user_ids: userIds, role_id: roleId, expires_at: expiresAt }),
+  bulkUpdateUserStatus: (userIds: string[], isActive: boolean) =>
+    api.post('/staff/users/bulk-update-status', { user_ids: userIds, is_active: isActive }),
+  
+  // Export/Import
+  exportRole: (roleId: string) => api.get(`/staff/roles/${roleId}/export`),
+  importRole: (roleData: any) => api.post('/staff/roles/import', roleData),
+  
+  // Analytics
+  getStaffPerformanceAnalytics: () => api.get('/staff/analytics/staff-performance'),
 };
 
 export default api;
