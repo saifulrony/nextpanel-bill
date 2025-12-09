@@ -896,3 +896,11 @@ class StaffActivityLog(Base):
     user = relationship("User", foreign_keys=[user_id])
 
 
+# Import new models
+from app.models.coupons import Coupon, CouponUsage, CouponType, CouponStatus
+from app.models.credit_notes import CreditNote, CreditNoteApplication, CreditNoteStatus, CreditNoteReason
+from app.models.email_templates import EmailTemplate, EmailTemplateType
+from app.models.currencies import Currency, ExchangeRate
+from app.models.tax_rules import TaxRule, TaxExemption, TaxType, TaxRuleType
+from app.models.affiliates import Affiliate, Referral, Commission, AffiliateStatus, CommissionStatus
+

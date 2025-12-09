@@ -12,7 +12,7 @@ import os
 
 from app.core.config import settings as config_settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages, customer_domains, customer_subscriptions, customer_invoices, customer_profile, order_automation, staff
+from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages, customer_domains, customer_subscriptions, customer_invoices, customer_profile, order_automation, staff, coupons, credit_notes, email_templates, currencies, tax_rules, affiliates, recurring_billing, reports
 from app.api.v1 import settings as settings_api
 from app.schemas import HealthResponse
 
@@ -116,10 +116,25 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
     
+    # Start background scheduler
+    from app.services.scheduler_service import scheduler
+    from app.core.database import get_db
+    import asyncio
+    
+    scheduler_task = asyncio.create_task(scheduler.start_with_db(get_db))
+    logger.info("Background scheduler started")
+    
     yield
     
     # Shutdown
     logger.info("Shutting down NextPanel Billing API...")
+    scheduler.stop()
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
+    logger.info("Background scheduler stopped")
 
 
 # Create FastAPI app
@@ -287,6 +302,14 @@ app.include_router(nextpanel.router, prefix="/api/v1")
 app.include_router(customization.router, prefix="/api/v1")
 app.include_router(pages.router, prefix="/api/v1")
 app.include_router(staff.router, prefix="/api/v1")
+app.include_router(coupons.router, prefix="/api/v1")
+app.include_router(credit_notes.router, prefix="/api/v1")
+app.include_router(email_templates.router, prefix="/api/v1")
+app.include_router(currencies.router, prefix="/api/v1")
+app.include_router(tax_rules.router, prefix="/api/v1")
+app.include_router(affiliates.router, prefix="/api/v1")
+app.include_router(recurring_billing.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 
 # Load and register installed addon routes dynamically
 from app.core.addon_loader import AddonLoader

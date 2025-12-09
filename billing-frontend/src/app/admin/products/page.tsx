@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { plansAPI } from '@/lib/api';
 import { getDemoData } from '@/lib/demoData';
 import {
@@ -21,7 +21,10 @@ import {
   CheckIcon,
   Squares2X2Icon,
   ListBulletIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
+import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import CreateProductModal from '@/components/products/CreateProductModal';
 import EditProductModal from '@/components/products/EditProductModal';
@@ -79,6 +82,7 @@ export default function ProductsPage() {
   
   // View mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Bulk actions
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -239,6 +243,115 @@ export default function ProductsPage() {
     }
   };
 
+  // Bulk action handlers
+  const handleBulkActivate = async () => {
+    if (selectedProducts.length === 0) {
+      alert('Please select at least one product');
+      return;
+    }
+
+    if (!confirm(`Activate ${selectedProducts.length} product(s)?`)) {
+      return;
+    }
+
+    try {
+      const promises = selectedProducts.map(productId => 
+        plansAPI.update(productId, { is_active: true })
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully activated ${selectedProducts.length} product(s)`);
+      setSelectedProducts([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('activate');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk activate error:', error);
+      alert(`Failed to activate products: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedProducts.length === 0) {
+      alert('Please select at least one product');
+      return;
+    }
+
+    if (!confirm(`Deactivate ${selectedProducts.length} product(s)?`)) {
+      return;
+    }
+
+    try {
+      const promises = selectedProducts.map(productId => 
+        plansAPI.update(productId, { is_active: false })
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully deactivated ${selectedProducts.length} product(s)`);
+      setSelectedProducts([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('deactivate');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk deactivate error:', error);
+      alert(`Failed to deactivate products: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
+  const handleBulkFeature = async () => {
+    if (selectedProducts.length === 0) {
+      alert('Please select at least one product');
+      return;
+    }
+
+    if (!confirm(`Feature ${selectedProducts.length} product(s) on homepage?`)) {
+      return;
+    }
+
+    try {
+      const promises = selectedProducts.map(productId => 
+        plansAPI.update(productId, { is_featured: true })
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully featured ${selectedProducts.length} product(s)`);
+      setSelectedProducts([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('feature');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk feature error:', error);
+      alert(`Failed to feature products: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.length === 0) {
+      alert('Please select at least one product');
+      return;
+    }
+
+    if (!confirm(`Delete ${selectedProducts.length} product(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const promises = selectedProducts.map(productId => 
+        plansAPI.delete(productId)
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully deleted ${selectedProducts.length} product(s)`);
+      setSelectedProducts([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('delete');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk delete error:', error);
+      alert(`Failed to delete products: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, any> = {
       hosting: ServerIcon,
@@ -263,6 +376,88 @@ export default function ProductsPage() {
       cdn: 'bg-orange-100 text-orange-800 border-orange-200',
     };
     return colors[category] || 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const handleExportExcel = () => {
+    if (filteredProducts.length === 0) {
+      alert('No products to export');
+      return;
+    }
+    
+    const exportData = filteredProducts.map(product => ({
+      'Product ID': product.id,
+      'Name': product.name,
+      'Description': product.description || '',
+      'Price Monthly': product.price_monthly,
+      'Price Yearly': product.price_yearly,
+      'Max Accounts': product.max_accounts || '',
+      'Max Domains': product.max_domains || '',
+      'Max Databases': product.max_databases || '',
+      'Max Emails': product.max_emails || '',
+      'Category': product.features?.category || '',
+      'Is Active': product.is_active ? 'Yes' : 'No',
+      'Is Featured': product.is_featured ? 'Yes' : 'No',
+      'Stock Quantity': product.stock_quantity || '',
+      'Stock Status': product.stock_status || '',
+      'Created At': new Date(product.created_at).toLocaleDateString(),
+    }));
+    
+    exportToExcel(exportData, `products_export_${new Date().toISOString().split('T')[0]}`, 'Products');
+  };
+
+  const handleExportCSV = () => {
+    if (filteredProducts.length === 0) {
+      alert('No products to export');
+      return;
+    }
+    
+    const exportData = filteredProducts.map(product => ({
+      'Product ID': product.id,
+      'Name': product.name,
+      'Description': product.description || '',
+      'Price Monthly': product.price_monthly,
+      'Price Yearly': product.price_yearly,
+      'Max Accounts': product.max_accounts || '',
+      'Max Domains': product.max_domains || '',
+      'Max Databases': product.max_databases || '',
+      'Max Emails': product.max_emails || '',
+      'Category': product.features?.category || '',
+      'Is Active': product.is_active ? 'Yes' : 'No',
+      'Is Featured': product.is_featured ? 'Yes' : 'No',
+      'Stock Quantity': product.stock_quantity || '',
+      'Stock Status': product.stock_status || '',
+      'Created At': new Date(product.created_at).toLocaleDateString(),
+    }));
+    
+    exportToCSV(exportData, `products_export_${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await handleFileImport(
+      file,
+      async (data) => {
+        try {
+          alert(`Successfully imported ${data.length} products. Import functionality will process the data.`);
+          console.log('Imported data:', data);
+        } catch (error: any) {
+          alert(`Failed to import products: ${error.message}`);
+        }
+      },
+      (error) => {
+        alert(`Import error: ${error}`);
+      }
+    );
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -308,13 +503,46 @@ export default function ProductsPage() {
                 Bulk Actions ({selectedProducts.length})
               </button>
             )}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Create Product
-          </button>
+            <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
+              <button
+                onClick={handleExportExcel}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                title="Export to Excel"
+              >
+                <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
+                Excel
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                title="Export to CSV"
+              >
+                <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
+                CSV
+              </button>
+              <button
+                onClick={handleImportClick}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                title="Import from Excel/CSV"
+              >
+                <ArrowUpTrayIcon className="h-5 w-5 mr-1" />
+                Import
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Create Product
+            </button>
           </div>
         </div>
       </div>

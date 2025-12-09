@@ -732,4 +732,3 @@ async def get_admin_support_stats(
         "tickets_this_week": tickets_this_week,
         "customer_satisfaction": 4.2,  # Placeholder - would need rating system
     }
-

@@ -212,7 +212,7 @@ export default function MyDomainsPage() {
 
   const handleDomainUpdated = (updatedDomain: Domain) => {
     setDomains(domains.map(d => d.id === updatedDomain.id ? updatedDomain : d));
-  };
+  }; 
 
   const filteredDomains = domains.filter(domain => {
     if (selectedStatus !== 'all' && domain.status !== selectedStatus) {

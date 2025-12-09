@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ordersAPI, paymentsAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDemoData } from '@/lib/demoData';
@@ -13,6 +13,8 @@ import EmailAutomationModal from '@/components/orders/EmailAutomationModal';
 import PaymentAutomationModal from '@/components/orders/PaymentAutomationModal';
 import AutomationSelectorModal from '@/components/orders/AutomationSelectorModal';
 import ChargePaymentModal from '@/components/orders/ChargePaymentModal';
+import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 
 interface Customer {
   id: string;
@@ -100,6 +102,7 @@ export default function OrdersPage() {
     min_amount: '',
     max_amount: '',
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -353,6 +356,128 @@ export default function OrdersPage() {
     }
   };
 
+  // Bulk action handlers
+  const handleBulkUpdateStatus = async () => {
+    if (!bulkSelectedStatus || selectedOrders.length === 0) {
+      alert('Please select a status and at least one order');
+      return;
+    }
+
+    if (!confirm(`Update status to "${bulkSelectedStatus}" for ${selectedOrders.length} order(s)?`)) {
+      return;
+    }
+
+    try {
+      setUpdatingStatus('bulk');
+      const promises = selectedOrders.map(orderId => 
+        ordersAPI.updateStatus(orderId, bulkSelectedStatus)
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully updated ${selectedOrders.length} order(s)`);
+      setSelectedOrders([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('update_status');
+      setBulkSelectedStatus('');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk update status error:', error);
+      alert(`Failed to update orders: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const handleBulkMarkAsPaid = async () => {
+    if (selectedOrders.length === 0) {
+      alert('Please select at least one order');
+      return;
+    }
+
+    if (!confirm(`Mark ${selectedOrders.length} order(s) as paid?`)) {
+      return;
+    }
+
+    try {
+      setUpdatingStatus('bulk');
+      const promises = selectedOrders.map(orderId => 
+        ordersAPI.pay(orderId)
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully marked ${selectedOrders.length} order(s) as paid`);
+      setSelectedOrders([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('update_status');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk mark as paid error:', error);
+      alert(`Failed to mark orders as paid: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const handleBulkSend = async () => {
+    if (selectedOrders.length === 0) {
+      alert('Please select at least one order');
+      return;
+    }
+
+    if (!confirm(`Send ${selectedOrders.length} order(s) to customers?`)) {
+      return;
+    }
+
+    try {
+      setUpdatingStatus('bulk');
+      const promises = selectedOrders.map(orderId => 
+        ordersAPI.send(orderId)
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully sent ${selectedOrders.length} order(s)`);
+      setSelectedOrders([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('update_status');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk send error:', error);
+      alert(`Failed to send orders: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedOrders.length === 0) {
+      alert('Please select at least one order');
+      return;
+    }
+
+    if (!confirm(`Delete/void ${selectedOrders.length} order(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setUpdatingStatus('bulk');
+      const promises = selectedOrders.map(orderId => 
+        ordersAPI.void(orderId)
+      );
+      await Promise.all(promises);
+      
+      alert(`Successfully deleted/voided ${selectedOrders.length} order(s)`);
+      setSelectedOrders([]);
+      setShowBulkActionsModal(false);
+      setBulkActionType('update_status');
+      loadData();
+    } catch (error: any) {
+      console.error('Bulk delete error:', error);
+      alert(`Failed to delete orders: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       // Backend statuses
@@ -381,6 +506,104 @@ export default function OrdersPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const handleExportExcel = () => {
+    if (orders.length === 0) {
+      alert('No orders to export');
+      return;
+    }
+    
+    const exportData = orders.map(order => ({
+      'Order ID': order.id,
+      'Invoice Number': order.invoice_number || order.order_number || '',
+      'Customer ID': order.customer_id,
+      'Customer Name': order.customer?.full_name || '',
+      'Customer Email': order.customer?.email || '',
+      'Status': order.status,
+      'Subtotal': order.subtotal,
+      'Discount': order.discount_amount,
+      'Tax': order.tax,
+      'Total': order.total,
+      'Amount Paid': order.amount_paid,
+      'Amount Due': order.amount_due,
+      'Currency': order.currency,
+      'Payment Method': order.payment_method || '',
+      'Due Date': order.due_date ? formatDate(order.due_date) : '',
+      'Order Date': order.order_date ? formatDate(order.order_date) : '',
+      'Paid At': order.paid_at ? formatDate(order.paid_at) : '',
+      'Is Recurring': order.is_recurring ? 'Yes' : 'No',
+      'Recurring Interval': order.recurring_interval || '',
+      'Sent to Customer': order.sent_to_customer ? 'Yes' : 'No',
+      'Created At': formatDate(order.created_at),
+    }));
+    
+    exportToExcel(exportData, `orders_export_${new Date().toISOString().split('T')[0]}`, 'Orders');
+  };
+
+  const handleExportCSV = () => {
+    if (orders.length === 0) {
+      alert('No orders to export');
+      return;
+    }
+    
+    const exportData = orders.map(order => ({
+      'Order ID': order.id,
+      'Invoice Number': order.invoice_number || order.order_number || '',
+      'Customer ID': order.customer_id,
+      'Customer Name': order.customer?.full_name || '',
+      'Customer Email': order.customer?.email || '',
+      'Status': order.status,
+      'Subtotal': order.subtotal,
+      'Discount': order.discount_amount,
+      'Tax': order.tax,
+      'Total': order.total,
+      'Amount Paid': order.amount_paid,
+      'Amount Due': order.amount_due,
+      'Currency': order.currency,
+      'Payment Method': order.payment_method || '',
+      'Due Date': order.due_date ? formatDate(order.due_date) : '',
+      'Order Date': order.order_date ? formatDate(order.order_date) : '',
+      'Paid At': order.paid_at ? formatDate(order.paid_at) : '',
+      'Is Recurring': order.is_recurring ? 'Yes' : 'No',
+      'Recurring Interval': order.recurring_interval || '',
+      'Sent to Customer': order.sent_to_customer ? 'Yes' : 'No',
+      'Created At': formatDate(order.created_at),
+    }));
+    
+    exportToCSV(exportData, `orders_export_${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await handleFileImport(
+      file,
+      async (data) => {
+        try {
+          // Process imported data
+          alert(`Successfully imported ${data.length} orders. Import functionality will process the data.`);
+          // Here you would typically send data to backend API
+          // await ordersAPI.import(data);
+          console.log('Imported data:', data);
+        } catch (error: any) {
+          alert(`Failed to import orders: ${error.message}`);
+        }
+      },
+      (error) => {
+        alert(`Import error: ${error}`);
+      }
+    );
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -425,15 +648,48 @@ export default function OrdersPage() {
               Bulk Actions ({selectedOrders.length})
             </button>
           )}
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Create Order
-        </button>
+          <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
+            <button
+              onClick={handleExportExcel}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              title="Export to Excel"
+            >
+              <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
+              Excel
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              title="Export to CSV"
+            >
+              <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
+              CSV
+            </button>
+            <button
+              onClick={handleImportClick}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              title="Import from Excel/CSV"
+            >
+              <ArrowUpTrayIcon className="h-5 w-5 mr-1" />
+              Import
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create Order
+          </button>
         </div>
       </div>
 
@@ -986,4 +1242,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-

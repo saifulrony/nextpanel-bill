@@ -15,7 +15,8 @@ import {
   ArrowDownIcon,
   PencilIcon,
   CheckIcon,
-  XMarkIcon
+  XMarkIcon,
+  CalculatorIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -39,6 +40,8 @@ export default function DomainPricingPage() {
   const [tldPricing, setTldPricing] = useState<any[]>([]);
   const [editingTld, setEditingTld] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<string>('');
+  const [editingMarkup, setEditingMarkup] = useState<string>('');
+  const [editingMarkupTld, setEditingMarkupTld] = useState<string | null>(null);
   
   // New markup options
   const [markupType, setMarkupType] = useState<'percentage' | 'fixed'>('percentage');
@@ -175,6 +178,56 @@ export default function DomainPricingPage() {
     }
   };
 
+  const startEditingMarkup = (tld: string, currentMarkup: number) => {
+    setEditingMarkupTld(tld);
+    setEditingMarkup(currentMarkup.toString());
+  };
+
+  const cancelEditingMarkup = () => {
+    setEditingMarkupTld(null);
+    setEditingMarkup('');
+  };
+
+  const saveInlineMarkup = async (tld: string) => {
+    if (!config || !config.id) {
+      toast.error('No configuration found');
+      return;
+    }
+
+    const markup = parseFloat(editingMarkup);
+    if (isNaN(markup) || markup < 0) {
+      toast.error('Please enter a valid markup percentage');
+      return;
+    }
+
+    try {
+      // Find the TLD pricing record
+      const tldRecord = tldPricing.find(t => t.tld === tld);
+      if (!tldRecord) {
+        toast.error('TLD not found');
+        return;
+      }
+
+      // Calculate new selling price based on custom markup
+      const newSellingPrice = tldRecord.wholesale_price * (1 + markup / 100);
+
+      // Update the markup percentage and set custom price to null so price is calculated from markup
+      const response = await domainPricingAPI.updateTLDPricing(tldRecord.id, {
+        markup_percentage: markup,
+        custom_price: null // Clear custom price so price is calculated from markup_percentage
+      });
+
+      if (response.data) {
+        toast.success(`Updated .${tld} markup to ${markup.toFixed(1)}% (selling price: $${newSellingPrice.toFixed(2)})`);
+        await loadData(); // Reload data to show updated prices
+        cancelEditingMarkup();
+      }
+    } catch (error) {
+      console.error('Error updating TLD markup:', error);
+      toast.error('Failed to update TLD markup');
+    }
+  };
+
 
   const setSellingPrices = async () => {
     if (!config || !config.id) {
@@ -201,20 +254,31 @@ export default function DomainPricingPage() {
       tldPricing.forEach(tld => {
         let sellingPrice: number;
         
-        if (markupType === 'percentage') {
-          sellingPrice = tld.wholesale_price * (1 + markupValue / 100);
-        } else {
+        // Preserve custom markup_percentage if it exists, otherwise use the new global markup
+        const effectiveMarkup = tld.markup_percentage !== null && tld.markup_percentage !== undefined 
+          ? tld.markup_percentage 
+          : (markupType === 'percentage' ? markupValue : null);
+        
+        if (markupType === 'percentage' && effectiveMarkup !== null) {
+          sellingPrice = tld.wholesale_price * (1 + effectiveMarkup / 100);
+        } else if (markupType === 'fixed') {
           sellingPrice = tld.wholesale_price + markupValue;
+        } else {
+          // Fallback to default markup
+          sellingPrice = tld.wholesale_price * (1 + (config?.default_markup_percentage || 20) / 100);
         }
         
         newSellingPrices[tld.tld] = sellingPrice;
         
         // Prepare data for bulk update
+        // Only update markup_percentage if TLD doesn't have a custom one (preserve custom markups)
         bulkUpdateData.push({
           tld: tld.tld,
           custom_price: sellingPrice,
           wholesale_price: tld.wholesale_price,
-          markup_percentage: markupType === 'percentage' ? markupValue : null
+          markup_percentage: tld.markup_percentage !== null && tld.markup_percentage !== undefined 
+            ? tld.markup_percentage  // Preserve existing custom markup
+            : (markupType === 'percentage' ? markupValue : null)  // Apply new global markup
         });
       });
       
@@ -289,13 +353,17 @@ export default function DomainPricingPage() {
             comparison = a.wholesale_price - b.wholesale_price;
             break;
           case 'selling':
-            const aSelling = sellingPrices[a.tld] || (a.custom_price ? a.custom_price : (a.wholesale_price * (1 + (a.markup_percentage || 20) / 100)));
-            const bSelling = sellingPrices[b.tld] || (b.custom_price ? b.custom_price : (b.wholesale_price * (1 + (b.markup_percentage || 20) / 100)));
+            const aEffectiveMarkup = a.markup_percentage !== null && a.markup_percentage !== undefined ? a.markup_percentage : (config?.default_markup_percentage || 20);
+            const bEffectiveMarkup = b.markup_percentage !== null && b.markup_percentage !== undefined ? b.markup_percentage : (config?.default_markup_percentage || 20);
+            const aSelling = sellingPrices[a.tld] || (a.custom_price ? a.custom_price : (a.wholesale_price * (1 + aEffectiveMarkup / 100)));
+            const bSelling = sellingPrices[b.tld] || (b.custom_price ? b.custom_price : (b.wholesale_price * (1 + bEffectiveMarkup / 100)));
             comparison = aSelling - bSelling;
             break;
           case 'markup':
-            const aSellingPrice = sellingPrices[a.tld] || (a.custom_price ? a.custom_price : (a.wholesale_price * (1 + (a.markup_percentage || 20) / 100)));
-            const bSellingPrice = sellingPrices[b.tld] || (b.custom_price ? b.custom_price : (b.wholesale_price * (1 + (b.markup_percentage || 20) / 100)));
+            const aEffectiveMarkupForSort = a.markup_percentage !== null && a.markup_percentage !== undefined ? a.markup_percentage : (config?.default_markup_percentage || 20);
+            const bEffectiveMarkupForSort = b.markup_percentage !== null && b.markup_percentage !== undefined ? b.markup_percentage : (config?.default_markup_percentage || 20);
+            const aSellingPrice = sellingPrices[a.tld] || (a.custom_price ? a.custom_price : (a.wholesale_price * (1 + aEffectiveMarkupForSort / 100)));
+            const bSellingPrice = sellingPrices[b.tld] || (b.custom_price ? b.custom_price : (b.wholesale_price * (1 + bEffectiveMarkupForSort / 100)));
             const aMarkup = ((aSellingPrice - a.wholesale_price) / a.wholesale_price) * 100;
             const bMarkup = ((bSellingPrice - b.wholesale_price) / b.wholesale_price) * 100;
             comparison = aMarkup - bMarkup;
@@ -553,7 +621,19 @@ export default function DomainPricingPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {getFilteredAndSortedTlds().map((tld) => {
-                  const sellingPrice = sellingPrices[tld.tld] || (tld.custom_price ? tld.custom_price : (tld.wholesale_price * (1 + (tld.markup_percentage || 20) / 100)));
+                  // Priority: custom_price > markup_percentage > default_markup_percentage
+                  // Use custom markup_percentage if available, otherwise use default from config
+                  const effectiveMarkup = tld.markup_percentage !== null && tld.markup_percentage !== undefined 
+                    ? tld.markup_percentage 
+                    : (config?.default_markup_percentage || 20);
+                  
+                  // Calculate selling price: custom_price takes priority, otherwise calculate from markup
+                  const sellingPrice = sellingPrices[tld.tld] || (
+                    tld.custom_price !== null && tld.custom_price !== undefined
+                      ? tld.custom_price 
+                      : (tld.wholesale_price * (1 + effectiveMarkup / 100))
+                  );
+                  
                   // Calculate actual markup percentage based on selling price vs wholesale price
                   const markupPercent = ((sellingPrice - tld.wholesale_price) / tld.wholesale_price) * 100;
                   
@@ -600,8 +680,45 @@ export default function DomainPricingPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {markupPercent.toFixed(1)}%
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingMarkupTld === tld.tld ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              value={editingMarkup}
+                              onChange={(e) => setEditingMarkup(e.target.value)}
+                              className="w-20 text-sm border-gray-300 rounded px-2 py-1"
+                              step="0.1"
+                              min="0"
+                              max="1000"
+                              autoFocus
+                            />
+                            <span className="text-sm text-gray-500">%</span>
+                            <button
+                              onClick={() => saveInlineMarkup(tld.tld)}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <CheckIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={cancelEditingMarkup}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <XMarkIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div 
+                            className="text-sm text-gray-500 cursor-pointer hover:text-indigo-600 flex items-center"
+                            onClick={() => startEditingMarkup(tld.tld, effectiveMarkup)}
+                            title="Click to edit markup percentage"
+                          >
+                            {markupPercent.toFixed(1)}%
+                            {tld.markup_percentage !== null && tld.markup_percentage !== undefined && (
+                              <span className="ml-1 text-xs text-blue-600" title="Custom markup">*</span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {tld.custom_price ? (
@@ -615,12 +732,22 @@ export default function DomainPricingPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button
-                          onClick={() => startEditing(tld.tld, sellingPrice)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => startEditing(tld.tld, sellingPrice)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title="Edit selling price"
+                          >
+                            <CurrencyDollarIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => startEditingMarkup(tld.tld, effectiveMarkup)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Edit markup percentage"
+                          >
+                            <CalculatorIcon className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -4,7 +4,23 @@ Integrates with email providers (SendGrid, AWS SES, SMTP)
 """
 from typing import Dict, Any, List, Optional
 import logging
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from datetime import datetime
+import os
+from app.core.config import settings
+
+# Try to import aiosmtplib, but make it optional
+try:
+    import aiosmtplib
+    AIOSMTPLIB_AVAILABLE = True
+except ImportError:
+    AIOSMTPLIB_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("aiosmtplib not available. Email sending will be logged only. Install with: pip install aiosmtplib")
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +30,13 @@ class EmailService:
     
     def __init__(self, provider: str = "smtp"):
         self.provider = provider
-        self.from_email = "noreply@nextpanel.com"
+        self.from_email = os.getenv("EMAIL_FROM", settings.EMAIL_FROM)
         self.company_name = "NextPanel"
-        logger.info(f"Initialized EmailService with provider: {provider}")
+        self.smtp_host = os.getenv("SMTP_HOST", settings.SMTP_HOST)
+        self.smtp_port = int(os.getenv("SMTP_PORT", str(settings.SMTP_PORT)))
+        self.smtp_user = os.getenv("SMTP_USER", settings.SMTP_USER)
+        self.smtp_password = os.getenv("SMTP_PASSWORD", settings.SMTP_PASSWORD)
+        logger.info(f"Initialized EmailService with provider: {provider}, host: {self.smtp_host}:{self.smtp_port}")
     
     async def send_email(
         self,
@@ -25,29 +45,59 @@ class EmailService:
         body: str,
         html_body: Optional[str] = None
     ) -> bool:
-        """Send an email"""
-        # TODO: Integrate with actual email provider
-        # For now, log the email
-        
-        logger.info(f"Sending email to {to_email}: {subject}")
-        logger.debug(f"Email body: {body[:100]}...")
-        
-        # Mock email output for development
-        print(f"\n{'='*60}")
-        print(f"EMAIL SENT")
-        print(f"{'='*60}")
-        print(f"To: {to_email}")
-        print(f"From: {self.from_email}")
-        print(f"Subject: {subject}")
-        print(f"{'='*60}")
-        if html_body:
-            print("HTML Body (preview):")
-            print(html_body[:300] + "..." if len(html_body) > 300 else html_body)
-        else:
-            print(f"Body:\n{body[:300]}" + ("..." if len(body) > 300 else ""))
-        print(f"{'='*60}\n")
-        
-        return True
+        """Send an email via SMTP"""
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['From'] = self.from_email
+            msg['To'] = to_email
+            msg['Subject'] = subject
+            
+            # Add text and HTML parts
+            part1 = MIMEText(body, 'plain')
+            msg.attach(part1)
+            
+            if html_body:
+                part2 = MIMEText(html_body, 'html')
+                msg.attach(part2)
+            
+            # Send email
+            if self.smtp_user and self.smtp_password and AIOSMTPLIB_AVAILABLE:
+                # Use authenticated SMTP
+                await aiosmtplib.send(
+                    msg,
+                    hostname=self.smtp_host,
+                    port=self.smtp_port,
+                    username=self.smtp_user,
+                    password=self.smtp_password,
+                    use_tls=self.smtp_port == 587,
+                    start_tls=self.smtp_port == 587
+                )
+                logger.info(f"Email sent successfully to {to_email}: {subject}")
+                return True
+            else:
+                # Development mode - just log
+                logger.warning(f"SMTP credentials not configured. Email would be sent to {to_email}: {subject}")
+                print(f"\n{'='*60}")
+                print(f"EMAIL (SMTP not configured)")
+                print(f"{'='*60}")
+                print(f"To: {to_email}")
+                print(f"From: {self.from_email}")
+                print(f"Subject: {subject}")
+                print(f"{'='*60}\n")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to send email to {to_email}: {str(e)}", exc_info=True)
+            # In development, still return True to not break workflows
+            if settings.DEBUG:
+                print(f"\n{'='*60}")
+                print(f"EMAIL ERROR (would send in production)")
+                print(f"{'='*60}")
+                print(f"To: {to_email}")
+                print(f"Error: {str(e)}")
+                print(f"{'='*60}\n")
+                return True
+            return False
     
     async def send_email_with_attachment(
         self,
@@ -57,27 +107,58 @@ class EmailService:
         attachment_content: bytes,
         attachment_filename: str
     ) -> bool:
-        """Send an email with attachment"""
-        # TODO: Integrate with actual email provider
-        # For now, log the email
-        
-        logger.info(f"Sending email with attachment to {to_email}: {subject}")
-        logger.debug(f"Attachment: {attachment_filename} ({len(attachment_content)} bytes)")
-        
-        # Mock email output for development
-        print(f"\n{'='*60}")
-        print(f"EMAIL WITH ATTACHMENT SENT")
-        print(f"{'='*60}")
-        print(f"To: {to_email}")
-        print(f"From: {self.from_email}")
-        print(f"Subject: {subject}")
-        print(f"Attachment: {attachment_filename} ({len(attachment_content)} bytes)")
-        print(f"{'='*60}")
-        print("HTML Body (preview):")
-        print(body[:300] + "..." if len(body) > 300 else body)
-        print(f"{'='*60}\n")
-        
-        return True
+        """Send an email with attachment via SMTP"""
+        try:
+            # Create message
+            msg = MIMEMultipart()
+            msg['From'] = self.from_email
+            msg['To'] = to_email
+            msg['Subject'] = subject
+            
+            # Add body
+            msg.attach(MIMEText(body, 'html'))
+            
+            # Add attachment
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(attachment_content)
+            encoders.encode_base64(part)
+            part.add_header(
+                'Content-Disposition',
+                f'attachment; filename= {attachment_filename}'
+            )
+            msg.attach(part)
+            
+            # Send email
+            if self.smtp_user and self.smtp_password and AIOSMTPLIB_AVAILABLE:
+                await aiosmtplib.send(
+                    msg,
+                    hostname=self.smtp_host,
+                    port=self.smtp_port,
+                    username=self.smtp_user,
+                    password=self.smtp_password,
+                    use_tls=self.smtp_port == 587,
+                    start_tls=self.smtp_port == 587
+                )
+                logger.info(f"Email with attachment sent successfully to {to_email}: {subject}")
+                return True
+            else:
+                logger.warning(f"SMTP credentials not configured. Email with attachment would be sent to {to_email}: {subject}")
+                print(f"\n{'='*60}")
+                print(f"EMAIL WITH ATTACHMENT (SMTP not configured)")
+                print(f"{'='*60}")
+                print(f"To: {to_email}")
+                print(f"Attachment: {attachment_filename} ({len(attachment_content)} bytes)")
+                print(f"{'='*60}\n")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to send email with attachment to {to_email}: {str(e)}", exc_info=True)
+            if settings.DEBUG:
+                print(f"\n{'='*60}")
+                print(f"EMAIL ERROR (would send in production)")
+                print(f"Error: {str(e)}")
+                print(f"{'='*60}\n")
+                return True
+            return False
     
     async def send_welcome_email(self, user_email: str, user_name: str) -> bool:
         """Send welcome email to new user"""

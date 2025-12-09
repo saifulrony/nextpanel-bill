@@ -857,4 +857,79 @@ export const staffAPI = {
   getStaffPerformanceAnalytics: () => api.get('/staff/analytics/staff-performance'),
 };
 
+// Coupons API
+export const couponsAPI = {
+  list: (params?: any) => api.get('/coupons', { params }),
+  get: (id: string) => api.get(`/coupons/${id}`),
+  create: (data: any) => api.post('/coupons', data),
+  update: (id: string, data: any) => api.put(`/coupons/${id}`, data),
+  delete: (id: string) => api.delete(`/coupons/${id}`),
+  validate: (data: any) => api.post('/coupons/validate', data),
+  getUsage: (id: string) => api.get(`/coupons/${id}/usage`),
+};
+
+// Credit Notes API
+export const creditNotesAPI = {
+  list: (params?: any) => api.get('/credit-notes', { params }),
+  get: (id: string) => api.get(`/credit-notes/${id}`),
+  create: (data: any) => api.post('/credit-notes', data),
+  apply: (id: string, data: any) => api.post(`/credit-notes/${id}/apply`, data),
+  getApplications: (id: string) => api.get(`/credit-notes/${id}/applications`),
+};
+
+// Email Templates API
+export const emailTemplatesAPI = {
+  list: (params?: any) => api.get('/email-templates', { params }),
+  get: (id: string) => api.get(`/email-templates/${id}`),
+  create: (data: any) => api.post('/email-templates', data),
+  update: (id: string, data: any) => api.put(`/email-templates/${id}`, data),
+  delete: (id: string) => api.delete(`/email-templates/${id}`),
+  render: (id: string, data: any) => api.post(`/email-templates/${id}/render`, data),
+};
+
+// Currencies API
+export const currenciesAPI = {
+  list: (params?: any) => api.get('/currencies', { params }),
+  get: (id: string) => api.get(`/currencies/${id}`),
+  create: (data: any) => api.post('/currencies', data),
+  update: (id: string, data: any) => api.put(`/currencies/${id}`, data),
+  convert: (data: any) => api.post('/currencies/convert', data),
+  createExchangeRate: (data: any) => api.post('/currencies/exchange-rates', data),
+  getExchangeRateHistory: (params: any) => api.get('/currencies/exchange-rates/history', { params }),
+};
+
+// Tax Rules API
+export const taxRulesAPI = {
+  list: (params?: any) => api.get('/tax-rules', { params }),
+  create: (data: any) => api.post('/tax-rules', data),
+  calculate: (params: any) => api.get('/tax-rules/calculate', { params }),
+  createExemption: (data: any) => api.post('/tax-rules/exemptions', data),
+  listExemptions: (params?: any) => api.get('/tax-rules/exemptions', { params }),
+};
+
+// Affiliates API
+export const affiliatesAPI = {
+  register: (data: any) => api.post('/affiliates/register', data),
+  getMyAffiliate: () => api.get('/affiliates/me'),
+  trackReferral: (params: any) => api.post('/affiliates/track-referral', null, { params }),
+  list: (params?: any) => api.get('/affiliates', { params }),
+  approve: (id: string) => api.post(`/affiliates/${id}/approve`),
+  getCommissions: (id: string, params?: any) => api.get(`/affiliates/${id}/commissions`, { params }),
+  processCommission: (orderId: string) => api.post('/affiliates/process-commission', null, { params: { order_id: orderId } }),
+};
+
+// Recurring Billing API
+export const recurringBillingAPI = {
+  processRenewals: () => api.post('/recurring-billing/process-renewals'),
+  processDunning: () => api.post('/recurring-billing/process-dunning'),
+  processPaymentRetries: () => api.post('/recurring-billing/process-payment-retries'),
+};
+
+// Reports API
+export const reportsAPI = {
+  exportOrders: (params: any) => api.get('/reports/orders/export', { params, responseType: 'blob' }),
+  exportInvoices: (params: any) => api.get('/reports/invoices/export', { params, responseType: 'blob' }),
+  getRevenueSummary: (params: any) => api.get('/reports/revenue-summary', { params }),
+};
+
 export default api;

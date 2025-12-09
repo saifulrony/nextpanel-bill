@@ -164,6 +164,10 @@ async def require_admin(
     return user_id
 
 
+# Alias for backward compatibility
+verify_admin = require_admin
+
+
 async def check_permission(
     permission_name: str,
     user_id: str,

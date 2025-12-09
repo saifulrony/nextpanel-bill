@@ -36,6 +36,9 @@ import {
   PuzzlePieceIcon,
   PaintBrushIcon,
   ArchiveBoxIcon,
+  EnvelopeIcon,
+  CurrencyDollarIcon,
+  CalculatorIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
 import { useInstalledModules } from '@/hooks/useInstalledModules';
@@ -65,6 +68,20 @@ const getBaseNavigation = () => [
     children: [
       { name: 'Transactions', href: '/admin/payments', icon: DocumentTextIcon },
       { name: 'Payment Gateways', href: '/admin/payments/gateways', icon: Cog6ToothIcon },
+    ]
+  },
+  { 
+    name: 'Billing Features', 
+    href: '#', 
+    icon: BanknotesIcon,
+    children: [
+      { name: 'Coupons', href: '/admin/coupons', icon: KeyIcon },
+      { name: 'Credit Notes', href: '/admin/credit-notes', icon: DocumentTextIcon },
+      { name: 'Email Templates', href: '/admin/email-templates', icon: EnvelopeIcon },
+      { name: 'Currencies', href: '/admin/currencies', icon: CurrencyDollarIcon },
+      { name: 'Tax Rules', href: '/admin/tax-rules', icon: CalculatorIcon },
+      { name: 'Affiliates', href: '/admin/affiliates', icon: UserGroupIcon },
+      { name: 'Reports', href: '/admin/reports', icon: ChartBarIcon },
     ]
   },
   { name: 'Server', href: '/admin/server', icon: ServerIcon },
@@ -142,6 +159,13 @@ const navigationPermissions: Record<string, string> = {
   '/admin/customization': 'access_customization_page',
   '/admin/stuffs': 'access_stuffs_page',
   '/admin/settings': 'access_settings_page',
+  '/admin/coupons': 'access_coupons_page',
+  '/admin/credit-notes': 'access_credit_notes_page',
+  '/admin/email-templates': 'access_email_templates_page',
+  '/admin/currencies': 'access_currencies_page',
+  '/admin/tax-rules': 'access_tax_rules_page',
+  '/admin/affiliates': 'access_affiliates_page',
+  '/admin/reports': 'access_reports_page',
 };
 
 export default function DashboardLayout({

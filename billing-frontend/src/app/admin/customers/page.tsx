@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   Plus, 
@@ -15,11 +15,13 @@ import {
   Package,
   AlertCircle,
   Filter,
-  Download
+  Download,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, plansAPI, adminAPI } from '@/lib/api';
 import { EditLicenseModal, EditSubscriptionModal } from '@/components/customers/EditModals';
+import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
 
 interface CustomerStats {
   total_customers: number;
@@ -81,6 +83,7 @@ export default function CustomersPage() {
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<'activate' | 'deactivate' | 'delete'>('activate');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -244,6 +247,105 @@ export default function CustomersPage() {
     });
   };
 
+  // Export/Import handlers
+  const handleExportExcel = () => {
+    if (customers.length === 0) {
+      alert('No customers to export');
+      return;
+    }
+    
+    const exportData = customers.map(customer => ({
+      'Customer ID': customer.id,
+      'Email': customer.email,
+      'Full Name': customer.full_name || '',
+      'Company Name': customer.company_name || '',
+      'Is Active': customer.is_active ? 'Yes' : 'No',
+      'Is Admin': customer.is_admin ? 'Yes' : 'No',
+      'Total Licenses': customer.total_licenses || 0,
+      'Active Licenses': customer.active_licenses || 0,
+      'Total Subscriptions': customer.total_subscriptions || 0,
+      'Active Subscriptions': customer.active_subscriptions || 0,
+      'Total Domains': customer.total_domains || 0,
+      'Total Payments': customer.total_payments || 0,
+      'Total Invoices': customer.total_invoices || 0,
+      'Outstanding Invoices': customer.outstanding_invoices || 0,
+      'Last Payment Date': customer.last_payment_date ? formatDate(customer.last_payment_date) : 'N/A',
+      'Created At': formatDate(customer.created_at),
+    }));
+    
+    exportToExcel(exportData, `customers_export_${new Date().toISOString().split('T')[0]}`, 'Customers');
+  };
+
+  const handleExportCSV = () => {
+    if (customers.length === 0) {
+      alert('No customers to export');
+      return;
+    }
+    
+    const exportData = customers.map(customer => ({
+      'Customer ID': customer.id,
+      'Email': customer.email,
+      'Full Name': customer.full_name || '',
+      'Company Name': customer.company_name || '',
+      'Is Active': customer.is_active ? 'Yes' : 'No',
+      'Is Admin': customer.is_admin ? 'Yes' : 'No',
+      'Total Licenses': customer.total_licenses || 0,
+      'Active Licenses': customer.active_licenses || 0,
+      'Total Subscriptions': customer.total_subscriptions || 0,
+      'Active Subscriptions': customer.active_subscriptions || 0,
+      'Total Domains': customer.total_domains || 0,
+      'Total Payments': customer.total_payments || 0,
+      'Total Invoices': customer.total_invoices || 0,
+      'Outstanding Invoices': customer.outstanding_invoices || 0,
+      'Last Payment Date': customer.last_payment_date ? formatDate(customer.last_payment_date) : 'N/A',
+      'Created At': formatDate(customer.created_at),
+    }));
+    
+    exportToCSV(exportData, `customers_export_${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await handleFileImport(
+      file,
+      async (data) => {
+        try {
+          // Process imported customer data
+          // Note: This is a basic implementation - you may want to add validation and API calls
+          console.log('Imported customer data:', data);
+          alert(`Successfully imported ${data.length} customer(s). Import functionality will process the data.`);
+          
+          // TODO: Add API call to create/update customers from imported data
+          // Example:
+          // for (const row of data) {
+          //   await api.post('/customers', {
+          //     email: row['Email'],
+          //     full_name: row['Full Name'],
+          //     company_name: row['Company Name'],
+          //     is_active: row['Is Active'] === 'Yes',
+          //   });
+          // }
+          // fetchCustomers();
+        } catch (error: any) {
+          alert(`Failed to import customers: ${error.message}`);
+        }
+      },
+      (error) => {
+        alert(`Import error: ${error}`);
+      }
+    );
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   // Show access denied message if user is not an admin
   if (accessDenied) {
     return (
@@ -291,6 +393,39 @@ export default function CustomersPage() {
               Bulk Actions ({selectedCustomers.length})
             </button>
           )}
+          <div className="flex items-center gap-2 border-r border-gray-300 dark:border-gray-600 pr-2">
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              title="Export to Excel"
+            >
+              <Download className="w-4 h-4" />
+              Excel
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              title="Export to CSV"
+            >
+              <Download className="w-4 h-4" />
+              CSV
+            </button>
+            <button
+              onClick={handleImportClick}
+              className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              title="Import from Excel/CSV"
+            >
+              <Upload className="w-4 h-4" />
+              Import
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
+import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
 import {
   ShoppingCartIcon,
   ClipboardDocumentListIcon,
@@ -13,6 +14,8 @@ import {
   SignalIcon,
   BellAlertIcon,
   CurrencyDollarIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
 
 export default function OrderNumbersPage() {
@@ -25,6 +28,7 @@ export default function OrderNumbersPage() {
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadOrderData = useCallback(async () => {
     // Build query params (declare outside try for error handling)
@@ -144,6 +148,70 @@ export default function OrderNumbersPage() {
     ? stats.total_revenue / stats.total_orders
     : 0;
 
+  // Export handlers
+  const handleExportExcel = () => {
+    const exportData = [
+      { 'Metric': 'Total Orders', 'Value': stats?.total_orders || 0 },
+      { 'Metric': 'Monthly Orders', 'Value': stats?.monthly_orders || 0 },
+      { 'Metric': 'Completed Orders', 'Value': stats?.completed_orders || 0 },
+      { 'Metric': 'Pending Orders', 'Value': stats?.pending_orders || 0 },
+      { 'Metric': 'Completion Rate', 'Value': `${completionRate.toFixed(2)}%` },
+      { 'Metric': 'Average Order Value', 'Value': avgOrderValue },
+      {},
+      ...orderTrendData.map((item: any, index: number) => ({
+        'Period': item.period || `Period ${index + 1}`,
+        'Total Orders': item.totalOrders || 0,
+        'Completed Orders': item.completedOrders || 0,
+        'Pending Orders': item.pendingOrders || 0,
+      })),
+    ];
+    
+    exportToExcel(exportData, `orders_analytics_export_${new Date().toISOString().split('T')[0]}`, 'Orders Analytics');
+  };
+
+  const handleExportCSV = () => {
+    const exportData = [
+      { 'Metric': 'Total Orders', 'Value': stats?.total_orders || 0 },
+      { 'Metric': 'Monthly Orders', 'Value': stats?.monthly_orders || 0 },
+      { 'Metric': 'Completed Orders', 'Value': stats?.completed_orders || 0 },
+      { 'Metric': 'Pending Orders', 'Value': stats?.pending_orders || 0 },
+      { 'Metric': 'Completion Rate', 'Value': `${completionRate.toFixed(2)}%` },
+      { 'Metric': 'Average Order Value', 'Value': avgOrderValue },
+      {},
+      ...orderTrendData.map((item: any, index: number) => ({
+        'Period': item.period || `Period ${index + 1}`,
+        'Total Orders': item.totalOrders || 0,
+        'Completed Orders': item.completedOrders || 0,
+        'Pending Orders': item.pendingOrders || 0,
+      })),
+    ];
+    
+    exportToCSV(exportData, `orders_analytics_export_${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await handleFileImport(
+      file,
+      async (data) => {
+        alert(`Successfully imported ${data.length} record(s). Note: Analytics data is read-only.`);
+      },
+      (error) => {
+        alert(`Import error: ${error}`);
+      }
+    );
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -177,6 +245,39 @@ export default function OrderNumbersPage() {
             </p>
           </div>
           <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
+              <button
+                onClick={handleExportExcel}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                title="Export to Excel"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+                Excel
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                title="Export to CSV"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+                CSV
+              </button>
+              <button
+                onClick={handleImportClick}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                title="Import from Excel/CSV"
+              >
+                <ArrowUpTrayIcon className="h-4 w-4 mr-1" />
+                Import
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
             <div className="flex items-center text-xs text-gray-500">
               <ClockIcon className="h-4 w-4 mr-1" />
               Updated: {lastUpdate.toLocaleTimeString()}
