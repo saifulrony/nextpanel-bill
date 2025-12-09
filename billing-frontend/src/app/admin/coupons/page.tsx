@@ -175,17 +175,17 @@ export default function CouponsPage() {
             {coupons.map((coupon) => (
               <tr key={coupon.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">{coupon.code}</code>
+                  <code className="text-sm font-mono bg-gray-100 text-gray-900 px-2 py-1 rounded">{coupon.code}</code>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{coupon.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap capitalize">{coupon.coupon_type}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{coupon.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">{coupon.coupon_type}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {coupon.coupon_type === 'percentage' 
                     ? `${coupon.discount_value}%`
                     : `$${coupon.discount_value}`
                   }
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {coupon.usage_count} / {coupon.usage_limit || '∞'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

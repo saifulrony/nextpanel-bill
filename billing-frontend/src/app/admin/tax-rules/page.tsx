@@ -163,11 +163,11 @@ export default function TaxRulesPage() {
               <div key={rule.id} className="border border-gray-200 rounded p-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-semibold">{rule.name}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="font-semibold text-gray-900">{rule.name}</p>
+                    <p className="text-sm text-gray-900">
                       {rule.tax_type.toUpperCase()} - {rule.rate}%
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-700">
                       {rule.country_code && `Country: ${rule.country_code}`}
                       {rule.state_code && ` | State: ${rule.state_code}`}
                       {rule.city && ` | City: ${rule.city}`}
@@ -189,9 +189,9 @@ export default function TaxRulesPage() {
           <div className="space-y-2">
             {exemptions.map((exemption) => (
               <div key={exemption.id} className="border border-gray-200 rounded p-3">
-                <p className="font-semibold">User: {exemption.user_id}</p>
-                <p className="text-sm text-gray-600">{exemption.exemption_reason}</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-semibold text-gray-900">User: {exemption.user_id}</p>
+                <p className="text-sm text-gray-900">{exemption.exemption_reason}</p>
+                <p className="text-xs text-gray-700">
                   {exemption.tax_id && `Tax ID: ${exemption.tax_id}`}
                 </p>
               </div>

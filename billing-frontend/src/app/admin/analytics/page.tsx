@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import dynamic from 'next/dynamic';
-import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
+import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
 
 // Dynamically import charts to prevent @mui/x-charts conflicts
 const RevenueColumnChart = dynamic(
@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
   };
 
   // Export handlers
-  const handleExportExcel = () => {
+  const handleExport = () => {
     const exportData = [
       // Stats summary
       { 'Metric': 'Total Revenue', 'Value': stats?.total_revenue || 0 },
@@ -221,38 +221,6 @@ export default function AnalyticsPage() {
     ];
     
     exportToExcel(exportData, `analytics_export_${new Date().toISOString().split('T')[0]}`, 'Analytics');
-  };
-
-  const handleExportCSV = () => {
-    const exportData = [
-      // Stats summary
-      { 'Metric': 'Total Revenue', 'Value': stats?.total_revenue || 0 },
-      { 'Metric': 'Monthly Revenue', 'Value': stats?.monthly_revenue || 0 },
-      { 'Metric': 'Total Orders', 'Value': stats?.total_orders || 0 },
-      { 'Metric': 'Monthly Orders', 'Value': stats?.monthly_orders || 0 },
-      { 'Metric': 'Total Customers', 'Value': stats?.total_customers || 0 },
-      { 'Metric': 'New Customers This Month', 'Value': stats?.new_customers_this_month || 0 },
-      { 'Metric': 'Average Order Value', 'Value': stats?.average_order_value || 0 },
-      { 'Metric': 'Conversion Rate', 'Value': stats?.conversion_rate || 0 },
-      {},
-      // Time series data
-      ...chartData.map((item: any) => ({
-        'Period': item.name,
-        'Revenue': item.revenue,
-        'Orders': item.orders,
-      })),
-      {},
-      // Top customers
-      ...topCustomers.map((customer: any, index: number) => ({
-        'Rank': index + 1,
-        'Customer Name': customer.name || customer.email || 'N/A',
-        'Email': customer.email || 'N/A',
-        'Total Spent': customer.total_spent || 0,
-        'Order Count': customer.order_count || 0,
-      })),
-    ];
-    
-    exportToCSV(exportData, `analytics_export_${new Date().toISOString().split('T')[0]}`);
   };
 
   const handleImportClick = () => {
@@ -320,20 +288,12 @@ export default function AnalyticsPage() {
           <div className="flex items-center space-x-4">
           <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
             <button
-              onClick={handleExportExcel}
+              onClick={handleExport}
               className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               title="Export to Excel"
             >
               <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-              Excel
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              title="Export to CSV"
-            >
-              <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-              CSV
+              Export
             </button>
             <button
               onClick={handleImportClick}

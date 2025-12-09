@@ -32,7 +32,8 @@ export type ComponentType =
   | 'nav-menu'
   | 'pricing-table'
   | 'testimonials'
-  | 'faq';
+  | 'faq'
+  | 'checkout';
 
 export interface Component {
   id: string;

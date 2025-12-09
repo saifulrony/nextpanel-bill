@@ -118,12 +118,12 @@ export default function AffiliatesPage() {
             {affiliates.map((affiliate) => (
               <tr key={affiliate.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">{affiliate.referral_code}</code>
+                  <code className="text-sm font-mono bg-gray-100 text-gray-900 px-2 py-1 rounded">{affiliate.referral_code}</code>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{affiliate.user_id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{affiliate.commission_rate}%</td>
-                <td className="px-6 py-4 whitespace-nowrap">{affiliate.total_referrals}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{affiliate.user_id}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{affiliate.commission_rate}%</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{affiliate.total_referrals}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   ${affiliate.total_commission_earned.toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -201,10 +201,10 @@ export default function AffiliatesPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {commissions.map((commission) => (
                   <tr key={commission.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${commission.order_amount.toFixed(2)} {commission.currency}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${commission.commission_amount.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -216,7 +216,7 @@ export default function AffiliatesPage() {
                         {commission.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(commission.earned_at).toLocaleDateString()}
                     </td>
                   </tr>

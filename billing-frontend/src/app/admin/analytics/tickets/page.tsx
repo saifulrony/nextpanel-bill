@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
-import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
+import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
 import {
   ChatBubbleLeftRightIcon,
   ExclamationTriangleIcon,
@@ -136,7 +136,7 @@ export default function SupportTicketsPage() {
   };
 
   // Export handlers
-  const handleExportExcel = () => {
+  const handleExport = () => {
     const exportData = [
       { 'Metric': 'Total Tickets', 'Value': ticketStats?.total_tickets || 0 },
       { 'Metric': 'Open Tickets', 'Value': ticketStats?.open_tickets || 0 },
@@ -160,32 +160,6 @@ export default function SupportTicketsPage() {
     ];
     
     exportToExcel(exportData, `tickets_analytics_export_${new Date().toISOString().split('T')[0]}`, 'Tickets Analytics');
-  };
-
-  const handleExportCSV = () => {
-    const exportData = [
-      { 'Metric': 'Total Tickets', 'Value': ticketStats?.total_tickets || 0 },
-      { 'Metric': 'Open Tickets', 'Value': ticketStats?.open_tickets || 0 },
-      { 'Metric': 'Closed Tickets', 'Value': ticketStats?.closed_tickets || 0 },
-      { 'Metric': 'Pending Tickets', 'Value': ticketStats?.pending_tickets || 0 },
-      { 'Metric': 'High Priority', 'Value': ticketStats?.high_priority || 0 },
-      { 'Metric': 'Medium Priority', 'Value': ticketStats?.medium_priority || 0 },
-      { 'Metric': 'Low Priority', 'Value': ticketStats?.low_priority || 0 },
-      { 'Metric': 'Average Response Time', 'Value': formatHours(ticketStats?.avg_response_time || 0) },
-      { 'Metric': 'Average Resolution Time', 'Value': formatHours(ticketStats?.avg_resolution_time || 0) },
-      { 'Metric': 'Tickets This Month', 'Value': ticketStats?.tickets_this_month || 0 },
-      { 'Metric': 'Tickets This Week', 'Value': ticketStats?.tickets_this_week || 0 },
-      { 'Metric': 'Customer Satisfaction', 'Value': ticketStats?.customer_satisfaction || 0 },
-      {},
-      ...ticketTrendData.map((item: any, index: number) => ({
-        'Period': item.period || `Period ${index + 1}`,
-        'New Tickets': item.newTickets || 0,
-        'Resolved Tickets': item.resolvedTickets || 0,
-        'Response Time': formatHours(item.responseTime || 0),
-      })),
-    ];
-    
-    exportToCSV(exportData, `tickets_analytics_export_${new Date().toISOString().split('T')[0]}`);
   };
 
   const handleImportClick = () => {
@@ -257,20 +231,12 @@ export default function SupportTicketsPage() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
               <button
-                onClick={handleExportExcel}
+                onClick={handleExport}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 title="Export to Excel"
               >
                 <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-                Excel
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                title="Export to CSV"
-              >
-                <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-                CSV
+                Export
               </button>
               <button
                 onClick={handleImportClick}

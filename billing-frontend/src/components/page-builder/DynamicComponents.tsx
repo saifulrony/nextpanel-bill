@@ -2,6 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useStripe } from '@/contexts/StripeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Elements } from '@stripe/react-stripe-js';
+import StripePaymentForm from '@/components/payments/StripePaymentForm';
 import {
   MagnifyingGlassIcon,
   CheckCircleIcon,
@@ -1723,6 +1727,929 @@ export function NewsletterComponent({ style }: { style?: React.CSSProperties }) 
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// Checkout Component - Highly Editable
+export function CheckoutComponent({ 
+  style, 
+  props 
+}: { 
+  style?: React.CSSProperties;
+  props?: Record<string, any>;
+}) {
+  const { items, getTotal, clearCart } = useCart();
+  const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const { stripePromise } = useStripe();
+  
+  // Editable props with defaults
+  const config = {
+    // Layout
+    layout: props?.layout || 'two-column', // 'two-column' | 'single-column' | 'split'
+    showOrderSummary: props?.showOrderSummary !== false,
+    showBillingInfo: props?.showBillingInfo !== false,
+    showShippingInfo: props?.showShippingInfo !== false,
+    showPaymentInfo: props?.showPaymentInfo !== false,
+    
+    // Styling
+    backgroundColor: props?.backgroundColor || '#ffffff',
+    textColor: props?.textColor || '#1f2937',
+    primaryColor: props?.primaryColor || '#4f46e5',
+    borderColor: props?.borderColor || '#e5e7eb',
+    borderRadius: props?.borderRadius || '0.5rem',
+    padding: props?.padding || '2rem',
+    maxWidth: props?.maxWidth || '1200px',
+    
+    // Form Fields
+    showFirstName: props?.showFirstName !== false,
+    showLastName: props?.showLastName !== false,
+    showEmail: props?.showEmail !== false,
+    showPhone: props?.showPhone !== false,
+    showCompany: props?.showCompany || false,
+    showAddress: props?.showAddress !== false,
+    showCity: props?.showCity !== false,
+    showState: props?.showState !== false,
+    showZipCode: props?.showZipCode !== false,
+    showCountry: props?.showCountry !== false,
+    showCardNumber: props?.showCardNumber !== false,
+    showExpiryDate: props?.showExpiryDate !== false,
+    showCVV: props?.showCVV !== false,
+    showNameOnCard: props?.showNameOnCard !== false,
+    
+    // Labels
+    title: props?.title || 'Checkout',
+    subtitle: props?.subtitle || 'Complete your purchase securely',
+    billingTitle: props?.billingTitle || 'Billing Information',
+    shippingTitle: props?.shippingTitle || 'Shipping Information',
+    paymentTitle: props?.paymentTitle || 'Payment Information',
+    orderSummaryTitle: props?.orderSummaryTitle || 'Order Summary',
+    submitButtonText: props?.submitButtonText || 'Complete Order',
+    
+    // Payment Methods
+    paymentMethods: props?.paymentMethods || ['stripe', 'manual'], // 'stripe' | 'paypal' | 'manual'
+    defaultPaymentMethod: props?.defaultPaymentMethod || 'stripe',
+    
+    // Features
+    showCouponCode: props?.showCouponCode || false,
+    showTermsCheckbox: props?.showTermsCheckbox !== false,
+    showNewsletterCheckbox: props?.showNewsletterCheckbox || false,
+    autoFillUserData: props?.autoFillUserData !== false,
+    showProgressIndicator: props?.showProgressIndicator !== false,
+    
+    // Validation
+    requirePhone: props?.requirePhone || false,
+    requireCompany: props?.requireCompany || false,
+    
+    // Custom CSS
+    customCSS: props?.customCSS || '',
+  };
+  
+  const [formData, setFormData] = useState({
+    firstName: config.autoFillUserData && user ? (user.full_name?.split(' ')[0] || '') : '',
+    lastName: config.autoFillUserData && user ? (user.full_name?.split(' ').slice(1).join(' ') || '') : '',
+    email: config.autoFillUserData && user ? (user.email || '') : '',
+    phone: '',
+    company: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'US',
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    nameOnCard: '',
+    couponCode: '',
+    acceptTerms: false,
+    subscribeNewsletter: false,
+  });
+  
+  const [paymentMethod, setPaymentMethod] = useState(config.defaultPaymentMethod);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = [config.showBillingInfo, config.showShippingInfo, config.showPaymentInfo].filter(Boolean).length;
+  
+  const subtotal = getTotal();
+  const tax = subtotal * 0.1; // 10% tax (editable)
+  const total = subtotal + tax;
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+  
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (config.showFirstName && !formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+    if (config.showLastName && !formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
+    }
+    if (config.showEmail && !formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (config.showEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email address';
+    }
+    if (config.requirePhone && !formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    }
+    if (config.showAddress && !formData.address.trim()) {
+      newErrors.address = 'Address is required';
+    }
+    if (config.showCity && !formData.city.trim()) {
+      newErrors.city = 'City is required';
+    }
+    if (config.showState && !formData.state.trim()) {
+      newErrors.state = 'State is required';
+    }
+    if (config.showZipCode && !formData.zipCode.trim()) {
+      newErrors.zipCode = 'ZIP code is required';
+    }
+    if (config.showCardNumber && paymentMethod === 'stripe' && !formData.cardNumber.trim()) {
+      newErrors.cardNumber = 'Card number is required';
+    }
+    if (config.showExpiryDate && paymentMethod === 'stripe' && !formData.expiryDate.trim()) {
+      newErrors.expiryDate = 'Expiry date is required';
+    }
+    if (config.showCVV && paymentMethod === 'stripe' && !formData.cvv.trim()) {
+      newErrors.cvv = 'CVV is required';
+    }
+    if (config.showTermsCheckbox && !formData.acceptTerms) {
+      newErrors.acceptTerms = 'You must accept the terms and conditions';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    if (!isAuthenticated || !user) {
+      alert('Please log in to complete your order');
+      router.push('/login');
+      return;
+    }
+    
+    if (!items || items.length === 0) {
+      alert('Your cart is empty');
+      return;
+    }
+    
+    setIsProcessing(true);
+    
+    try {
+      const orderData = {
+        customer_id: user.id,
+        items: items.map(item => ({
+          product_id: item.id || 'custom',
+          product_name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        subtotal: subtotal,
+        tax: tax,
+        total: total,
+        payment_method: paymentMethod,
+        billing_info: {
+          customer_name: `${formData.firstName} ${formData.lastName}`,
+          customer_email: formData.email,
+          customer_phone: formData.phone || null,
+          company_name: formData.company || null,
+          billing_address: {
+            street: formData.address,
+            city: formData.city,
+            state: formData.state,
+            zip_code: formData.zipCode,
+            country: formData.country
+          }
+        },
+        billing_period: 'monthly'
+      };
+      
+      const { ordersAPI } = await import('@/lib/api');
+      const result = await ordersAPI.create(orderData);
+      
+      if (result.data) {
+        localStorage.setItem('lastOrderData', JSON.stringify(result.data));
+      }
+      
+      clearCart();
+      const orderId = result.data?.id || result.data?.order_number;
+      router.push(`/order-success?order=${orderId}`);
+    } catch (error: any) {
+      console.error('Order creation error:', error);
+      alert(error.response?.data?.detail || error.message || 'Failed to create order');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const formStyle: React.CSSProperties = {
+    backgroundColor: config.backgroundColor,
+    color: config.textColor,
+    padding: config.padding,
+    maxWidth: config.maxWidth,
+    margin: '0 auto',
+    borderRadius: config.borderRadius,
+    ...style
+  };
+  
+  return (
+    <div style={formStyle}>
+      {config.customCSS && <style dangerouslySetInnerHTML={{ __html: config.customCSS }} />}
+      
+      {/* Title Section */}
+      <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+        <h1 style={{ 
+          fontSize: '2rem', 
+          fontWeight: 'bold', 
+          color: config.textColor,
+          marginBottom: '0.5rem'
+        }}>
+          {config.title}
+        </h1>
+        {config.subtitle && (
+          <p style={{ color: config.textColor, opacity: 0.7 }}>
+            {config.subtitle}
+          </p>
+        )}
+      </div>
+      
+      {/* Progress Indicator */}
+      {config.showProgressIndicator && totalSteps > 1 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {[1, 2, 3].slice(0, totalSteps).map((step) => (
+              <div key={step} style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                <div style={{
+                  width: '2rem',
+                  height: '2rem',
+                  borderRadius: '50%',
+                  backgroundColor: currentStep >= step ? config.primaryColor : '#e5e7eb',
+                  color: currentStep >= step ? '#ffffff' : '#6b7280',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  margin: '0 auto'
+                }}>
+                  {step}
+                </div>
+                {step < totalSteps && (
+                  <div style={{
+                    flex: 1,
+                    height: '2px',
+                    backgroundColor: currentStep > step ? config.primaryColor : '#e5e7eb',
+                    margin: '0 0.5rem'
+                  }} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: config.layout === 'two-column' ? '1fr 400px' : '1fr',
+          gap: '2rem'
+        }}>
+          {/* Main Form Column */}
+          <div>
+            {/* Billing Information */}
+            {config.showBillingInfo && (
+              <div style={{
+                marginBottom: '2rem',
+                padding: '1.5rem',
+                border: `1px solid ${config.borderColor}`,
+                borderRadius: config.borderRadius
+              }}>
+                <h2 style={{ 
+                  fontSize: '1.25rem', 
+                  fontWeight: '600', 
+                  marginBottom: '1.5rem',
+                  color: config.textColor
+                }}>
+                  {config.billingTitle}
+                </h2>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  {config.showFirstName && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        First Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: `1px solid ${errors.firstName ? '#ef4444' : config.borderColor}`,
+                          borderRadius: '0.375rem',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      {errors.firstName && (
+                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.firstName}</span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {config.showLastName && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        Last Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: `1px solid ${errors.lastName ? '#ef4444' : config.borderColor}`,
+                          borderRadius: '0.375rem',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      {errors.lastName && (
+                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.lastName}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {config.showEmail && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `1px solid ${errors.email ? '#ef4444' : config.borderColor}`,
+                        borderRadius: '0.375rem',
+                        fontSize: '1rem'
+                      }}
+                    />
+                    {errors.email && (
+                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.email}</span>
+                    )}
+                  </div>
+                )}
+                
+                {config.showPhone && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                      Phone {config.requirePhone && '*'}
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      required={config.requirePhone}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `1px solid ${errors.phone ? '#ef4444' : config.borderColor}`,
+                        borderRadius: '0.375rem',
+                        fontSize: '1rem'
+                      }}
+                    />
+                    {errors.phone && (
+                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.phone}</span>
+                    )}
+                  </div>
+                )}
+                
+                {config.showCompany && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                      Company {config.requireCompany && '*'}
+                    </label>
+                    <input
+                      type="text"
+                      name="company"
+                      value={formData.company}
+                      onChange={handleInputChange}
+                      required={config.requireCompany}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `1px solid ${errors.company ? '#ef4444' : config.borderColor}`,
+                        borderRadius: '0.375rem',
+                        fontSize: '1rem'
+                      }}
+                    />
+                    {errors.company && (
+                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.company}</span>
+                    )}
+                  </div>
+                )}
+                
+                {config.showAddress && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                      Address *
+                    </label>
+                    <input
+                      type="text"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `1px solid ${errors.address ? '#ef4444' : config.borderColor}`,
+                        borderRadius: '0.375rem',
+                        fontSize: '1rem'
+                      }}
+                    />
+                    {errors.address && (
+                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.address}</span>
+                    )}
+                  </div>
+                )}
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                  {config.showCity && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        City *
+                      </label>
+                      <input
+                        type="text"
+                        name="city"
+                        value={formData.city}
+                        onChange={handleInputChange}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: `1px solid ${errors.city ? '#ef4444' : config.borderColor}`,
+                          borderRadius: '0.375rem',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      {errors.city && (
+                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.city}</span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {config.showState && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        State *
+                      </label>
+                      <input
+                        type="text"
+                        name="state"
+                        value={formData.state}
+                        onChange={handleInputChange}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: `1px solid ${errors.state ? '#ef4444' : config.borderColor}`,
+                          borderRadius: '0.375rem',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      {errors.state && (
+                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.state}</span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {config.showZipCode && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        ZIP Code *
+                      </label>
+                      <input
+                        type="text"
+                        name="zipCode"
+                        value={formData.zipCode}
+                        onChange={handleInputChange}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: `1px solid ${errors.zipCode ? '#ef4444' : config.borderColor}`,
+                          borderRadius: '0.375rem',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      {errors.zipCode && (
+                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.zipCode}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {config.showCountry && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                      Country *
+                    </label>
+                    <select
+                      name="country"
+                      value={formData.country}
+                      onChange={handleInputChange}
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `1px solid ${config.borderColor}`,
+                        borderRadius: '0.375rem',
+                        fontSize: '1rem'
+                      }}
+                    >
+                      <option value="US">United States</option>
+                      <option value="CA">Canada</option>
+                      <option value="GB">United Kingdom</option>
+                      <option value="AU">Australia</option>
+                      <option value="DE">Germany</option>
+                      <option value="FR">France</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Payment Information */}
+            {config.showPaymentInfo && (
+              <div style={{
+                marginBottom: '2rem',
+                padding: '1.5rem',
+                border: `1px solid ${config.borderColor}`,
+                borderRadius: config.borderRadius
+              }}>
+                <h2 style={{ 
+                  fontSize: '1.25rem', 
+                  fontWeight: '600', 
+                  marginBottom: '1.5rem',
+                  color: config.textColor
+                }}>
+                  {config.paymentTitle}
+                </h2>
+                
+                {/* Payment Method Selection */}
+                {config.paymentMethods.length > 1 && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                      Payment Method
+                    </label>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      {config.paymentMethods.map((method) => (
+                        <label key={method} style={{ 
+                          flex: 1,
+                          padding: '1rem',
+                          border: `2px solid ${paymentMethod === method ? config.primaryColor : config.borderColor}`,
+                          borderRadius: config.borderRadius,
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          textTransform: 'capitalize'
+                        }}>
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value={method}
+                            checked={paymentMethod === method}
+                            onChange={(e) => setPaymentMethod(e.target.value as any)}
+                            style={{ marginRight: '0.5rem' }}
+                          />
+                          {method}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Stripe Payment Form */}
+                {paymentMethod === 'stripe' && stripePromise && (
+                  <Elements stripe={stripePromise}>
+                    <StripePaymentForm />
+                  </Elements>
+                )}
+                
+                {/* Manual Payment Fields */}
+                {paymentMethod === 'manual' && (
+                  <>
+                    {config.showCardNumber && (
+                      <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                          Card Number *
+                        </label>
+                        <input
+                          type="text"
+                          name="cardNumber"
+                          value={formData.cardNumber}
+                          onChange={handleInputChange}
+                          placeholder="1234 5678 9012 3456"
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: `1px solid ${errors.cardNumber ? '#ef4444' : config.borderColor}`,
+                            borderRadius: '0.375rem',
+                            fontSize: '1rem'
+                          }}
+                        />
+                        {errors.cardNumber && (
+                          <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.cardNumber}</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                      {config.showExpiryDate && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                            Expiry Date *
+                          </label>
+                          <input
+                            type="text"
+                            name="expiryDate"
+                            value={formData.expiryDate}
+                            onChange={handleInputChange}
+                            placeholder="MM/YY"
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              border: `1px solid ${errors.expiryDate ? '#ef4444' : config.borderColor}`,
+                              borderRadius: '0.375rem',
+                              fontSize: '1rem'
+                            }}
+                          />
+                          {errors.expiryDate && (
+                            <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.expiryDate}</span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {config.showCVV && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                            CVV *
+                          </label>
+                          <input
+                            type="text"
+                            name="cvv"
+                            value={formData.cvv}
+                            onChange={handleInputChange}
+                            placeholder="123"
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              border: `1px solid ${errors.cvv ? '#ef4444' : config.borderColor}`,
+                              borderRadius: '0.375rem',
+                              fontSize: '1rem'
+                            }}
+                          />
+                          {errors.cvv && (
+                            <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.cvv}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {config.showNameOnCard && (
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                          Name on Card *
+                        </label>
+                        <input
+                          type="text"
+                          name="nameOnCard"
+                          value={formData.nameOnCard}
+                          onChange={handleInputChange}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: `1px solid ${config.borderColor}`,
+                            borderRadius: '0.375rem',
+                            fontSize: '1rem'
+                          }}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+            
+            {/* Coupon Code */}
+            {config.showCouponCode && (
+              <div style={{ marginBottom: '2rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Coupon Code
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    name="couponCode"
+                    value={formData.couponCode}
+                    onChange={handleInputChange}
+                    placeholder="Enter coupon code"
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      border: `1px solid ${config.borderColor}`,
+                      borderRadius: '0.375rem',
+                      fontSize: '1rem'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: config.primaryColor,
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '0.375rem',
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Checkboxes */}
+            <div style={{ marginBottom: '2rem' }}>
+              {config.showTermsCheckbox && (
+                <label style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="acceptTerms"
+                    checked={formData.acceptTerms}
+                    onChange={handleInputChange}
+                    required
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.875rem' }}>
+                    I agree to the <a href="/terms" style={{ color: config.primaryColor }}>Terms and Conditions</a> *
+                  </span>
+                  {errors.acceptTerms && (
+                    <span style={{ color: '#ef4444', fontSize: '0.875rem', marginLeft: '0.5rem' }}>
+                      {errors.acceptTerms}
+                    </span>
+                  )}
+                </label>
+              )}
+              
+              {config.showNewsletterCheckbox && (
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="subscribeNewsletter"
+                    checked={formData.subscribeNewsletter}
+                    onChange={handleInputChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.875rem' }}>
+                    Subscribe to our newsletter for updates and special offers
+                  </span>
+                </label>
+              )}
+            </div>
+            
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isProcessing}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                backgroundColor: config.primaryColor,
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: config.borderRadius,
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                opacity: isProcessing ? 0.6 : 1,
+                transition: 'all 0.2s'
+              }}
+            >
+              {isProcessing ? 'Processing...' : config.submitButtonText}
+            </button>
+          </div>
+          
+          {/* Order Summary Sidebar */}
+          {config.showOrderSummary && config.layout === 'two-column' && (
+            <div style={{
+              padding: '1.5rem',
+              border: `1px solid ${config.borderColor}`,
+              borderRadius: config.borderRadius,
+              backgroundColor: '#f9fafb',
+              height: 'fit-content',
+              position: 'sticky',
+              top: '2rem'
+            }}>
+              <h2 style={{ 
+                fontSize: '1.25rem', 
+                fontWeight: '600', 
+                marginBottom: '1.5rem',
+                color: config.textColor
+              }}>
+                {config.orderSummaryTitle}
+              </h2>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                {items.map((item, index) => (
+                  <div key={index} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    marginBottom: '1rem',
+                    paddingBottom: '1rem',
+                    borderBottom: `1px solid ${config.borderColor}`
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: '500' }}>{item.name}</div>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                        Qty: {item.quantity}
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: '600' }}>
+                      ${(item.price * item.quantity).toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div style={{ borderTop: `1px solid ${config.borderColor}`, paddingTop: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Subtotal</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Tax</span>
+                  <span>${tax.toFixed(2)}</span>
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  marginTop: '1rem',
+                  paddingTop: '1rem',
+                  borderTop: `2px solid ${config.borderColor}`,
+                  fontSize: '1.25rem',
+                  fontWeight: 'bold'
+                }}>
+                  <span>Total</span>
+                  <span>${total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </form>
     </div>
   );
 }

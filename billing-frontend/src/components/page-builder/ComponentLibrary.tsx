@@ -65,6 +65,7 @@ export const components = [
   { type: 'pricing-table' as ComponentType, label: 'Pricing Table', icon: CurrencyDollarIcon, color: 'text-green-600' },
   { type: 'testimonials' as ComponentType, label: 'Testimonials', icon: ChatBubbleLeftRightIcon, color: 'text-purple-600' },
   { type: 'faq' as ComponentType, label: 'FAQ', icon: QuestionMarkCircleIcon, color: 'text-orange-600' },
+  { type: 'checkout' as ComponentType, label: 'Checkout Form', icon: ShoppingCartIcon, color: 'text-blue-600' },
 ];
 
 // Draggable Component Item

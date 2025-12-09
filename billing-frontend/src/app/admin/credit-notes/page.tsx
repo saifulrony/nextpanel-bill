@@ -127,16 +127,16 @@ export default function CreditNotesPage() {
             {creditNotes.map((cn) => (
               <tr key={cn.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">{cn.credit_note_number}</code>
+                  <code className="text-sm font-mono bg-gray-100 text-gray-900 px-2 py-1 rounded">{cn.credit_note_number}</code>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{cn.user_id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cn.user_id}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   ${cn.amount.toFixed(2)} {cn.currency}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   ${cn.applied_amount.toFixed(2)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   ${cn.remaining_amount.toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

@@ -146,9 +146,9 @@ export default function EmailTemplatesPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {templates.map((template) => (
               <tr key={template.id}>
-                <td className="px-6 py-4 whitespace-nowrap">{template.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap capitalize">{template.template_type.replace('_', ' ')}</td>
-                <td className="px-6 py-4">{template.subject}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{template.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">{template.template_type.replace('_', ' ')}</td>
+                <td className="px-6 py-4 text-sm text-gray-900">{template.subject}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs rounded-full ${
                     template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'

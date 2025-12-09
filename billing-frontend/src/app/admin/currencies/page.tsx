@@ -154,10 +154,10 @@ export default function CurrenciesPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {currencies.map((currency) => (
               <tr key={currency.id}>
-                <td className="px-6 py-4 whitespace-nowrap font-mono">{currency.code}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{currency.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{currency.symbol}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{currency.exchange_rate_to_usd.toFixed(4)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">{currency.code}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currency.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currency.symbol}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currency.exchange_rate_to_usd.toFixed(4)}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {currency.is_base_currency && (
                     <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Base</span>

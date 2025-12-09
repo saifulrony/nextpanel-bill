@@ -13,7 +13,7 @@ import EmailAutomationModal from '@/components/orders/EmailAutomationModal';
 import PaymentAutomationModal from '@/components/orders/PaymentAutomationModal';
 import AutomationSelectorModal from '@/components/orders/AutomationSelectorModal';
 import ChargePaymentModal from '@/components/orders/ChargePaymentModal';
-import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
+import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 
 interface Customer {
@@ -508,7 +508,7 @@ export default function OrdersPage() {
     });
   };
 
-  const handleExportExcel = () => {
+  const handleExport = () => {
     if (orders.length === 0) {
       alert('No orders to export');
       return;
@@ -539,39 +539,6 @@ export default function OrdersPage() {
     }));
     
     exportToExcel(exportData, `orders_export_${new Date().toISOString().split('T')[0]}`, 'Orders');
-  };
-
-  const handleExportCSV = () => {
-    if (orders.length === 0) {
-      alert('No orders to export');
-      return;
-    }
-    
-    const exportData = orders.map(order => ({
-      'Order ID': order.id,
-      'Invoice Number': order.invoice_number || order.order_number || '',
-      'Customer ID': order.customer_id,
-      'Customer Name': order.customer?.full_name || '',
-      'Customer Email': order.customer?.email || '',
-      'Status': order.status,
-      'Subtotal': order.subtotal,
-      'Discount': order.discount_amount,
-      'Tax': order.tax,
-      'Total': order.total,
-      'Amount Paid': order.amount_paid,
-      'Amount Due': order.amount_due,
-      'Currency': order.currency,
-      'Payment Method': order.payment_method || '',
-      'Due Date': order.due_date ? formatDate(order.due_date) : '',
-      'Order Date': order.order_date ? formatDate(order.order_date) : '',
-      'Paid At': order.paid_at ? formatDate(order.paid_at) : '',
-      'Is Recurring': order.is_recurring ? 'Yes' : 'No',
-      'Recurring Interval': order.recurring_interval || '',
-      'Sent to Customer': order.sent_to_customer ? 'Yes' : 'No',
-      'Created At': formatDate(order.created_at),
-    }));
-    
-    exportToCSV(exportData, `orders_export_${new Date().toISOString().split('T')[0]}`);
   };
 
   const handleImportClick = () => {
@@ -650,20 +617,12 @@ export default function OrdersPage() {
           )}
           <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
             <button
-              onClick={handleExportExcel}
+              onClick={handleExport}
               className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               title="Export to Excel"
             >
               <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
-              Excel
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              title="Export to CSV"
-            >
-              <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
-              CSV
+              Export
             </button>
             <button
               onClick={handleImportClick}

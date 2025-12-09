@@ -394,53 +394,7 @@ function CustomizationPageContent() {
   });
   const [loadingDefaultPages, setLoadingDefaultPages] = useState(false);
 
-  // Handle URL parameters for page editing
-  useEffect(() => {
-    const pageId = searchParams.get('page');
-    const pageType = searchParams.get('type');
-    const action = searchParams.get('action');
-    
-  }, [searchParams]);
-
-
-
-
-
-  useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      console.log('User not logged in, homepage management will be limited');
-    }
-    
-    // Load saved settings from localStorage
-    const saved = localStorage.getItem('customization_settings');
-    if (saved) {
-      const parsedSettings = JSON.parse(saved);
-      // Ensure all numeric values are properly set
-      setSettings({
-        ...parsedSettings,
-        logoWidth: parsedSettings.logoWidth || 150,
-        logoHeight: parsedSettings.logoHeight || 50,
-        logoPadding: parsedSettings.logoPadding || 10,
-        logoOpacity: parsedSettings.logoOpacity || 100,
-        logoMaxWidth: parsedSettings.logoMaxWidth || '200px',
-      });
-    }
-    
-    // Load saved themes
-    const themes = localStorage.getItem('customization_themes');
-    if (themes) {
-      setSavedThemes(JSON.parse(themes));
-    }
-
-    
-    // Load homepage data
-    loadHomepageData();
-    loadDefaultPageConfig();
-    loadAvailablePages();
-  }, []);
-
+  // Define functions before using them in useEffect
   const loadHomepageData = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
@@ -628,6 +582,58 @@ function CustomizationPageContent() {
       setLoadingHomepage(false);
     }
   };
+
+  // Handle URL parameters for page editing
+  useEffect(() => {
+    const pageId = searchParams.get('page');
+    const pageType = searchParams.get('type');
+    const action = searchParams.get('action');
+    // Handle page editing logic here if needed
+  }, [searchParams]);
+
+  // Load data on component mount
+  useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      console.log('User not logged in, homepage management will be limited');
+    }
+    
+    // Load saved settings from localStorage
+    const saved = localStorage.getItem('customization_settings');
+    if (saved) {
+      try {
+        const parsedSettings = JSON.parse(saved);
+        // Ensure all numeric values are properly set
+        setSettings({
+          ...parsedSettings,
+          logoWidth: parsedSettings.logoWidth || 150,
+          logoHeight: parsedSettings.logoHeight || 50,
+          logoPadding: parsedSettings.logoPadding || 10,
+          logoOpacity: parsedSettings.logoOpacity || 100,
+          logoMaxWidth: parsedSettings.logoMaxWidth || '200px',
+        });
+      } catch (error) {
+        console.error('Error parsing saved settings:', error);
+      }
+    }
+    
+    // Load saved themes
+    const themes = localStorage.getItem('customization_themes');
+    if (themes) {
+      try {
+        setSavedThemes(JSON.parse(themes));
+      } catch (error) {
+        console.error('Error parsing saved themes:', error);
+      }
+    }
+
+    // Load homepage data
+    loadHomepageData();
+    loadDefaultPageConfig();
+    loadAvailablePages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSetDefaultPage = async (pageType: string, pageSlug: string) => {
     try {

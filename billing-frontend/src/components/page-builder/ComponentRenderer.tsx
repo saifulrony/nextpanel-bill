@@ -9,6 +9,7 @@ import {
   ProductSearchComponent,
   ContactFormComponent,
   NewsletterComponent,
+  CheckoutComponent,
 } from './DynamicComponents';
 import HeaderComponent from './HeaderComponent';
 import FooterComponent from './FooterComponent';
@@ -428,6 +429,9 @@ export default function ComponentRenderer({
 
       case 'newsletter':
         return <NewsletterComponent style={component.style} />;
+
+      case 'checkout':
+        return <CheckoutComponent style={component.style} props={component.props} />;
 
       case 'slider': {
         const slides = component.props?.slides || [

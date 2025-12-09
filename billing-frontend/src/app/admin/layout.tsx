@@ -39,6 +39,7 @@ import {
   EnvelopeIcon,
   CurrencyDollarIcon,
   CalculatorIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
 import { useInstalledModules } from '@/hooks/useInstalledModules';
@@ -86,6 +87,7 @@ const getBaseNavigation = () => [
   },
   { name: 'Server', href: '/admin/server', icon: ServerIcon },
   { name: 'Backup', href: '/admin/backup', icon: ArchiveBoxIcon },
+  { name: 'Security', href: '/admin/security', icon: ShieldCheckIcon },
   { 
     name: 'Analytics', 
     href: '/admin/analytics', 
@@ -148,6 +150,7 @@ const navigationPermissions: Record<string, string> = {
   '/admin/payments/gateways': 'access_payments_gateways_page',
   '/admin/server': 'access_server_page',
   '/admin/backup': 'access_backup_page',
+  '/admin/security': 'access_security_page',
   '/admin/analytics': 'access_analytics_overview_page',
   '/admin/analytics/sales': 'access_analytics_sales_page',
   '/admin/analytics/clients': 'access_analytics_clients_page',
@@ -291,6 +294,7 @@ export default function DashboardLayout({
       { name: 'Analytics & Reports', href: '/admin/analytics', category: 'Quick Access' },
       { name: 'Support Tickets', href: '/admin/support', category: 'Quick Access' },
       { name: 'System Settings', href: '/admin/settings', category: 'Quick Access' },
+      { name: 'Security Settings', href: '/admin/security', category: 'Quick Access' },
       { name: 'Customization', href: '/admin/customization', category: 'Quick Access' },
       { name: 'Marketplace', href: '/admin/marketplace', category: 'Quick Access' },
     ];

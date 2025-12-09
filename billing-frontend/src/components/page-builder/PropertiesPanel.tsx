@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Component } from './types';
-import { XMarkIcon, PhotoIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PhotoIcon, ArrowUpTrayIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 interface PropertiesPanelProps {
   component: Component | null;
@@ -10,7 +10,36 @@ interface PropertiesPanelProps {
   onClose: () => void;
 }
 
+// Accordion Component
+function Accordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+      >
+        <span className="text-sm font-medium text-gray-700">{title}</span>
+        {isOpen ? (
+          <ChevronUpIcon className="h-5 w-5 text-gray-500" />
+        ) : (
+          <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="p-4 bg-white border-t border-gray-200">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PropertiesPanel({ component, onUpdate, onClose }: PropertiesPanelProps) {
+  const [activeTab, setActiveTab] = useState<'content' | 'style' | 'motion'>('content');
+
   // Auto-initialize pricing table plans if missing
   React.useEffect(() => {
     if (component && component.type === 'pricing-table' && (!component.props?.plans || component.props.plans.length === 0)) {
@@ -171,10 +200,33 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b border-gray-200 bg-white">
+        <nav className="flex">
+          {[
+            { id: 'content' as const, name: 'Content' },
+            { id: 'style' as const, name: 'Style' },
+            { id: 'motion' as const, name: 'Motion' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              {tab.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Dynamic Components Info */}
-        {(component.type === 'domain-search' || component.type === 'products-grid' || component.type === 'featured-products' || component.type === 'product-search' || component.type === 'contact-form' || component.type === 'newsletter') && (
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Dynamic Components Info - Show in Content tab */}
+        {activeTab === 'content' && (component.type === 'domain-search' || component.type === 'products-grid' || component.type === 'featured-products' || component.type === 'product-search' || component.type === 'contact-form' || component.type === 'newsletter') && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start">
               <svg className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,153 +259,183 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
 
         {/* Enhanced Header Component Properties */}
         {component.type === 'header' && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Text</label>
-              <input
-                type="text"
-                value={component.props?.logoText || 'NextPanel'}
-                onChange={(e) => updateProp('logoText', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="Company Name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Image URL</label>
-              <input
-                type="url"
-                value={component.props?.logoImage || ''}
-                onChange={(e) => updateProp('logoImage', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="https://example.com/logo.png"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Width</label>
-              <input
-                type="text"
-                value={component.props?.logoWidth || '120px'}
-                onChange={(e) => updateProp('logoWidth', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="120px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Height</label>
-              <input
-                type="text"
-                value={component.props?.logoHeight || '40px'}
-                onChange={(e) => updateProp('logoHeight', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="40px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Position</label>
-              <select
-                value={component.props?.logoPosition || 'left'}
-                onChange={(e) => updateProp('logoPosition', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Color</label>
-              <input
-                type="color"
-                value={component.props?.logoColor || '#4f46e5'}
-                onChange={(e) => updateProp('logoColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Navigation Items (JSON)</label>
-              <textarea
-                value={JSON.stringify(component.props?.navigationItems || [
-                  { name: 'Home', url: '/' },
-                  { name: 'Products', url: '/products' },
-                  { name: 'About', url: '/about' },
-                  { name: 'Contact', url: '/contact' }
-                ], null, 2)}
-                onChange={(e) => {
-                  try {
-                    const items = JSON.parse(e.target.value);
-                    updateProp('navigationItems', items);
-                  } catch (error) {
-                    // Invalid JSON, don't update
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                rows={6}
-                placeholder='[{ "name": "Home", "url": "/" }]'
-              />
-            </div>
-            <div className="flex items-center space-x-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={component.props?.showNavigation !== false}
-                  onChange={(e) => updateProp('showNavigation', e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Show Navigation</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={component.props?.showCart !== false}
-                  onChange={(e) => updateProp('showCart', e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Show Cart</span>
-              </label>
-            </div>
-            <div className="flex items-center space-x-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={component.props?.showUserMenu !== false}
-                  onChange={(e) => updateProp('showUserMenu', e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Show User Menu</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={component.props?.showSearch || false}
-                  onChange={(e) => updateProp('showSearch', e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Show Search</span>
-              </label>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-                <input
-                  type="color"
-                  value={component.props?.backgroundColor || '#ffffff'}
-                  onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-                <input
-                  type="color"
-                  value={component.props?.textColor || '#374151'}
-                  onChange={(e) => updateProp('textColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-          </div>
+          <>
+            {/* Content Tab */}
+            {activeTab === 'content' && (
+              <div className="space-y-4">
+                <Accordion title="Logo" defaultOpen={true}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo Text</label>
+                      <input
+                        type="text"
+                        value={component.props?.logoText || 'NextPanel'}
+                        onChange={(e) => updateProp('logoText', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="Company Name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo Image URL</label>
+                      <input
+                        type="url"
+                        value={component.props?.logoImage || ''}
+                        onChange={(e) => updateProp('logoImage', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="https://example.com/logo.png"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Logo Width</label>
+                        <input
+                          type="text"
+                          value={component.props?.logoWidth || '120px'}
+                          onChange={(e) => updateProp('logoWidth', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="120px"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Logo Height</label>
+                        <input
+                          type="text"
+                          value={component.props?.logoHeight || '40px'}
+                          onChange={(e) => updateProp('logoHeight', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="40px"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo Position</label>
+                      <select
+                        value={component.props?.logoPosition || 'left'}
+                        onChange={(e) => updateProp('logoPosition', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </div>
+                  </div>
+                </Accordion>
+                <Accordion title="Navigation">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Navigation Items (JSON)</label>
+                      <textarea
+                        value={JSON.stringify(component.props?.navigationItems || [
+                          { name: 'Home', url: '/' },
+                          { name: 'Products', url: '/products' },
+                          { name: 'About', url: '/about' },
+                          { name: 'Contact', url: '/contact' }
+                        ], null, 2)}
+                        onChange={(e) => {
+                          try {
+                            const items = JSON.parse(e.target.value);
+                            updateProp('navigationItems', items);
+                          } catch (error) {
+                            // Invalid JSON, don't update
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                        rows={6}
+                        placeholder='[{ "name": "Home", "url": "/" }]'
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={component.props?.showNavigation !== false}
+                          onChange={(e) => updateProp('showNavigation', e.target.checked)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Show Navigation</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={component.props?.showCart !== false}
+                          onChange={(e) => updateProp('showCart', e.target.checked)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Show Cart</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={component.props?.showUserMenu !== false}
+                          onChange={(e) => updateProp('showUserMenu', e.target.checked)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Show User Menu</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={component.props?.showSearch || false}
+                          onChange={(e) => updateProp('showSearch', e.target.checked)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Show Search</span>
+                      </label>
+                    </div>
+                  </div>
+                </Accordion>
+              </div>
+            )}
+            {/* Style Tab */}
+            {activeTab === 'style' && (
+              <div className="space-y-4">
+                <Accordion title="Colors" defaultOpen={true}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                      <input
+                        type="color"
+                        value={component.props?.backgroundColor || '#ffffff'}
+                        onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                        className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+                      <input
+                        type="color"
+                        value={component.props?.textColor || '#374151'}
+                        onChange={(e) => updateProp('textColor', e.target.value)}
+                        className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo Color</label>
+                      <input
+                        type="color"
+                        value={component.props?.logoColor || '#4f46e5'}
+                        onChange={(e) => updateProp('logoColor', e.target.value)}
+                        className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </Accordion>
+              </div>
+            )}
+            {/* Motion Tab */}
+            {activeTab === 'motion' && (
+              <div className="space-y-4">
+                <div className="text-center text-gray-400 py-8">
+                  <p className="text-sm">No motion settings available for this component</p>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Footer Component Properties */}
-        {component.type === 'footer' && (
+        {activeTab === 'content' && component.type === 'footer' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
@@ -417,7 +499,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Cart Component Properties */}
-        {component.type === 'cart' && (
+        {activeTab === 'content' && component.type === 'cart' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Header Text</label>
@@ -502,7 +584,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Slider Component Properties */}
-        {component.type === 'slider' && (
+        {activeTab === 'content' && component.type === 'slider' && (
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -815,7 +897,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Banner Component Properties */}
-        {component.type === 'banner' && (
+        {activeTab === 'content' && component.type === 'banner' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Content (HTML)</label>
@@ -998,7 +1080,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Nav Menu Component Properties */}
-        {component.type === 'nav-menu' && (
+        {activeTab === 'content' && component.type === 'nav-menu' && (
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -1400,7 +1482,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Code Block Component Properties */}
-        {component.type === 'code-block' && (
+        {activeTab === 'content' && component.type === 'code-block' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
@@ -1438,7 +1520,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Enhanced Button Component Properties */}
-        {component.type === 'button' && (
+        {activeTab === 'content' && component.type === 'button' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Button Text</label>
@@ -1598,7 +1680,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Enhanced Heading Component Properties */}
-        {component.type === 'heading' && (
+        {activeTab === 'content' && component.type === 'heading' && (
           <div className="space-y-4">
           <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Heading Text</label>
@@ -1736,7 +1818,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Enhanced Text Component Properties */}
-        {component.type === 'text' && (
+        {activeTab === 'content' && component.type === 'text' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Text Content</label>
@@ -1881,7 +1963,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Enhanced Image Component Properties */}
-        {component.type === 'image' && (
+        {activeTab === 'content' && component.type === 'image' && (
           <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Image</label>
@@ -2121,7 +2203,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Video URL */}
-        {component.type === 'video' && (
+        {activeTab === 'content' && component.type === 'video' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Video URL</label>
             <input
@@ -2135,7 +2217,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Spacer Height */}
-        {component.type === 'spacer' && (
+        {activeTab === 'content' && component.type === 'spacer' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Height: {component.props.height || '50px'}
@@ -2152,7 +2234,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Container Columns */}
-        {component.type === 'container' && (
+        {activeTab === 'content' && component.type === 'container' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Number of Columns
@@ -2421,7 +2503,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
             </div>
           </div>
         {/* Sidebar Component Properties */}
-        {component.type === 'sidebar' && (
+        {activeTab === 'content' && component.type === 'sidebar' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
@@ -2465,7 +2547,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Shortcode Component Properties */}
-        {component.type === 'shortcode' && (
+        {activeTab === 'content' && component.type === 'shortcode' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Shortcode</label>
@@ -2494,7 +2576,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Alert Component Properties */}
-        {component.type === 'alert' && (
+        {activeTab === 'content' && component.type === 'alert' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Alert Type</label>
@@ -2542,7 +2624,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Social Icons Component Properties */}
-        {component.type === 'social-icons' && (
+        {activeTab === 'content' && component.type === 'social-icons' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label>
@@ -2615,7 +2697,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Domain Search Component Properties */}
-        {component.type === 'domain-search' && (
+        {activeTab === 'content' && component.type === 'domain-search' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Placeholder Text</label>
@@ -2736,7 +2818,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Products Grid Component Properties */}
-        {component.type === 'products-grid' && (
+        {activeTab === 'content' && component.type === 'products-grid' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>
@@ -2900,7 +2982,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Featured Products Component Properties */}
-        {component.type === 'featured-products' && (
+        {activeTab === 'content' && component.type === 'featured-products' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>
@@ -2969,7 +3051,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Showcase Component Properties */}
-        {component.type === 'showcase' && (
+        {activeTab === 'content' && component.type === 'showcase' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
@@ -3038,7 +3120,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Pricing Table Component Properties */}
-        {component.type === 'pricing-table' && (
+        {activeTab === 'content' && component.type === 'pricing-table' && (
           <div className="space-y-4">
             {/* General Settings */}
             <div className="border-b border-gray-200 pb-4">
@@ -3575,7 +3657,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Testimonials Component Properties */}
-        {component.type === 'testimonials' && (
+        {activeTab === 'content' && component.type === 'testimonials' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
@@ -3672,7 +3754,785 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* FAQ Component Properties */}
-        {component.type === 'faq' && (
+        {activeTab === 'content' && component.type === 'checkout' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+              <p className="text-xs text-blue-800 font-medium mb-1">Checkout Form Widget</p>
+              <p className="text-xs text-blue-600">Highly customizable checkout form with dynamic field management</p>
+            </div>
+            
+            {/* Dynamic Field Management - Moved to Top */}
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700">Form Fields</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {(component.props?.customFields || []).length} field{(component.props?.customFields || []).length !== 1 ? 's' : ''} configured
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newField = {
+                      id: `field_${Date.now()}`,
+                      type: 'text',
+                      label: 'New Field',
+                      name: `field_${Date.now()}`,
+                      placeholder: 'Enter value',
+                      required: false,
+                      section: 'billing',
+                      order: (component.props?.customFields || []).length + 1,
+                      gridCols: 12
+                    };
+                    const currentFields = component.props?.customFields || [];
+                    updateProp('customFields', [...currentFields, newField]);
+                  }}
+                  className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-medium"
+                >
+                  + Add Custom Field
+                </button>
+              </div>
+              
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {(component.props?.customFields || []).map((field: any, index: number) => (
+                  <div key={field.id || index} className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={field.label || ''}
+                          onChange={(e) => {
+                            const fields = [...(component.props?.customFields || [])];
+                            fields[index] = { ...fields[index], label: e.target.value };
+                            updateProp('customFields', fields);
+                          }}
+                          placeholder="Field Label"
+                          className="w-full px-2 py-1 text-sm font-medium border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fields = [...(component.props?.customFields || [])];
+                          fields.splice(index, 1);
+                          updateProp('customFields', fields);
+                        }}
+                        className="ml-2 text-red-600 hover:text-red-800"
+                        title="Remove field"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Type</label>
+                        <select
+                          value={field.type || 'text'}
+                          onChange={(e) => {
+                            const fields = [...(component.props?.customFields || [])];
+                            fields[index] = { ...fields[index], type: e.target.value };
+                            updateProp('customFields', fields);
+                          }}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="text">Text</option>
+                          <option value="email">Email</option>
+                          <option value="tel">Phone</option>
+                          <option value="number">Number</option>
+                          <option value="select">Select/Dropdown</option>
+                          <option value="textarea">Textarea</option>
+                          <option value="checkbox">Checkbox</option>
+                          <option value="radio">Radio</option>
+                          <option value="date">Date</option>
+                          <option value="file">File Upload</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Section</label>
+                        <select
+                          value={field.section || 'billing'}
+                          onChange={(e) => {
+                            const fields = [...(component.props?.customFields || [])];
+                            fields[index] = { ...fields[index], section: e.target.value };
+                            updateProp('customFields', fields);
+                          }}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="billing">Billing</option>
+                          <option value="shipping">Shipping</option>
+                          <option value="payment">Payment</option>
+                          <option value="custom">Custom</option>
+                          <option value="order">Order</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Field Name</label>
+                        <input
+                          type="text"
+                          value={field.name || ''}
+                          onChange={(e) => {
+                            const fields = [...(component.props?.customFields || [])];
+                            fields[index] = { ...fields[index], name: e.target.value };
+                            updateProp('customFields', fields);
+                          }}
+                          placeholder="fieldName"
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Order</label>
+                        <input
+                          type="number"
+                          value={field.order || index + 1}
+                          onChange={(e) => {
+                            const fields = [...(component.props?.customFields || [])];
+                            fields[index] = { ...fields[index], order: parseInt(e.target.value) || index + 1 };
+                            updateProp('customFields', fields);
+                          }}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Placeholder</label>
+                      <input
+                        type="text"
+                        value={field.placeholder || ''}
+                        onChange={(e) => {
+                          const fields = [...(component.props?.customFields || [])];
+                          fields[index] = { ...fields[index], placeholder: e.target.value };
+                          updateProp('customFields', fields);
+                        }}
+                        placeholder="Enter placeholder text"
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Help Text (Optional)</label>
+                      <input
+                        type="text"
+                        value={field.helpText || ''}
+                        onChange={(e) => {
+                          const fields = [...(component.props?.customFields || [])];
+                          fields[index] = { ...fields[index], helpText: e.target.value };
+                          updateProp('customFields', fields);
+                        }}
+                        placeholder="Helper text shown below field"
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Default Value (Optional)</label>
+                      <input
+                        type="text"
+                        value={field.defaultValue || ''}
+                        onChange={(e) => {
+                          const fields = [...(component.props?.customFields || [])];
+                          fields[index] = { ...fields[index], defaultValue: e.target.value };
+                          updateProp('customFields', fields);
+                        }}
+                        placeholder="Default value for this field"
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-600 mb-1">Grid Columns (1-12)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="12"
+                        value={field.gridCols || 12}
+                        onChange={(e) => {
+                          const fields = [...(component.props?.customFields || [])];
+                          fields[index] = { ...fields[index], gridCols: parseInt(e.target.value) || 12 };
+                          updateProp('customFields', fields);
+                        }}
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Controls field width in grid layout</p>
+                    </div>
+                    
+                    {(field.type === 'select' || field.type === 'radio') && (
+                      <div className="mb-2">
+                        <label className="block text-xs text-gray-600 mb-1">Options (one per line, format: Label|Value)</label>
+                        <textarea
+                          value={field.options ? field.options.map((opt: any) => `${opt.label}|${opt.value}`).join('\n') : ''}
+                          onChange={(e) => {
+                            const options = e.target.value.split('\n').filter(Boolean).map(line => {
+                              const [label, value] = line.split('|');
+                              return { label: label?.trim() || line.trim(), value: value?.trim() || line.trim().toLowerCase().replace(/\s+/g, '_') };
+                            });
+                            const fields = [...(component.props?.customFields || [])];
+                            fields[index] = { ...fields[index], options };
+                            updateProp('customFields', fields);
+                          }}
+                          placeholder="Option 1|value1&#10;Option 2|value2"
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                          rows={3}
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={field.required || false}
+                          onChange={(e) => {
+                            const fields = [...(component.props?.customFields || [])];
+                            fields[index] = { ...fields[index], required: e.target.checked };
+                            updateProp('customFields', fields);
+                          }}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-xs text-gray-700">Required</span>
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (index > 0) {
+                              const fields = [...(component.props?.customFields || [])];
+                              [fields[index - 1], fields[index]] = [fields[index], fields[index - 1]];
+                              updateProp('customFields', fields);
+                            }
+                          }}
+                          className="text-xs text-gray-600 hover:text-gray-800"
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const fields = [...(component.props?.customFields || [])];
+                            if (index < fields.length - 1) {
+                              [fields[index], fields[index + 1]] = [fields[index + 1], fields[index]];
+                              updateProp('customFields', fields);
+                            }
+                          }}
+                          className="text-xs text-gray-600 hover:text-gray-800"
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {(!component.props?.customFields || component.props.customFields.length === 0) && (
+                  <div className="text-center py-8 text-gray-400 text-sm">
+                    <p>No custom fields yet.</p>
+                    <p className="text-xs mt-1">Click "Add Field" to create your first field</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Layout & Display */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Layout & Display</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Layout</label>
+                  <select
+                    value={component.props?.layout || 'two-column'}
+                    onChange={(e) => updateProp('layout', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="two-column">Two Column</option>
+                    <option value="single-column">Single Column</option>
+                    <option value="split">Split View</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Width</label>
+                    <input
+                      type="text"
+                      value={component.props?.maxWidth || '1200px'}
+                      onChange={(e) => updateProp('maxWidth', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="1200px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
+                    <input
+                      type="text"
+                      value={component.props?.padding || '2rem'}
+                      onChange={(e) => updateProp('padding', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="2rem"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Border Radius</label>
+                  <input
+                    type="text"
+                    value={component.props?.borderRadius || '0.5rem'}
+                    onChange={(e) => updateProp('borderRadius', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="0.5rem"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Colors */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Colors</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                  <input
+                    type="color"
+                    value={component.props?.backgroundColor || '#ffffff'}
+                    onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                    className="w-full h-10 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+                  <input
+                    type="color"
+                    value={component.props?.textColor || '#1f2937'}
+                    onChange={(e) => updateProp('textColor', e.target.value)}
+                    className="w-full h-10 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
+                  <input
+                    type="color"
+                    value={component.props?.primaryColor || '#4f46e5'}
+                    onChange={(e) => updateProp('primaryColor', e.target.value)}
+                    className="w-full h-10 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
+                  <input
+                    type="color"
+                    value={component.props?.borderColor || '#e5e7eb'}
+                    onChange={(e) => updateProp('borderColor', e.target.value)}
+                    className="w-full h-10 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Titles & Labels */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Titles & Labels</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                  <input
+                    type="text"
+                    value={component.props?.title || 'Checkout'}
+                    onChange={(e) => updateProp('title', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
+                  <input
+                    type="text"
+                    value={component.props?.subtitle || 'Complete your purchase securely'}
+                    onChange={(e) => updateProp('subtitle', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Submit Button Text</label>
+                  <input
+                    type="text"
+                    value={component.props?.submitButtonText || 'Complete Order'}
+                    onChange={(e) => updateProp('submitButtonText', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Form Sections */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Form Sections</h3>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showOrderSummary !== false}
+                    onChange={(e) => updateProp('showOrderSummary', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Order Summary</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showBillingInfo !== false}
+                    onChange={(e) => updateProp('showBillingInfo', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Billing Information</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showShippingInfo !== false}
+                    onChange={(e) => updateProp('showShippingInfo', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Shipping Information</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showPaymentInfo !== false}
+                    onChange={(e) => updateProp('showPaymentInfo', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Payment Information</span>
+                </label>
+              </div>
+            </div>
+            
+            {/* Quick Add Preset Fields */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Quick Add Preset Fields</h3>
+              <p className="text-xs text-gray-500 mb-3">Click to add common fields to your form</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'First Name', type: 'text', name: 'firstName', section: 'billing', placeholder: 'John' },
+                  { label: 'Last Name', type: 'text', name: 'lastName', section: 'billing', placeholder: 'Doe' },
+                  { label: 'Email', type: 'email', name: 'email', section: 'billing', placeholder: 'john@example.com' },
+                  { label: 'Phone', type: 'tel', name: 'phone', section: 'billing', placeholder: '+1 (555) 123-4567' },
+                  { label: 'Company', type: 'text', name: 'company', section: 'billing', placeholder: 'Company Name' },
+                  { label: 'Address', type: 'text', name: 'address', section: 'billing', placeholder: '123 Main St' },
+                  { label: 'City', type: 'text', name: 'city', section: 'billing', placeholder: 'New York' },
+                  { label: 'State', type: 'text', name: 'state', section: 'billing', placeholder: 'NY' },
+                  { label: 'ZIP Code', type: 'text', name: 'zipCode', section: 'billing', placeholder: '10001' },
+                  { label: 'Country', type: 'select', name: 'country', section: 'billing', placeholder: 'Select Country' },
+                  { label: 'Card Number', type: 'text', name: 'cardNumber', section: 'payment', placeholder: '1234 5678 9012 3456' },
+                  { label: 'Expiry Date', type: 'text', name: 'expiryDate', section: 'payment', placeholder: 'MM/YY' },
+                  { label: 'CVV', type: 'text', name: 'cvv', section: 'payment', placeholder: '123' },
+                  { label: 'Name on Card', type: 'text', name: 'nameOnCard', section: 'payment', placeholder: 'John Doe' },
+                  { label: 'Order Notes', type: 'textarea', name: 'orderNotes', section: 'order', placeholder: 'Special instructions...' },
+                  { label: 'PO Number', type: 'text', name: 'poNumber', section: 'order', placeholder: 'PO-12345' },
+                ].map((preset) => {
+                  const existing = component.props?.customFields?.find((f: any) => f.name === preset.name);
+                  return (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        if (existing) {
+                          alert('This field already exists in your form');
+                          return;
+                        }
+                        const newField = {
+                          id: `field_${Date.now()}_${preset.name}`,
+                          type: preset.type,
+                          label: preset.label,
+                          name: preset.name,
+                          placeholder: preset.placeholder,
+                          required: ['firstName', 'lastName', 'email', 'address', 'city', 'state', 'zipCode'].includes(preset.name),
+                          section: preset.section,
+                          order: (component.props?.customFields || []).length + 1,
+                          gridCols: 12,
+                          ...(preset.type === 'select' && preset.name === 'country' ? {
+                            options: [
+                              { label: 'United States', value: 'US' },
+                              { label: 'Canada', value: 'CA' },
+                              { label: 'United Kingdom', value: 'GB' },
+                              { label: 'Australia', value: 'AU' },
+                              { label: 'Germany', value: 'DE' },
+                              { label: 'France', value: 'FR' }
+                            ]
+                          } : {})
+                        };
+                        const currentFields = component.props?.customFields || [];
+                        updateProp('customFields', [...currentFields, newField]);
+                      }}
+                      disabled={!!existing}
+                      className={`text-xs px-3 py-2 rounded border text-left transition-colors ${
+                        existing 
+                          ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' 
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300'
+                      }`}
+                      title={existing ? 'Field already added' : `Add ${preset.label} field`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Features */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Features</h3>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showProgressIndicator !== false}
+                    onChange={(e) => updateProp('showProgressIndicator', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Progress Indicator</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.autoFillUserData !== false}
+                    onChange={(e) => updateProp('autoFillUserData', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Auto-fill User Data</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showTermsCheckbox !== false}
+                    onChange={(e) => updateProp('showTermsCheckbox', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Terms Checkbox</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showNewsletterCheckbox || false}
+                    onChange={(e) => updateProp('showNewsletterCheckbox', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Newsletter Checkbox</span>
+                </label>
+              </div>
+            </div>
+            
+            {/* Payment Methods */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Payment Methods</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Available Payment Methods</label>
+                  <div className="space-y-2">
+                    {['stripe', 'paypal', 'manual', 'bank_transfer', 'crypto', 'apple_pay', 'google_pay'].map((method) => (
+                      <label key={method} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={component.props?.paymentMethods?.includes(method) || (method === 'stripe' && !component.props?.paymentMethods)}
+                          onChange={(e) => {
+                            const current = component.props?.paymentMethods || ['stripe'];
+                            const updated = e.target.checked
+                              ? [...current, method]
+                              : current.filter((m: string) => m !== method);
+                            updateProp('paymentMethods', updated.length > 0 ? updated : ['stripe']);
+                          }}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700 capitalize">{method.replace('_', ' ')}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Default Payment Method</label>
+                  <select
+                    value={component.props?.defaultPaymentMethod || 'stripe'}
+                    onChange={(e) => updateProp('defaultPaymentMethod', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    {(component.props?.paymentMethods || ['stripe']).map((method: string) => (
+                      <option key={method} value={method}>{method.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            {/* Coupon Code Settings */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Coupon Code</h3>
+              <div className="space-y-3">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showCouponCode || false}
+                    onChange={(e) => updateProp('showCouponCode', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Enable Coupon Code</span>
+                </label>
+                {component.props?.showCouponCode && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Coupon Code Label</label>
+                      <input
+                        type="text"
+                        value={component.props?.couponCodeLabel || 'Coupon Code'}
+                        onChange={(e) => updateProp('couponCodeLabel', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Coupon Code Placeholder</label>
+                      <input
+                        type="text"
+                        value={component.props?.couponCodePlaceholder || 'Enter coupon code'}
+                        onChange={(e) => updateProp('couponCodePlaceholder', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Apply Button Text</label>
+                      <input
+                        type="text"
+                        value={component.props?.couponApplyButtonText || 'Apply'}
+                        onChange={(e) => updateProp('couponApplyButtonText', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {/* Advanced Features */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Advanced Features</h3>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.allowGuestCheckout || false}
+                    onChange={(e) => updateProp('allowGuestCheckout', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Allow Guest Checkout</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.saveBillingInfo || false}
+                    onChange={(e) => updateProp('saveBillingInfo', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Save Billing Info for Future</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showOrderNotes || false}
+                    onChange={(e) => updateProp('showOrderNotes', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Order Notes/Comments</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showGiftOptions || false}
+                    onChange={(e) => updateProp('showGiftOptions', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Gift Options</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showShippingOptions || false}
+                    onChange={(e) => updateProp('showShippingOptions', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Shipping Options</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showRecurringOptions || false}
+                    onChange={(e) => updateProp('showRecurringOptions', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Recurring Billing Options</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showOrderScheduling || false}
+                    onChange={(e) => updateProp('showOrderScheduling', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Order Scheduling (Future Date)</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showTaxExempt || false}
+                    onChange={(e) => updateProp('showTaxExempt', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show Tax Exempt Option</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showPONumber || false}
+                    onChange={(e) => updateProp('showPONumber', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show PO Number Field</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showMultipleAddresses || false}
+                    onChange={(e) => updateProp('showMultipleAddresses', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Allow Multiple Shipping Addresses</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={component.props?.showVATNumber || false}
+                    onChange={(e) => updateProp('showVATNumber', e.target.checked)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Show VAT Number Field</span>
+                </label>
+              </div>
+            </div>
+            
+            {/* Custom CSS */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Custom CSS</h3>
+              <textarea
+                value={component.props?.customCSS || ''}
+                onChange={(e) => updateProp('customCSS', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                rows={4}
+                placeholder="/* Add custom CSS here */"
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'content' && component.type === 'faq' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
@@ -3777,8 +4637,202 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
             </div>
           </div>
         )}
-        </div>
+
+        {/* Style Tab - General styling for all components */}
+        {activeTab === 'style' && component.type !== 'header' && (
+          <div className="space-y-4">
+            <Accordion title="Colors" defaultOpen={true}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                  <input
+                    type="color"
+                    value={component.style?.backgroundColor || component.props?.backgroundColor || '#ffffff'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('backgroundColor', e.target.value);
+                      } else {
+                        updateProp('backgroundColor', e.target.value);
+                      }
+                    }}
+                    className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+                  <input
+                    type="color"
+                    value={component.style?.color || component.props?.textColor || '#000000'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('color', e.target.value);
+                      } else {
+                        updateProp('textColor', e.target.value);
+                      }
+                    }}
+                    className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+            </Accordion>
+            <Accordion title="Spacing">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
+                    <input
+                      type="text"
+                      value={component.style?.padding || ''}
+                      onChange={(e) => updateStyle('padding', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Margin</label>
+                    <input
+                      type="text"
+                      value={component.style?.margin || ''}
+                      onChange={(e) => updateStyle('margin', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Accordion>
+            <Accordion title="Typography">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
+                  <input
+                    type="text"
+                    value={component.style?.fontSize || ''}
+                    onChange={(e) => updateStyle('fontSize', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="16px"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
+                  <select
+                    value={component.style?.fontWeight || 'normal'}
+                    onChange={(e) => updateStyle('fontWeight', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="bold">Bold</option>
+                    <option value="300">Light</option>
+                    <option value="500">Medium</option>
+                    <option value="600">Semi Bold</option>
+                    <option value="700">Bold</option>
+                  </select>
+                </div>
+              </div>
+            </Accordion>
+            <Accordion title="Layout">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
+                  <input
+                    type="text"
+                    value={component.style?.width || ''}
+                    onChange={(e) => updateStyle('width', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="100%"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Height</label>
+                  <input
+                    type="text"
+                    value={component.style?.height || ''}
+                    onChange={(e) => updateStyle('height', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="auto"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Display</label>
+                  <select
+                    value={component.style?.display || 'block'}
+                    onChange={(e) => updateStyle('display', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="block">Block</option>
+                    <option value="inline">Inline</option>
+                    <option value="inline-block">Inline Block</option>
+                    <option value="flex">Flex</option>
+                    <option value="grid">Grid</option>
+                  </select>
+                </div>
+              </div>
+            </Accordion>
+          </div>
+        )}
+
+        {/* Motion Tab - Animations and transitions */}
+        {activeTab === 'motion' && component.type !== 'header' && (
+          <div className="space-y-4">
+            <Accordion title="Animation" defaultOpen={true}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Animation Type</label>
+                  <select
+                    value={component.props?.animation || 'none'}
+                    onChange={(e) => updateProp('animation', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="none">None</option>
+                    <option value="fade">Fade</option>
+                    <option value="slide">Slide</option>
+                    <option value="zoom">Zoom</option>
+                    <option value="bounce">Bounce</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Duration (ms)</label>
+                  <input
+                    type="number"
+                    value={component.props?.animationDuration || 300}
+                    onChange={(e) => updateProp('animationDuration', parseInt(e.target.value) || 300)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    min="0"
+                    step="50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Delay (ms)</label>
+                  <input
+                    type="number"
+                    value={component.props?.animationDelay || 0}
+                    onChange={(e) => updateProp('animationDelay', parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    min="0"
+                    step="50"
+                  />
+                </div>
+              </div>
+            </Accordion>
+            <Accordion title="Transitions">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Transition Property</label>
+                  <input
+                    type="text"
+                    value={component.style?.transition || ''}
+                    onChange={(e) => updateStyle('transition', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="all 0.3s ease"
+                  />
+                </div>
+              </div>
+            </Accordion>
+          </div>
+        )}
+
       </div>
+    </div>
     </div>
   );
 }

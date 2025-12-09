@@ -21,7 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { api, plansAPI, adminAPI } from '@/lib/api';
 import { EditLicenseModal, EditSubscriptionModal } from '@/components/customers/EditModals';
-import { exportToExcel, exportToCSV, handleFileImport } from '@/lib/excel-utils';
+import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
 
 interface CustomerStats {
   total_customers: number;
@@ -248,7 +248,7 @@ export default function CustomersPage() {
   };
 
   // Export/Import handlers
-  const handleExportExcel = () => {
+  const handleExport = () => {
     if (customers.length === 0) {
       alert('No customers to export');
       return;
@@ -274,34 +274,6 @@ export default function CustomersPage() {
     }));
     
     exportToExcel(exportData, `customers_export_${new Date().toISOString().split('T')[0]}`, 'Customers');
-  };
-
-  const handleExportCSV = () => {
-    if (customers.length === 0) {
-      alert('No customers to export');
-      return;
-    }
-    
-    const exportData = customers.map(customer => ({
-      'Customer ID': customer.id,
-      'Email': customer.email,
-      'Full Name': customer.full_name || '',
-      'Company Name': customer.company_name || '',
-      'Is Active': customer.is_active ? 'Yes' : 'No',
-      'Is Admin': customer.is_admin ? 'Yes' : 'No',
-      'Total Licenses': customer.total_licenses || 0,
-      'Active Licenses': customer.active_licenses || 0,
-      'Total Subscriptions': customer.total_subscriptions || 0,
-      'Active Subscriptions': customer.active_subscriptions || 0,
-      'Total Domains': customer.total_domains || 0,
-      'Total Payments': customer.total_payments || 0,
-      'Total Invoices': customer.total_invoices || 0,
-      'Outstanding Invoices': customer.outstanding_invoices || 0,
-      'Last Payment Date': customer.last_payment_date ? formatDate(customer.last_payment_date) : 'N/A',
-      'Created At': formatDate(customer.created_at),
-    }));
-    
-    exportToCSV(exportData, `customers_export_${new Date().toISOString().split('T')[0]}`);
   };
 
   const handleImportClick = () => {
@@ -395,20 +367,12 @@ export default function CustomersPage() {
           )}
           <div className="flex items-center gap-2 border-r border-gray-300 dark:border-gray-600 pr-2">
             <button
-              onClick={handleExportExcel}
+              onClick={handleExport}
               className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               title="Export to Excel"
             >
               <Download className="w-4 h-4" />
-              Excel
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              title="Export to CSV"
-            >
-              <Download className="w-4 h-4" />
-              CSV
+              Export
             </button>
             <button
               onClick={handleImportClick}
