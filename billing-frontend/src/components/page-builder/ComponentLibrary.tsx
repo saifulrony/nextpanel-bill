@@ -23,8 +23,6 @@ import {
   ArrowDownTrayIcon,
   StarIcon,
   XMarkIcon,
-  PencilIcon,
-  TrashIcon,
   CurrencyDollarIcon,
   ChatBubbleLeftRightIcon,
   QuestionMarkCircleIcon,
@@ -103,44 +101,6 @@ function DraggableComponentItem({
       style={style}
       className="relative group"
     >
-      {/* Control Bar - Top Middle */}
-      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-10 flex items-center gap-1 bg-gray-800 dark:bg-gray-700 rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-        <div
-          className="p-1 text-white rounded"
-          title="Drag to add to canvas"
-        >
-          <Bars3Icon className="h-4 w-4" />
-        </div>
-        {onEditComponent && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onEditComponent(component.type);
-            }}
-            className="p-1 text-white hover:bg-gray-700 rounded"
-            title="Edit component"
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
-        )}
-        {onDeleteComponent && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              if (confirm(`Are you sure you want to delete "${component.label}"?`)) {
-                onDeleteComponent(component.type);
-              }
-            }}
-            className="p-1 text-red-400 hover:bg-red-600 rounded"
-            title="Delete component"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
       {/* Component Button - Draggable Only */}
       <div
         {...listeners}

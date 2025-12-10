@@ -8,6 +8,7 @@ interface PropertiesPanelProps {
   component: Component | null;
   onUpdate: (component: Component) => void;
   onClose: () => void;
+  maxCanvasWidth?: number; // Maximum canvas width in pixels
 }
 
 // Accordion Component
@@ -61,7 +62,7 @@ function Accordion({ title, children, defaultOpen = false, isOpen: controlledIsO
   );
 }
 
-export default function PropertiesPanel({ component, onUpdate, onClose }: PropertiesPanelProps) {
+export default function PropertiesPanel({ component, onUpdate, onClose, maxCanvasWidth }: PropertiesPanelProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'motion'>('content');
   const [highlightedFieldId, setHighlightedFieldId] = useState<string | null>(null);
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
@@ -69,6 +70,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
   const [draggedFieldId, setDraggedFieldId] = useState<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [localCustomFields, setLocalCustomFields] = useState<any[]>([]);
+  const [widthWarning, setWidthWarning] = useState<string | null>(null);
 
   // Remove highlight after 3 seconds
   React.useEffect(() => {
@@ -307,11 +309,63 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
   };
 
   const updateStyle = (key: string, value: string) => {
+    let finalValue = value;
+    let warning: string | null = null;
+    
+    // Validate and limit width to canvas width
+    if (key === 'width' && maxCanvasWidth && value) {
+      // Parse pixel values (e.g., "1500px" -> 1500)
+      const pixelMatch = value.match(/(\d+\.?\d*)px/);
+      if (pixelMatch) {
+        const pixelValue = parseFloat(pixelMatch[1]);
+        // Check if widget has left positioning that would cause overflow
+        const currentLeft = parseFloat(String(component?.style?.left || '0'));
+        const maxAllowedWidth = maxCanvasWidth - currentLeft;
+        
+        if (pixelValue > maxAllowedWidth) {
+          finalValue = `${Math.max(100, maxAllowedWidth)}px`;
+          warning = `Width limited to ${Math.max(100, maxAllowedWidth)}px to fit within canvas`;
+        } else if (pixelValue > maxCanvasWidth) {
+          finalValue = `${maxCanvasWidth}px`;
+          warning = `Width limited to ${maxCanvasWidth}px (canvas width)`;
+        }
+      }
+      // For percentage values, ensure they don't exceed 100%
+      const percentMatch = value.match(/(\d+\.?\d*)%/);
+      if (percentMatch) {
+        const percentValue = parseFloat(percentMatch[1]);
+        if (percentValue > 100) {
+          finalValue = '100%';
+          warning = 'Width limited to 100%';
+        }
+      }
+    }
+    
+    // Also validate left positioning to prevent overflow
+    if (key === 'left' && maxCanvasWidth && component) {
+      const leftMatch = value.match(/(\d+\.?\d*)px/);
+      if (leftMatch) {
+        const leftValue = parseFloat(leftMatch[1]);
+        const currentWidth = parseFloat(String(component.style?.width || '0').replace('px', '')) || 0;
+        if (leftValue + currentWidth > maxCanvasWidth) {
+          const maxLeft = Math.max(0, maxCanvasWidth - currentWidth);
+          finalValue = `${maxLeft}px`;
+          warning = `Position adjusted to prevent overflow`;
+        }
+      }
+    }
+    
+    // Show warning if width was limited
+    if (warning) {
+      setWidthWarning(warning);
+      setTimeout(() => setWidthWarning(null), 3000);
+    }
+    
     onUpdate({
       ...component,
       style: {
         ...component.style,
-        [key]: value,
+        [key]: finalValue,
       },
     });
   };
@@ -3433,7 +3487,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
             <Accordion title="Layout">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Width
+                    {maxCanvasWidth && (
+                      <span className="text-xs text-gray-500 ml-2">(max: {maxCanvasWidth}px)</span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     value={component.style?.width || ''}
@@ -3441,6 +3500,9 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     placeholder="100%"
                   />
+                  {widthWarning && (
+                    <p className="text-xs text-amber-600 mt-1">{widthWarning}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Height</label>

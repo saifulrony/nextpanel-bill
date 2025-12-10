@@ -120,6 +120,7 @@ const SortableComponent = React.memo(function SortableComponent({
   onContextMenu,
   onUpdate,
   onDelete,
+  maxCanvasWidth,
 }: {
   component: Component;
   isSelected: boolean;
@@ -135,6 +136,7 @@ const SortableComponent = React.memo(function SortableComponent({
   onContextMenu?: (e: React.MouseEvent, componentId: string) => void;
   onUpdate?: (component: Component) => void;
   onDelete?: (componentId: string) => void;
+  maxCanvasWidth?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: component.id,
@@ -144,17 +146,21 @@ const SortableComponent = React.memo(function SortableComponent({
     id: `component-${component.id}`,
   });
 
-  // Only apply transition when actually dragging (transform is active)
-  // This prevents the "transition: transform linear" from causing blinking on hover
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    // Only apply transition when there's an actual transform (dragging is happening)
-    // This prevents unwanted transitions during hover states
-    transition: transform ? transition : undefined,
-  };
-
   // Resize functionality
   const [isResizing, setIsResizing] = useState(false);
+
+  // Only apply transition when actually dragging (transform is active)
+  // This prevents the "transition: transform linear" from causing blinking on hover
+  // Don't apply drag transform during resize - widget should stay at full size
+  // Disable transition when transform is being reset to prevent blinking on release
+  const transformString = CSS.Transform.toString(transform);
+  const hasTransform = transform && transformString && transformString !== 'translate(0, 0)';
+  const style = {
+    transform: isResizing ? undefined : transformString,
+    // Only apply transition when actually dragging (transform is active) and not resizing
+    // Disable transition when transform is reset to prevent blinking on release
+    transition: (hasTransform && !isResizing) ? transition : 'none',
+  };
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [resizeTransform, setResizeTransform] = useState({ x: 0, y: 0 });
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -254,6 +260,10 @@ const SortableComponent = React.memo(function SortableComponent({
         const widthMatch = widthStr.match(/(\d+\.?\d*)px/);
         if (widthMatch) {
           initialWidth = parseFloat(widthMatch[1]);
+          // Ensure initial width doesn't exceed maxCanvasWidth
+          if (maxCanvasWidth && initialWidth > maxCanvasWidth) {
+            initialWidth = maxCanvasWidth;
+          }
         }
       }
       
@@ -366,30 +376,68 @@ const SortableComponent = React.memo(function SortableComponent({
 
       // Use pure delta-based calculations for accuracy
       // This directly adds/subtracts mouse movement to initial dimensions
+      const minWidth = 100;
+      const maxWidth = maxCanvasWidth || Infinity;
+      
       if (resizeHandle === 'top-left') {
         // Moving left (negative deltaX) increases width, moving right decreases it
         // Moving up (negative deltaY) increases height, moving down decreases it
-        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width - deltaX));
         newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
         transformX = resizeStartPos.current.width - newWidth;
         transformY = resizeStartPos.current.height - newHeight;
       } else if (resizeHandle === 'top-right') {
         // Moving right (positive deltaX) increases width
         // Moving up (negative deltaY) increases height
-        newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width + deltaX));
         newHeight = Math.max(50, resizeStartPos.current.height - deltaY);
         transformY = resizeStartPos.current.height - newHeight;
+        
+        // Constrain width to prevent dragging outside right boundary
+        if (maxCanvasWidth) {
+          const currentLeft = resizeStartPos.current.initialLeft;
+          if (currentLeft + newWidth > maxCanvasWidth) {
+            newWidth = Math.max(minWidth, maxCanvasWidth - currentLeft);
+          }
+        }
       } else if (resizeHandle === 'bottom-left') {
         // Moving left (negative deltaX) increases width
         // Moving down (positive deltaY) increases height
-        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width - deltaX));
         newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
         transformX = resizeStartPos.current.width - newWidth;
+        
+        // Constrain transformX to prevent dragging outside left boundary
+        if (maxCanvasWidth) {
+          const newLeft = resizeStartPos.current.initialLeft + transformX;
+          if (newLeft < 0) {
+            // If dragging would go negative, set to 0 (remove left property)
+            transformX = -resizeStartPos.current.initialLeft;
+            newWidth = resizeStartPos.current.width - transformX;
+          }
+          // Also check right boundary - prefer setting left to 0
+          if (newLeft + newWidth > maxCanvasWidth) {
+            // Always prefer left: 0, so adjust width instead
+            const maxAllowedWidth = maxCanvasWidth;
+            if (maxAllowedWidth < newWidth) {
+              newWidth = Math.max(minWidth, maxAllowedWidth);
+              transformX = resizeStartPos.current.width - newWidth;
+            }
+          }
+        }
       } else if (resizeHandle === 'bottom-right') {
         // Moving right (positive deltaX) increases width
         // Moving down (positive deltaY) increases height
-        newWidth = Math.max(100, resizeStartPos.current.width + deltaX);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width + deltaX));
         newHeight = Math.max(50, resizeStartPos.current.height + deltaY);
+        
+        // Constrain width to prevent dragging outside right boundary
+        if (maxCanvasWidth) {
+          const currentLeft = resizeStartPos.current.initialLeft;
+          if (currentLeft + newWidth > maxCanvasWidth) {
+            newWidth = Math.max(minWidth, maxCanvasWidth - currentLeft);
+          }
+        }
         // No transform needed for bottom-right
       } else if (resizeHandle === 'top') {
         // Top edge: moving up (negative deltaY) increases height
@@ -401,12 +449,31 @@ const SortableComponent = React.memo(function SortableComponent({
         // No transform needed for bottom
       } else if (resizeHandle === 'left') {
         // Left edge: moving left (negative deltaX) increases width
-        newWidth = Math.max(100, resizeStartPos.current.width - deltaX);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width - deltaX));
         transformX = resizeStartPos.current.width - newWidth;
+        
+        // Constrain transformX to prevent dragging outside left boundary
+        if (maxCanvasWidth) {
+          const newLeft = resizeStartPos.current.initialLeft + transformX;
+          if (newLeft < 0) {
+            // If dragging would go negative, set to 0 (remove left property)
+            transformX = -resizeStartPos.current.initialLeft;
+            newWidth = resizeStartPos.current.width - transformX;
+          }
+          // Also check right boundary - prefer setting left to 0
+          if (newLeft + newWidth > maxCanvasWidth) {
+            // Always prefer left: 0, so adjust width instead
+            const maxAllowedWidth = maxCanvasWidth;
+            if (maxAllowedWidth < newWidth) {
+              newWidth = Math.max(minWidth, maxAllowedWidth);
+              transformX = resizeStartPos.current.width - newWidth;
+            }
+          }
+        }
       } else if (resizeHandle === 'right') {
         // Right edge: calculate width based on distance from initial right edge
         const widthChange = currentMouseX - resizeStartPos.current.initialRightEdgeX;
-        newWidth = Math.max(100, resizeStartPos.current.width + widthChange);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width + widthChange));
         // No transform needed for right edge - only width changes
       }
 
@@ -463,22 +530,24 @@ const SortableComponent = React.memo(function SortableComponent({
         // Recalculate dimensions one final time using delta-based calculation
         const finalDeltaX = currentMouseX - resizeStartPos.current.x;
         const finalDeltaY = currentMouseY - resizeStartPos.current.y;
+        const minWidth = 100;
+        const maxWidth = maxCanvasWidth || Infinity;
         
         if (resizeHandle === 'top-left') {
-          finalWidth = Math.max(100, resizeStartPos.current.width - finalDeltaX);
+          finalWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width - finalDeltaX));
           finalHeight = Math.max(50, resizeStartPos.current.height - finalDeltaY);
           finalTransformX = resizeStartPos.current.width - finalWidth;
           finalTransformY = resizeStartPos.current.height - finalHeight;
         } else if (resizeHandle === 'top-right') {
-          finalWidth = Math.max(100, resizeStartPos.current.width + finalDeltaX);
+          finalWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width + finalDeltaX));
           finalHeight = Math.max(50, resizeStartPos.current.height - finalDeltaY);
           finalTransformY = resizeStartPos.current.height - finalHeight;
         } else if (resizeHandle === 'bottom-left') {
-          finalWidth = Math.max(100, resizeStartPos.current.width - finalDeltaX);
+          finalWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width - finalDeltaX));
           finalHeight = Math.max(50, resizeStartPos.current.height + finalDeltaY);
           finalTransformX = resizeStartPos.current.width - finalWidth;
         } else if (resizeHandle === 'bottom-right') {
-          finalWidth = Math.max(100, resizeStartPos.current.width + finalDeltaX);
+          finalWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width + finalDeltaX));
           finalHeight = Math.max(50, resizeStartPos.current.height + finalDeltaY);
         } else if (resizeHandle === 'top') {
           finalHeight = Math.max(50, resizeStartPos.current.height - finalDeltaY);
@@ -486,10 +555,10 @@ const SortableComponent = React.memo(function SortableComponent({
         } else if (resizeHandle === 'bottom') {
           finalHeight = Math.max(50, resizeStartPos.current.height + finalDeltaY);
         } else if (resizeHandle === 'left') {
-          finalWidth = Math.max(100, resizeStartPos.current.width - finalDeltaX);
+          finalWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width - finalDeltaX));
           finalTransformX = resizeStartPos.current.width - finalWidth;
         } else if (resizeHandle === 'right') {
-          finalWidth = Math.max(100, resizeStartPos.current.width + finalDeltaX);
+          finalWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartPos.current.width + finalDeltaX));
         }
       }
       
@@ -499,19 +568,56 @@ const SortableComponent = React.memo(function SortableComponent({
       
       // Convert transform to left/top on mouse up
       if (componentRef.current && (finalTransformX !== 0 || finalTransformY !== 0)) {
-        const finalLeft = resizeStartPos.current.initialLeft + finalTransformX;
+        let finalLeft = resizeStartPos.current.initialLeft + finalTransformX;
         const finalTop = resizeStartPos.current.initialTop + finalTransformY;
+        
+        // Ensure final width doesn't exceed maxCanvasWidth
+        let cappedWidth = maxCanvasWidth ? Math.min(finalWidth, maxCanvasWidth) : finalWidth;
+        
+        // Ensure widget doesn't overflow: left + width should not exceed canvas width
+        if (maxCanvasWidth) {
+          // Prevent negative left position (dragging outside left boundary)
+          finalLeft = Math.max(0, finalLeft);
+          
+          // Always prefer removing left (setting to 0) when possible
+          // If the component can fit at left: 0, always remove the left property
+          if (cappedWidth <= maxCanvasWidth) {
+            finalLeft = 0; // Remove left property
+          } else if (finalLeft + cappedWidth > maxCanvasWidth) {
+            // If it can't fit at left: 0, adjust width to fit at left: 0
+            finalLeft = 0;
+            cappedWidth = Math.max(100, maxCanvasWidth);
+          }
+        }
         
         const updatedStyle: React.CSSProperties = {
           ...component.style,
-          width: `${finalWidth}px`,
+          width: `${cappedWidth}px`,
           height: `${finalHeight}px`,
           position: 'relative',
-          left: `${finalLeft}px`,
-          top: `${finalTop}px`,
           transform: 'none',
           boxSizing: 'border-box', // Ensure width/height includes borders to match getBoundingClientRect()
         };
+        
+        // Always remove left when it's 0 (prefer no left property over left: 0px)
+        if (finalLeft === 0) {
+          // Remove left property entirely (defaults to 0)
+          const { left, ...restStyle } = updatedStyle;
+          Object.assign(updatedStyle, restStyle);
+        } else {
+          // Only set left if it's actually non-zero
+          updatedStyle.left = `${finalLeft}px`;
+        }
+        
+        // Always remove top when it's 0
+        if (finalTop === 0) {
+          // Remove top property entirely (defaults to 0)
+          const { top, ...restStyle } = updatedStyle;
+          Object.assign(updatedStyle, restStyle);
+        } else {
+          // Only set top if it's actually non-zero
+          updatedStyle.top = `${finalTop}px`;
+        }
 
         onUpdate({
           ...component,
@@ -519,9 +625,12 @@ const SortableComponent = React.memo(function SortableComponent({
         });
       } else if (finalWidth !== resizeStartPos.current.width || finalHeight !== resizeStartPos.current.height) {
         // If dimensions changed but no transform, just update dimensions
+        // Ensure final width doesn't exceed maxCanvasWidth
+        const cappedWidth = maxCanvasWidth ? Math.min(finalWidth, maxCanvasWidth) : finalWidth;
+        
         const updatedStyle: React.CSSProperties = {
           ...component.style,
-          width: `${finalWidth}px`,
+          width: `${cappedWidth}px`,
           height: `${finalHeight}px`,
           boxSizing: 'border-box', // Ensure width/height includes borders to match getBoundingClientRect()
         };
@@ -943,15 +1052,61 @@ export function PageBuilderWithISR({
     y: number;
     componentId: string;
   } | null>(null);
+  // Calculate responsive sidebar widths based on screen size
+  const calculateResponsiveSidebarWidth = useCallback((baseWidth: number, isLeft: boolean) => {
+    if (typeof window === 'undefined') return baseWidth;
+    
+    const screenWidth = window.innerWidth;
+    const minWidth = isLeft ? 200 : 250; // Minimum widths
+    const maxWidth = isLeft ? 350 : 400; // Maximum widths
+    
+    // On very large screens (>1920px), reduce sidebar width to give more canvas space
+    if (screenWidth > 1920) {
+      return Math.max(minWidth, Math.min(maxWidth, baseWidth * 0.7));
+    }
+    // On large screens (1440-1920px), slightly reduce
+    if (screenWidth > 1440) {
+      return Math.max(minWidth, Math.min(maxWidth, baseWidth * 0.85));
+    }
+    // On medium screens (1024-1440px), use base width
+    if (screenWidth > 1024) {
+      return Math.max(minWidth, Math.min(maxWidth, baseWidth));
+    }
+    // On smaller screens, use minimum width
+    return minWidth;
+  }, []);
+
+  // Helper function for initial sidebar width calculation (not using useCallback here for initialization)
+  const getInitialSidebarWidth = (baseWidth: number, isLeft: boolean) => {
+    if (typeof window === 'undefined') return baseWidth;
+    
+    const screenWidth = window.innerWidth;
+    const minWidth = isLeft ? 200 : 250;
+    const maxWidth = isLeft ? 350 : 400;
+    
+    if (screenWidth > 1920) {
+      return Math.max(minWidth, Math.min(maxWidth, baseWidth * 0.7));
+    }
+    if (screenWidth > 1440) {
+      return Math.max(minWidth, Math.min(maxWidth, baseWidth * 0.85));
+    }
+    if (screenWidth > 1024) {
+      return Math.max(minWidth, Math.min(maxWidth, baseWidth));
+    }
+    return minWidth;
+  };
+
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(() => {
     if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('pageBuilderLeftSidebarWidth') || '280');
+      const stored = parseInt(localStorage.getItem('pageBuilderLeftSidebarWidth') || '280');
+      return getInitialSidebarWidth(stored, true);
     }
     return 280;
   });
   const [rightSidebarWidth, setRightSidebarWidth] = useState(() => {
     if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('pageBuilderRightSidebarWidth') || '320');
+      const stored = parseInt(localStorage.getItem('pageBuilderRightSidebarWidth') || '320');
+      return getInitialSidebarWidth(stored, false);
     }
     return 320;
   });
@@ -959,13 +1114,20 @@ export function PageBuilderWithISR({
   const [isDraggingRight, setIsDraggingRight] = useState(false);
   const [canvasZoom, setCanvasZoom] = useState(() => {
     if (typeof window !== 'undefined') {
-      return parseFloat(localStorage.getItem('pageBuilderCanvasZoom') || '0.6');
+      const stored = parseFloat(localStorage.getItem('pageBuilderCanvasZoom') || '0.9');
+      return Math.min(1.0, Math.max(0.3, stored)); // Cap between 30% and 100%
     }
-    return 0.6;
+    return 0.9;
   });
   const [autoZoom, setAutoZoom] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('pageBuilderAutoZoom') !== 'false';
+      const stored = localStorage.getItem('pageBuilderAutoZoom');
+      // Default to true for all users (auto zoom enabled by default)
+      if (stored === null) {
+        localStorage.setItem('pageBuilderAutoZoom', 'true');
+        return true;
+      }
+      return stored !== 'false';
     }
     return true;
   });
@@ -3234,22 +3396,31 @@ export function PageBuilderWithISR({
     };
   }, [isDraggingLeft, isDraggingRight]);
 
+  // Calculate the actual canvas content width (for widget width limits)
+  // Account for padding and borders to prevent overflow
+  const getCanvasContentWidth = useCallback(() => {
+    let baseWidth: number;
+    if (useCustomDimensions) {
+      baseWidth = customWidth;
+    } else {
+      if (deviceView === 'tablet') baseWidth = 768;
+      else if (deviceView === 'mobile') baseWidth = 375;
+      else baseWidth = 1200; // Default desktop width
+    }
+    // Subtract a small margin (2px) to account for borders/padding and prevent overflow
+    return Math.max(100, baseWidth - 2);
+  }, [useCustomDimensions, customWidth, deviceView]);
+
   // Calculate optimal zoom level to fit content - memoized to prevent infinite loops
   const calculateOptimalZoom = useCallback(() => {
-    if (!canvasRef) return 0.6;
+    if (!canvasRef) return 0.9;
     
     const canvasRect = canvasRef.getBoundingClientRect();
     const availableWidth = canvasRect.width - 16; // Account for padding
     const availableHeight = canvasRect.height - 16; // Account for padding
     
     // Calculate content dimensions based on device view or custom dimensions
-    let contentWidth = 1200; // Default desktop width
-    if (useCustomDimensions) {
-      contentWidth = customWidth;
-    } else {
-      if (deviceView === 'tablet') contentWidth = 768;
-      if (deviceView === 'mobile') contentWidth = 375;
-    }
+    const contentWidth = getCanvasContentWidth();
     
     // Estimate content height based on components
     const baseHeight = 400; // Minimum height
@@ -3260,12 +3431,12 @@ export function PageBuilderWithISR({
     const widthZoom = availableWidth / contentWidth;
     const heightZoom = availableHeight / contentHeight;
     
-    // Use the smaller zoom to ensure everything fits, with some margin
-    const margin = 0.9; // 10% margin
-    const optimalZoom = Math.min(widthZoom * margin, heightZoom * margin, 1.2); // Max 120%
+    // Use the smaller zoom to ensure everything fits, with minimal margin for better visibility
+    const margin = 0.95; // 5% margin (reduced from 10% for larger display)
+    const optimalZoom = Math.min(widthZoom * margin, heightZoom * margin, 1.0); // Max 100% (prevents canvas from going under sidebars)
     
-    return Math.max(0.2, optimalZoom); // Min 20%
-  }, [canvasRef, useCustomDimensions, customWidth, deviceView, components.length]);
+    return Math.max(0.5, optimalZoom); // Min 50% (increased from 20% for better visibility)
+  }, [canvasRef, getCanvasContentWidth, components.length]);
 
   // Auto-zoom effect
   React.useEffect(() => {
@@ -3309,10 +3480,18 @@ export function PageBuilderWithISR({
     };
   }, [canvasRef, autoZoom, calculateOptimalZoom]);
 
+  // Cap zoom at 100% to prevent canvas from going under sidebars
+  React.useEffect(() => {
+    if (canvasZoom > 1.0) {
+      setCanvasZoom(1.0);
+    }
+  }, [canvasZoom]);
+
   // Save zoom level to localStorage
   React.useEffect(() => {
     if (!autoZoom) {
-      localStorage.setItem('pageBuilderCanvasZoom', canvasZoom.toString());
+      const cappedZoom = Math.min(1.0, canvasZoom); // Ensure never above 100%
+      localStorage.setItem('pageBuilderCanvasZoom', cappedZoom.toString());
     }
   }, [canvasZoom, autoZoom]);
 
@@ -3333,6 +3512,170 @@ export function PageBuilderWithISR({
   React.useEffect(() => {
     localStorage.setItem('pageBuilderUseCustomDimensions', useCustomDimensions.toString());
   }, [useCustomDimensions]);
+
+  // Responsive sidebar width adjustment on window resize
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleResize = () => {
+      const storedLeft = parseInt(localStorage.getItem('pageBuilderLeftSidebarWidth') || '280');
+      const storedRight = parseInt(localStorage.getItem('pageBuilderRightSidebarWidth') || '320');
+      
+      const newLeftWidth = calculateResponsiveSidebarWidth(storedLeft, true);
+      const newRightWidth = calculateResponsiveSidebarWidth(storedRight, false);
+      
+      setLeftSidebarWidth(newLeftWidth);
+      setRightSidebarWidth(newRightWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    // Initial adjustment
+    handleResize();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [calculateResponsiveSidebarWidth]);
+
+  // Ensure canvas is always visible - adjust sidebar widths if canvas is too narrow (manual zoom mode)
+  React.useEffect(() => {
+    if (autoZoom || !canvasRef) return;
+
+    const checkCanvasVisibility = () => {
+      const canvasRect = canvasRef.getBoundingClientRect();
+      const availableWidth = canvasRect.width;
+      const minCanvasWidth = 400; // Minimum canvas width to be visible
+      
+      // If canvas is too narrow, adjust sidebar widths
+      if (availableWidth < minCanvasWidth) {
+        const screenWidth = window.innerWidth;
+        const totalSidebarWidth = leftSidebarWidth + rightSidebarWidth + 2; // +2 for resize handles
+        const neededWidth = minCanvasWidth + totalSidebarWidth;
+        
+        if (screenWidth < neededWidth) {
+          // Reduce sidebars proportionally
+          const reductionFactor = (screenWidth - minCanvasWidth - 2) / totalSidebarWidth;
+          const newLeft = Math.max(200, leftSidebarWidth * reductionFactor);
+          const newRight = Math.max(250, rightSidebarWidth * reductionFactor);
+          
+          setLeftSidebarWidth(newLeft);
+          setRightSidebarWidth(newRight);
+        }
+      }
+    };
+
+    checkCanvasVisibility();
+    const resizeObserver = new ResizeObserver(checkCanvasVisibility);
+    if (canvasRef) {
+      resizeObserver.observe(canvasRef);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [autoZoom, canvasRef, leftSidebarWidth, rightSidebarWidth]);
+
+  // Validate and fix component widths that exceed canvas width (only when canvas width changes)
+  const canvasContentWidth = getCanvasContentWidth();
+  React.useEffect(() => {
+    let hasChanges = false;
+    
+    const validatedComponents = components.map(comp => {
+      const updatedStyle = { ...comp.style };
+      let componentChanged = false;
+      
+      // Check width
+      if (comp.style?.width) {
+        const widthStr = String(comp.style.width);
+        const widthMatch = widthStr.match(/(\d+\.?\d*)px/);
+        if (widthMatch) {
+          const pixelValue = parseFloat(widthMatch[1]);
+          const currentLeft = parseFloat(String(comp.style?.left || '0'));
+          const maxAllowedWidth = canvasContentWidth - currentLeft;
+          
+          if (pixelValue > maxAllowedWidth) {
+            updatedStyle.width = `${Math.max(100, maxAllowedWidth)}px`;
+            componentChanged = true;
+          } else if (pixelValue > canvasContentWidth) {
+            updatedStyle.width = `${canvasContentWidth}px`;
+            componentChanged = true;
+          }
+        }
+      }
+      
+      // Check left position + width combination
+      if (comp.style?.left && comp.style?.width) {
+        const leftStr = String(comp.style.left);
+        const widthStr = String(comp.style.width);
+        const leftMatch = leftStr.match(/(\d+\.?\d*)px/);
+        const widthMatch = widthStr.match(/(\d+\.?\d*)px/);
+        
+        if (leftMatch && widthMatch) {
+          let leftValue = parseFloat(leftMatch[1]);
+          let widthValue = parseFloat(widthMatch[1]);
+          
+          // Prevent negative left position (dragging outside left boundary)
+          if (leftValue < 0) {
+            // Remove left position if it's negative (defaults to 0)
+            delete updatedStyle.left;
+            componentChanged = true;
+            leftValue = 0;
+          }
+          
+          // If left is 0, remove it from style (cleanup - no need for left: 0px)
+          if (leftValue === 0) {
+            delete updatedStyle.left;
+            componentChanged = true;
+          }
+          
+          // Ensure left + width doesn't exceed canvas width
+          if (leftValue + widthValue > canvasContentWidth) {
+            // Always prefer setting left to 0 and adjusting width
+            delete updatedStyle.left;
+            const maxAllowedWidth = Math.max(100, canvasContentWidth);
+            if (maxAllowedWidth < widthValue) {
+              updatedStyle.width = `${maxAllowedWidth}px`;
+              componentChanged = true;
+            }
+          }
+        }
+      } else if (comp.style?.left) {
+        // Check left position alone (prevent negative values and remove 0px)
+        const leftStr = String(comp.style.left);
+        const leftMatch = leftStr.match(/(\d+\.?\d*)px/);
+        if (leftMatch) {
+          const leftValue = parseFloat(leftMatch[1]);
+          if (leftValue < 0 || leftValue === 0) {
+            // Remove left position if it's 0 or negative (defaults to 0)
+            delete updatedStyle.left;
+            componentChanged = true;
+          }
+        }
+      }
+      
+      if (componentChanged) {
+        hasChanges = true;
+        return {
+          ...comp,
+          style: updatedStyle,
+        };
+      }
+      return comp;
+    });
+    
+    if (hasChanges) {
+      setComponents(validatedComponents);
+      // Update history without creating a new entry (silent fix)
+      setHistory(prev => {
+        const newHistory = [...prev];
+        if (newHistory[historyIndex]) {
+          newHistory[historyIndex] = validatedComponents;
+        }
+        return newHistory;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasContentWidth]); // Only run when canvas width changes, not on every component change
 
   // Listen for component picker events
   React.useEffect(() => {
@@ -3507,7 +3850,7 @@ export function PageBuilderWithISR({
               {Math.round(canvasZoom * 100)}%
             </span>
             <button
-              onClick={() => setCanvasZoom(Math.min(1.2, canvasZoom + 0.1))}
+              onClick={() => setCanvasZoom(Math.min(1.0, canvasZoom + 0.1))}
               disabled={autoZoom}
               className={`p-2 rounded transition-colors ${
                 autoZoom 
@@ -3760,11 +4103,11 @@ export function PageBuilderWithISR({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden relative">
           {/* Component Library */}
           {!previewMode && (
             <div 
-              className="bg-white border-r border-gray-200 flex-shrink-0"
+              className="bg-white border-r border-gray-200 flex-shrink-0 relative z-10"
               style={{ width: `${leftSidebarWidth}px` }}
             >
               <ComponentLibrary onAddComponent={handleAddComponent} />
@@ -3774,7 +4117,7 @@ export function PageBuilderWithISR({
           {/* Left Resize Handle */}
           {!previewMode && (
             <div
-              className={`w-1 ${isDraggingLeft ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
+              className={`w-1 ${isDraggingLeft ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group z-10`}
               onMouseDown={handleLeftSidebarMouseDown}
               title={`Drag to resize left sidebar (${leftSidebarWidth}px)`}
             >
@@ -3797,9 +4140,15 @@ export function PageBuilderWithISR({
           {/* Canvas */}
           <div 
             ref={setCanvasRef}
-            className="flex-1 overflow-auto bg-gray-100 relative flex items-start justify-center p-4"
+            className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-100 relative flex items-start justify-center"
             onMouseLeave={handleMouseLeaveComponent}
-            style={{ minHeight: 0 }}
+            style={{ 
+              minHeight: 0,
+              padding: '16px',
+              marginLeft: '0',
+              marginRight: '0',
+              minWidth: '400px', // Ensure canvas is never too narrow
+            }}
           >
             {/* Ruler System */}
             {canvasRef && (
@@ -3817,12 +4166,16 @@ export function PageBuilderWithISR({
               style={{
                 width: useCustomDimensions ? `${customWidth}px` : deviceWidths[deviceView],
                 height: useCustomDimensions ? `${customHeight}px` : 'auto',
-                maxWidth: '100%',
                 minHeight: useCustomDimensions ? `${customHeight}px` : 'calc(100vh - 180px)',
                 transform: `scale(${canvasZoom})`,
                 transformOrigin: 'top center',
                 marginTop: showRulers ? '20px' : '0',
                 marginLeft: showRulers ? '20px' : '0',
+                marginRight: '0',
+                flexShrink: 0,
+                maxWidth: '100%',
+                position: 'relative',
+                zIndex: 1,
               }}
             >
               <SortableContext
@@ -3847,6 +4200,7 @@ export function PageBuilderWithISR({
                               component={component}
                               isSelected={selectedComponent === component.id}
                               isHovered={hoveredComponent === component.id}
+                              maxCanvasWidth={getCanvasContentWidth()}
                               onClick={() => setSelectedComponent(component.id)}
                               onMouseEnter={() => handleMouseEnterComponent(component.id)}
                               onMouseLeave={handleMouseLeaveComponent}
@@ -3874,7 +4228,7 @@ export function PageBuilderWithISR({
           {/* Right Resize Handle */}
           {!previewMode && (
             <div
-              className={`w-1 ${isDraggingRight ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group`}
+              className={`w-1 ${isDraggingRight ? 'bg-indigo-500' : 'bg-gray-300 hover:bg-indigo-400'} cursor-col-resize flex-shrink-0 transition-colors relative group z-10`}
               onMouseDown={handleRightSidebarMouseDown}
               title={`Drag to resize right sidebar (${rightSidebarWidth}px)`}
             >
@@ -3897,7 +4251,7 @@ export function PageBuilderWithISR({
           {/* Properties Panel */}
           {!previewMode && (
             <div 
-              className="bg-white border-l border-gray-200 flex-shrink-0"
+              className="bg-white border-l border-gray-200 flex-shrink-0 relative z-10"
               style={{ width: `${rightSidebarWidth}px` }}
             >
               {selectedComponentData ? (
@@ -3906,6 +4260,7 @@ export function PageBuilderWithISR({
                     component={selectedComponentData}
                     onUpdate={handleUpdateComponent}
                     onClose={() => setSelectedComponent(null)}
+                    maxCanvasWidth={getCanvasContentWidth()}
                   />
                   <button
                     onClick={() => handleDeleteComponent(selectedComponentData.id)}
@@ -3920,6 +4275,7 @@ export function PageBuilderWithISR({
                   component={null}
                   onUpdate={() => {}}
                   onClose={() => {}}
+                  maxCanvasWidth={useCustomDimensions ? customWidth : (deviceView === 'tablet' ? 768 : deviceView === 'mobile' ? 375 : 1200)}
                 />
               )}
             </div>
@@ -3929,27 +4285,23 @@ export function PageBuilderWithISR({
         <DragOverlay>
           {activeId ? (
             activeId.toString().startsWith('library-') ? (
-              <div className="bg-white border-2 border-indigo-500 rounded-lg p-2 shadow-lg" style={{ transform: 'scale(0.4)', transformOrigin: 'top left' }}>
-                <p className="text-xs font-medium text-indigo-600">
-                  {activeId.toString().replace('library-', '').replace(/-/g, ' ')}
-                </p>
+              (() => {
+                const componentType = activeId.toString().replace('library-', '') as ComponentType;
+                const componentInfo = availableComponents.find(c => c.type === componentType);
+                if (!componentInfo) return null;
+                const Icon = componentInfo.icon;
+                return (
+                  <div className="bg-white border-2 border-indigo-500 rounded-lg shadow-lg flex flex-col items-center justify-center p-3 min-w-[120px] min-h-[100px]">
+                    <div className={`p-2 rounded-lg bg-indigo-50 mb-2`}>
+                      <Icon className={`h-6 w-6 ${componentInfo.color}`} />
               </div>
-            ) : (
-              <div style={{ transform: 'scale(0.3)', transformOrigin: 'top left', opacity: 0.8 }}>
-              <ComponentRenderer
-                component={components.find((c) => c.id === activeId)!}
-                isSelected={false}
-                isHovered={false}
-                onClick={() => {}}
-                onMouseEnter={() => {}}
-                onMouseLeave={() => {}}
-                onAddToContainer={() => {}}
-                onColumnClick={() => {}}
-                onAddColumn={() => {}}
-                onRemoveColumn={() => {}}
-              />
-              </div>
-            )
+                    <span className="text-sm font-medium text-gray-700 text-center">
+                      {componentInfo.label}
+                    </span>
+                  </div>
+                );
+              })()
+            ) : null // No preview for existing components - just show the component itself
           ) : null}
         </DragOverlay>
       </DndContext>

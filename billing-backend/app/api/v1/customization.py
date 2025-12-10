@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.models import User
 from app.api.v1.auth import get_current_user
 
-router = APIRouter(prefix="/api/customization", tags=["customization"])
+router = APIRouter(prefix="/customization", tags=["customization"])
 
 # Get the base directory (where the script is located)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -170,6 +170,48 @@ async def delete_logo(
     # In production, delete from database and filesystem
     return {
         "message": "Logo deleted successfully"
+    }
+
+
+@router.post("/image")
+async def upload_image(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload an image file for page builder
+    """
+    # Check if user is admin
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can upload images")
+    
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Validate file size (max 10MB)
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image size must be less than 10MB")
+    
+    # Generate filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    filename = f"image_{timestamp}.{file_extension}"
+    filepath = os.path.join(IMAGES_DIR, filename)
+    
+    # Save file
+    with open(filepath, "wb") as buffer:
+        buffer.write(content)
+    
+    # Return the file URL
+    image_url = f"/uploads/images/{filename}"
+    
+    return {
+        "message": "Image uploaded successfully",
+        "image_url": image_url,
+        "filename": filename
     }
 
 

@@ -11,19 +11,21 @@ import {
   NewsletterComponent,
   CheckoutComponent,
 } from './DynamicComponents';
-import HeaderComponent from './HeaderComponent';
-import FooterComponent from './FooterComponent';
-import CartComponent from './CartComponent';
+import {
+  HeaderComponent,
+  FooterComponent,
+  CartComponent,
+  SliderComponent,
+  BannerComponent,
+  NavMenuComponent,
+  PricingTableComponent,
+  TestimonialsComponent,
+  FAQComponent,
+} from './widgets';
 import ResponsiveContainer from './ResponsiveContainer';
 import ResponsiveGrid from './ResponsiveGrid';
 import ResponsiveShowcase from './ResponsiveShowcase';
 import ElementorGrid from './ElementorGrid';
-import SliderComponent from './SliderComponent';
-import BannerComponent from './BannerComponent';
-import NavMenuComponent from './NavMenuComponent';
-import { PricingTableComponent } from './PricingTableComponent';
-import { TestimonialsComponent } from './TestimonialsComponent';
-import { FAQComponent } from './FAQComponent';
 
 interface ComponentRendererProps {
   component: Component;
