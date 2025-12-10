@@ -82,6 +82,15 @@ export default function ComponentRenderer({
           ? headingLevel 
           : 'h1';
         
+        // Extract margin-related styles from component.style to avoid conflicts
+        const headingStyle = component.style || {};
+        const headingOtherStyles = Object.keys(headingStyle).reduce((acc: any, key: string) => {
+          if (!['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'].includes(key)) {
+            acc[key] = (headingStyle as any)[key];
+          }
+          return acc;
+        }, {});
+        
         return (
           <div
             style={{ 
@@ -94,7 +103,7 @@ export default function ComponentRenderer({
               letterSpacing: component.props?.letterSpacing || '-0.025em',
               margin: component.props?.margin || '0',
               padding: component.props?.padding || '0',
-              ...component.style 
+              ...headingOtherStyles 
             }}
             className={`${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
           >
@@ -108,6 +117,14 @@ export default function ComponentRenderer({
 
       case 'text':
         const textContent = component.props?.text || component.content || 'Text content goes here...';
+        // Extract margin-related styles from component.style to avoid conflicts
+        const textStyle = component.style || {};
+        const textOtherStyles = Object.keys(textStyle).reduce((acc: any, key: string) => {
+          if (!['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft'].includes(key)) {
+            acc[key] = (textStyle as any)[key];
+          }
+          return acc;
+        }, {});
         return (
           <div
             style={{ 
@@ -122,7 +139,7 @@ export default function ComponentRenderer({
               padding: component.props?.padding || '0',
               maxWidth: component.props?.maxWidth || 'none',
               whiteSpace: component.props?.whiteSpace || 'normal',
-              ...component.style 
+              ...textOtherStyles 
             }}
             className={`${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
             dangerouslySetInnerHTML={{ __html: textContent }}
@@ -954,22 +971,6 @@ export default function ComponentRenderer({
         )}
         {isEditor && isHovered && !isSelected && (
           <div className="absolute inset-0 border-2 border-dashed border-indigo-300 bg-indigo-50/30 pointer-events-none" />
-        )}
-        
-        {/* Drag Handle - Only show in editor mode */}
-        {isEditor && (isHovered || isSelected) && (
-          <div className="absolute top-2 left-2 bg-gray-800 text-white p-1.5 rounded shadow-lg z-20 cursor-move opacity-90 hover:opacity-100 transition-opacity">
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="8" cy="6" r="1.5"/>
-              <circle cx="8" cy="10" r="1.5"/>
-              <circle cx="8" cy="14" r="1.5"/>
-              <circle cx="8" cy="18" r="1.5"/>
-              <circle cx="16" cy="6" r="1.5"/>
-              <circle cx="16" cy="10" r="1.5"/>
-              <circle cx="16" cy="14" r="1.5"/>
-              <circle cx="16" cy="18" r="1.5"/>
-            </svg>
-          </div>
         )}
         
         {/* Plus Button for adding components after this one - Only show in editor mode */}

@@ -105,7 +105,7 @@ interface PageBuilderWithISRProps {
   onClose?: () => void;
 }
 
-function SortableComponent({
+const SortableComponent = React.memo(function SortableComponent({
   component,
   isSelected,
   isHovered,
@@ -144,9 +144,13 @@ function SortableComponent({
     id: `component-${component.id}`,
   });
 
+  // Only apply transition when actually dragging (transform is active)
+  // This prevents the "transition: transform linear" from causing blinking on hover
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    // Only apply transition when there's an actual transform (dragging is happening)
+    // This prevents unwanted transitions during hover states
+    transition: transform ? transition : undefined,
   };
 
   // Resize functionality
@@ -562,45 +566,85 @@ function SortableComponent({
   return (
     <div 
       ref={setDroppableRef} 
-      className={isOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
+      className={isOver ? 'bg-red-50/50' : ''}
       style={{
-        // Always reserve space at the top for the toolbar to prevent height changes
-        paddingTop: '40px',
         boxSizing: 'border-box',
+        // Use box-shadow instead of ring to prevent layout shifts (box-shadow doesn't affect layout)
+        boxShadow: isOver ? '0 0 0 4px rgba(239, 68, 68, 0.5)' : 'none',
+        // Smooth transition only for background and shadow, not layout properties
+        transition: isOver ? 'background-color 0.2s, box-shadow 0.2s' : 'none',
+        // Ensure no margin/padding changes
+        margin: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+      }}
+      // Extend hover detection to outer container so toolbar hover is maintained
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={(e) => {
+        // Only trigger leave if mouse is truly leaving the entire component area (including toolbar)
+        // Check if mouse is moving to toolbar
+        const relatedTarget = e.relatedTarget as HTMLElement;
+        if (relatedTarget && (relatedTarget.closest('[class*="toolbar"]') || relatedTarget.closest('.absolute.left-1\\/2'))) {
+          // Mouse is moving to toolbar, don't clear hover
+          return;
+        }
+        onMouseLeave();
       }}
     >
-      <div ref={setNodeRef} style={style}>
+      <div 
+        ref={setNodeRef} 
+        style={style}
+      >
         <div 
           ref={componentRef}
           className="relative group"
           style={{
-            ...component.style,
+            // Spread component.style but exclude transition properties to prevent blinking
+            ...(component.style ? Object.fromEntries(
+              Object.entries(component.style).filter(([key]) => 
+                !key.toLowerCase().includes('transition')
+              )
+            ) : {}),
             // Apply temporary dimensions during resize so border moves in real-time
             ...(isResizing && tempDimensions.width ? { width: `${tempDimensions.width}px` } : {}),
             ...(isResizing && tempDimensions.height ? { height: `${tempDimensions.height}px` } : {}),
-            // Always reserve border space to prevent layout shift
-            border: '2px solid',
-            borderColor: isSelected || isHovered ? '#6366f1' : 'transparent',
+            // No border - removed as per user request
+            border: 'none',
+            boxSizing: 'border-box',
             position: 'relative',
-            boxSizing: 'border-box', // Always use border-box to include border in width/height
             // Apply transform during resize for smooth handling (for left/top edges)
             ...(isResizing && (resizeTransform.x !== 0 || resizeTransform.y !== 0) 
               ? { transform: `translate(${resizeTransform.x}px, ${resizeTransform.y}px)` }
               : {}),
-            // Disable transitions during resize for smooth movement (like sidebar)
-            transition: isResizing ? 'none' : component.style?.transition,
-            // Set cursor based on border position when selected/hovered
-            cursor: (isSelected || isHovered) && !isResizing && onUpdate
+            // Explicitly disable all transitions to prevent blinking
+            transition: 'none',
+            WebkitTransition: 'none',
+            MozTransition: 'none',
+            OTransition: 'none',
+            // Only show resize cursor when selected, not on hover
+            cursor: isSelected && !isResizing && onUpdate
               ? getCursorForHandle(hoveredBorder)
               : 'default',
+            // Prevent any height changes from content
+            minHeight: component.style?.minHeight || 'auto',
           }}
           onMouseEnter={onMouseEnter}
           onMouseLeave={(e) => {
             setHoveredBorder(null);
+            // Check if mouse is moving to toolbar before clearing hover
+            const relatedTarget = e.relatedTarget as HTMLElement;
+            if (relatedTarget && (
+              relatedTarget.closest('.absolute.left-1\\/2') || 
+              relatedTarget === e.currentTarget.parentElement?.querySelector('.absolute.left-1\\/2')
+            )) {
+              // Mouse is moving to toolbar, maintain hover state
+              return;
+            }
             onMouseLeave();
           }}
           onMouseMove={(e) => {
-            if ((isSelected || isHovered) && !isResizing && onUpdate) {
+            // Only detect resize handles when selected, not on hover
+            if (isSelected && !isResizing && onUpdate) {
               const handle = detectBorderHandle(e);
               setHoveredBorder(handle);
               // Update cursor dynamically
@@ -612,7 +656,8 @@ function SortableComponent({
             }
           }}
           onMouseDown={(e) => {
-            if ((isSelected || isHovered) && !isResizing && onUpdate) {
+            // Only allow resize when selected, not on hover
+            if (isSelected && !isResizing && onUpdate) {
               const handle = detectBorderHandle(e);
               if (handle) {
                 e.stopPropagation();
@@ -621,28 +666,37 @@ function SortableComponent({
             }
           }}
         >
-        {/* Drag Handle */}
-        <div 
-          {...listeners}
-          {...attributes}
-          className="absolute left-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex flex-col space-y-1">
-            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          </div>
-        </div>
-
-        {/* Widget Toolbar - Top Center - Always reserve space, only show on hover */}
+        {/* Widget Toolbar - Integrated into top border */}
           <div 
-          className={`absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-white border border-gray-300 rounded-md shadow-lg px-1 py-1 z-50 transition-opacity duration-150 ${
+          className={`absolute left-1/2 transform -translate-x-1/2 flex items-center gap-0.5 z-50 transition-all duration-200 ${
             (isHovered || isSelected) ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
-          style={{ top: '-40px' }}
+          style={{ 
+            // Position above the component
+            top: '-40px',
+            // Ensure toolbar doesn't cause layout shifts
+            position: 'absolute',
+            willChange: 'opacity, background-color', // Optimize for transitions
+            // Always use indigo color, don't change to gray when inactive
+            backgroundColor: 'rgb(99, 102, 241)',
+            borderRadius: '10px 10px 0px 0px',
+            padding: '4px 6px',
+            border: 'none',
+            boxShadow: 'none',
+            height: '36px', // Increased height to accommodate bigger icons
+          }}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => {
+              // Keep hover state when mouse enters toolbar - prevent mouse leave from component
+              e.stopPropagation();
+              // Re-trigger hover to maintain state
+              onMouseEnter();
+            }}
+            onMouseLeave={(e) => {
+              // When leaving toolbar, allow normal mouse leave handling
+              e.stopPropagation();
+            }}
           >
             {/* Edit Icon */}
             <button
@@ -650,20 +704,34 @@ function SortableComponent({
                 e.stopPropagation();
                 onClick();
               }}
-              className="p-1.5 hover:bg-indigo-50 rounded text-gray-600 hover:text-indigo-600 transition-colors"
+              className="p-1.5 hover:bg-white/20 rounded text-white transition-colors"
               title="Edit"
+              style={{
+                minWidth: '32px',
+                minHeight: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <PencilIcon className="w-4 h-4" />
+              <PencilIcon className="w-5 h-5" />
             </button>
             
             {/* Move Icon */}
             <div
               {...listeners}
               {...attributes}
-              className="p-1.5 hover:bg-indigo-50 rounded text-gray-600 hover:text-indigo-600 transition-colors cursor-grab active:cursor-grabbing"
+              className="p-1.5 hover:bg-white/20 rounded text-white transition-colors cursor-grab active:cursor-grabbing"
               title="Move"
+              style={{
+                minWidth: '32px',
+                minHeight: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <ArrowsUpDownIcon className="w-4 h-4" />
+              <ArrowsUpDownIcon className="w-5 h-5" />
             </div>
             
             {/* Delete Icon */}
@@ -675,10 +743,17 @@ function SortableComponent({
                     onDelete(component.id);
                   }
                 }}
-                className="p-1.5 hover:bg-red-50 rounded text-gray-600 hover:text-red-600 transition-colors"
+                className="p-1.5 hover:bg-red-500/30 rounded text-white transition-colors"
                 title="Delete"
+                style={{
+                  minWidth: '32px',
+                  minHeight: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <TrashIcon className="w-4 h-4" />
+                <TrashIcon className="w-5 h-5" />
               </button>
             )}
           </div>
@@ -695,7 +770,14 @@ function SortableComponent({
               onContextMenu(e, component.id);
             }
           }}
-          className={`transition-all cursor-pointer ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
+          {...listeners}
+          {...attributes}
+          className="cursor-pointer cursor-grab active:cursor-grabbing"
+          style={{
+            // Only show ring when selected, not on hover
+            boxShadow: isSelected ? '0 0 0 2px rgba(99, 102, 241, 0.5)' : 'none',
+            transition: isSelected ? 'box-shadow 0.15s ease-in-out' : 'none',
+          }}
         >
           <ComponentRenderer
             component={component}
@@ -779,7 +861,15 @@ function SortableComponent({
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.component.id === nextProps.component.id &&
+    prevProps.component === nextProps.component &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isHovered === nextProps.isHovered
+  );
+});
 
 export function PageBuilderWithISR({
   initialComponents = [],
@@ -813,10 +903,11 @@ export function PageBuilderWithISR({
       clearTimeout(hoverTimeoutRef.current);
     }
     // Delay clearing hover to prevent blinking when moving between components
+    // Increased delay to prevent flickering when moving between components
     hoverTimeoutRef.current = setTimeout(() => {
       setHoveredComponent(null);
       hoverTimeoutRef.current = null;
-    }, 50); // Small delay (50ms) to smooth transitions
+    }, 100); // Increased delay (100ms) to smooth transitions and prevent flickering
   }, []);
   
   // Cleanup timeout on unmount
@@ -1043,7 +1134,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ],
       cart: [
@@ -1109,7 +1200,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ],
       checkout: [
@@ -1205,7 +1296,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ],
       shop: [
@@ -1255,7 +1346,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ],
       'about-us': [
@@ -1328,7 +1419,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ],
       contact: [
@@ -1394,7 +1485,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ],
       privacy: [
@@ -1452,7 +1543,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ],
       terms: [
@@ -1510,7 +1601,7 @@ export function PageBuilderWithISR({
             textColor: '#ffffff',
             linkColor: '#9ca3af'
           },
-          style: { marginTop: '48px' }
+          style: {}
         }
       ]
     };
@@ -2112,6 +2203,137 @@ export function PageBuilderWithISR({
             alignment: 'center',
           }
         };
+      case 'checkout':
+        return {
+          ...baseComponent,
+          props: {
+            title: 'Checkout',
+            subtitle: 'Complete your purchase securely',
+            layout: 'two-column',
+            showOrderSummary: true,
+            showBillingInfo: true,
+            showShippingInfo: false,
+            showPaymentInfo: true,
+            customFields: [
+              {
+                id: 'firstName',
+                type: 'text',
+                label: 'First Name',
+                name: 'firstName',
+                placeholder: 'Enter your first name',
+                required: true,
+                section: 'billing',
+                order: 1,
+                gridCols: 6,
+                isImportant: true
+              },
+              {
+                id: 'lastName',
+                type: 'text',
+                label: 'Last Name',
+                name: 'lastName',
+                placeholder: 'Enter your last name',
+                required: true,
+                section: 'billing',
+                order: 2,
+                gridCols: 6,
+                isImportant: true
+              },
+              {
+                id: 'email',
+                type: 'email',
+                label: 'Email',
+                name: 'email',
+                placeholder: 'Enter your email',
+                required: true,
+                section: 'billing',
+                order: 3,
+                gridCols: 12,
+                isImportant: true
+              },
+              {
+                id: 'phone',
+                type: 'tel',
+                label: 'Phone',
+                name: 'phone',
+                placeholder: 'Enter your phone number',
+                required: false,
+                section: 'billing',
+                order: 4,
+                gridCols: 12,
+                isImportant: false
+              },
+              {
+                id: 'address',
+                type: 'text',
+                label: 'Address',
+                name: 'address',
+                placeholder: 'Enter your address',
+                required: true,
+                section: 'billing',
+                order: 5,
+                gridCols: 12,
+                isImportant: true
+              },
+              {
+                id: 'city',
+                type: 'text',
+                label: 'City',
+                name: 'city',
+                placeholder: 'Enter your city',
+                required: true,
+                section: 'billing',
+                order: 6,
+                gridCols: 4,
+                isImportant: true
+              },
+              {
+                id: 'state',
+                type: 'text',
+                label: 'State',
+                name: 'state',
+                placeholder: 'Enter your state',
+                required: true,
+                section: 'billing',
+                order: 7,
+                gridCols: 4,
+                isImportant: true
+              },
+              {
+                id: 'zipCode',
+                type: 'text',
+                label: 'ZIP Code',
+                name: 'zipCode',
+                placeholder: 'Enter ZIP code',
+                required: true,
+                section: 'billing',
+                order: 8,
+                gridCols: 4,
+                isImportant: true
+              },
+              {
+                id: 'country',
+                type: 'select',
+                label: 'Country',
+                name: 'country',
+                placeholder: 'Select country',
+                required: true,
+                section: 'billing',
+                order: 9,
+                gridCols: 12,
+                isImportant: true,
+                options: [
+                  { label: 'United States', value: 'US' },
+                  { label: 'Canada', value: 'CA' },
+                  { label: 'United Kingdom', value: 'GB' },
+                  { label: 'Australia', value: 'AU' },
+                  { label: 'Germany', value: 'DE' },
+                  { label: 'France', value: 'FR' }
+                ]
+              }
+            ]
+          }
+        };
       case 'faq':
         return {
           ...baseComponent,
@@ -2502,11 +2724,16 @@ export function PageBuilderWithISR({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
+    if (!over) {
+      setActiveId(null);
+      return;
+    }
+
     // Handle library component drop
     if (active.id.toString().startsWith('library-')) {
       const componentType = active.data.current?.componentType as ComponentType;
-      if (componentType && over) {
-        // Check if dropping on a drop zone
+      if (componentType) {
+        // Check if dropping on a drop zone - insert at that position
         if (over.id.toString().startsWith('drop-zone-')) {
           const dropIndex = parseInt(over.id.toString().replace('drop-zone-', ''));
           const newComponent = createComponent(componentType);
@@ -2519,13 +2746,13 @@ export function PageBuilderWithISR({
           addToHistory(newComponents);
           setSelectedComponent(newComponent.id);
         } else if (over.id.toString().startsWith('component-')) {
-          // Drop on existing component - insert after it
+          // Drop on existing component - REPLACE it
           const targetId = over.id.toString().replace('component-', '');
           const targetIndex = components.findIndex((c) => c.id === targetId);
           if (targetIndex !== -1) {
             const newComponent = createComponent(componentType);
             const newComponents = [
-              ...components.slice(0, targetIndex + 1),
+              ...components.slice(0, targetIndex),
               newComponent,
               ...components.slice(targetIndex + 1),
             ];
@@ -2542,15 +2769,64 @@ export function PageBuilderWithISR({
           setSelectedComponent(newComponent.id);
         }
       }
-    } else if (over && active.id !== over.id) {
-      // Handle reordering existing components
+    } else if (active.id !== over.id) {
+      // Handle dragging existing components
+      const activeId = active.id.toString();
+      
+      // Check if dropping on a drop zone - reorder to that position
+      if (over.id.toString().startsWith('drop-zone-')) {
+        const dropIndex = parseInt(over.id.toString().replace('drop-zone-', ''));
       setComponents((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
+          const oldIndex = items.findIndex((item) => item.id === activeId);
+          if (oldIndex === -1) return items;
+          
+          // Remove from old position and insert at new position
+          const item = items[oldIndex];
+          const newItems = items.filter((_, index) => index !== oldIndex);
+          const adjustedIndex = oldIndex < dropIndex ? dropIndex - 1 : dropIndex;
+          newItems.splice(adjustedIndex, 0, item);
+          
+          addToHistory(newItems);
+          return newItems;
+        });
+      } else if (over.id.toString().startsWith('component-')) {
+        // Drop on existing component - REPLACE it
+        const targetId = over.id.toString().replace('component-', '');
+        setComponents((items) => {
+          const oldIndex = items.findIndex((item) => item.id === activeId);
+          const targetIndex = items.findIndex((item) => item.id === targetId);
+          
+          if (oldIndex === -1 || targetIndex === -1) return items;
+          if (oldIndex === targetIndex) return items; // Same position, no change
+          
+          // Get the component being moved
+          const itemToMove = items[oldIndex];
+          
+          // Remove from old position
+          const newItems = items.filter((_, index) => index !== oldIndex);
+          
+          // Calculate new index after removal
+          const adjustedTargetIndex = oldIndex < targetIndex ? targetIndex - 1 : targetIndex;
+          
+          // Replace at target position
+          newItems[adjustedTargetIndex] = itemToMove;
+          
+          addToHistory(newItems);
+          return newItems;
+        });
+      } else {
+        // Fallback: try to find component ID directly (for backwards compatibility)
+        setComponents((items) => {
+          const oldIndex = items.findIndex((item) => item.id === activeId);
+          const newIndex = items.findIndex((item) => item.id === over.id.toString());
+          
+          if (oldIndex === -1 || newIndex === -1) return items;
+          
         const newItems = arrayMove(items, oldIndex, newIndex);
         addToHistory(newItems);
         return newItems;
       });
+      }
     }
 
     setActiveId(null);
@@ -2958,8 +3234,8 @@ export function PageBuilderWithISR({
     };
   }, [isDraggingLeft, isDraggingRight]);
 
-  // Calculate optimal zoom level to fit content
-  const calculateOptimalZoom = () => {
+  // Calculate optimal zoom level to fit content - memoized to prevent infinite loops
+  const calculateOptimalZoom = useCallback(() => {
     if (!canvasRef) return 0.6;
     
     const canvasRect = canvasRef.getBoundingClientRect();
@@ -2989,15 +3265,23 @@ export function PageBuilderWithISR({
     const optimalZoom = Math.min(widthZoom * margin, heightZoom * margin, 1.2); // Max 120%
     
     return Math.max(0.2, optimalZoom); // Min 20%
-  };
+  }, [canvasRef, useCustomDimensions, customWidth, deviceView, components.length]);
 
   // Auto-zoom effect
   React.useEffect(() => {
     if (autoZoom && canvasRef) {
       const optimalZoom = calculateOptimalZoom();
-      setCanvasZoom(optimalZoom);
+      // Only update if zoom actually changed to prevent infinite loops
+      setCanvasZoom(prevZoom => {
+        const newZoom = optimalZoom;
+        // Only update if change is significant (more than 0.01 difference)
+        if (Math.abs(prevZoom - newZoom) > 0.01) {
+          return newZoom;
+        }
+        return prevZoom;
+      });
     }
-  }, [leftSidebarWidth, rightSidebarWidth, components.length, autoZoom, canvasRef, deviceView, useCustomDimensions, customWidth, customHeight]);
+  }, [leftSidebarWidth, rightSidebarWidth, components.length, autoZoom, canvasRef, deviceView, useCustomDimensions, customWidth, customHeight, calculateOptimalZoom]);
 
   // ResizeObserver for canvas size changes
   React.useEffect(() => {
@@ -3006,7 +3290,15 @@ export function PageBuilderWithISR({
     const resizeObserver = new ResizeObserver(() => {
       if (autoZoom) {
         const optimalZoom = calculateOptimalZoom();
-        setCanvasZoom(optimalZoom);
+        // Only update if zoom actually changed to prevent infinite loops
+        setCanvasZoom(prevZoom => {
+          const newZoom = optimalZoom;
+          // Only update if change is significant (more than 0.01 difference)
+          if (Math.abs(prevZoom - newZoom) > 0.01) {
+            return newZoom;
+          }
+          return prevZoom;
+        });
       }
     });
 
@@ -3015,7 +3307,7 @@ export function PageBuilderWithISR({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [canvasRef, autoZoom]);
+  }, [canvasRef, autoZoom, calculateOptimalZoom]);
 
   // Save zoom level to localStorage
   React.useEffect(() => {
@@ -3505,8 +3797,9 @@ export function PageBuilderWithISR({
           {/* Canvas */}
           <div 
             ref={setCanvasRef}
-            className="flex-1 overflow-auto bg-gray-100 relative"
+            className="flex-1 overflow-auto bg-gray-100 relative flex items-start justify-center p-4"
             onMouseLeave={handleMouseLeaveComponent}
+            style={{ minHeight: 0 }}
           >
             {/* Ruler System */}
             {canvasRef && (
@@ -3520,12 +3813,12 @@ export function PageBuilderWithISR({
               />
             )}
             <div
-              className="bg-white shadow-lg transition-all duration-300 relative"
+              className="bg-white shadow-lg transition-all duration-300 relative flex flex-col"
               style={{
                 width: useCustomDimensions ? `${customWidth}px` : deviceWidths[deviceView],
                 height: useCustomDimensions ? `${customHeight}px` : 'auto',
                 maxWidth: '100%',
-                minHeight: useCustomDimensions ? `${customHeight}px` : '400px',
+                minHeight: useCustomDimensions ? `${customHeight}px` : 'calc(100vh - 180px)',
                 transform: `scale(${canvasZoom})`,
                 transformOrigin: 'top center',
                 marginTop: showRulers ? '20px' : '0',
@@ -3536,7 +3829,7 @@ export function PageBuilderWithISR({
                 items={components.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="space-y-0">
+                <div className="space-y-0 flex-1">
                   {components.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-96 text-gray-400">
                       <PlusIcon className="h-16 w-16 mb-4" />
@@ -3636,12 +3929,13 @@ export function PageBuilderWithISR({
         <DragOverlay>
           {activeId ? (
             activeId.toString().startsWith('library-') ? (
-              <div className="bg-white border-2 border-indigo-500 rounded-lg p-4 shadow-lg">
-                <p className="text-sm font-medium text-indigo-600">
+              <div className="bg-white border-2 border-indigo-500 rounded-lg p-2 shadow-lg" style={{ transform: 'scale(0.4)', transformOrigin: 'top left' }}>
+                <p className="text-xs font-medium text-indigo-600">
                   {activeId.toString().replace('library-', '').replace(/-/g, ' ')}
                 </p>
               </div>
             ) : (
+              <div style={{ transform: 'scale(0.3)', transformOrigin: 'top left', opacity: 0.8 }}>
               <ComponentRenderer
                 component={components.find((c) => c.id === activeId)!}
                 isSelected={false}
@@ -3654,6 +3948,7 @@ export function PageBuilderWithISR({
                 onAddColumn={() => {}}
                 onRemoveColumn={() => {}}
               />
+              </div>
             )
           ) : null}
         </DragOverlay>

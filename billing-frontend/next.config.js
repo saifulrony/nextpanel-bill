@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Disable source maps in development to improve performance
+  productionBrowserSourceMaps: false,
   env: {
     // NEXT_PUBLIC_API_URL is now dynamically detected in src/lib/api.ts
     // Only set it here if you want to override the dynamic detection
@@ -20,6 +22,9 @@ const nextConfig = {
   },
   // Webpack configuration for better development experience
   webpack: (config, { dev, isServer }) => {
+    // Disable source maps completely for both dev and production, client and server
+    config.devtool = false;
+    
     if (dev && !isServer) {
       // Enable hot reloading
       config.watchOptions = {

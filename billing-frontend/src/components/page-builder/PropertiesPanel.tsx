@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Component } from './types';
-import { XMarkIcon, PhotoIcon, ArrowUpTrayIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PhotoIcon, ArrowUpTrayIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface PropertiesPanelProps {
   component: Component | null;
@@ -11,22 +11,46 @@ interface PropertiesPanelProps {
 }
 
 // Accordion Component
-function Accordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+function Accordion({ title, children, defaultOpen = false, isOpen: controlledIsOpen, onToggle, leftIcon, rightIcon }: { title: string | React.ReactNode; children: React.ReactNode; defaultOpen?: boolean; isOpen?: boolean; onToggle?: () => void; leftIcon?: React.ReactNode; rightIcon?: React.ReactNode }) {
+  const [internalIsOpen, setInternalIsOpen] = useState(defaultOpen);
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+  const handleToggle = () => {
+    if (onToggle) {
+      onToggle();
+    } else {
+      setInternalIsOpen(!internalIsOpen);
+    }
+  };
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
       >
-        <span className="text-sm font-medium text-gray-700">{title}</span>
-        {isOpen ? (
-          <ChevronUpIcon className="h-5 w-5 text-gray-500" />
-        ) : (
-          <ChevronDownIcon className="h-5 w-5 text-gray-500" />
-        )}
+        <div className="flex items-center space-x-3 flex-1">
+          {leftIcon && (
+            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              {leftIcon}
+            </div>
+          )}
+          <div className="text-sm font-medium text-gray-700 text-left">
+            {typeof title === 'string' ? <span>{title}</span> : title}
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          {rightIcon && (
+            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              {rightIcon}
+            </div>
+          )}
+          {isOpen ? (
+            <ChevronUpIcon className="h-5 w-5 text-gray-500" />
+          ) : (
+            <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+          )}
+        </div>
       </button>
       {isOpen && (
         <div className="p-4 bg-white border-t border-gray-200">
@@ -39,6 +63,22 @@ function Accordion({ title, children, defaultOpen = false }: { title: string; ch
 
 export default function PropertiesPanel({ component, onUpdate, onClose }: PropertiesPanelProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'motion'>('content');
+  const [highlightedFieldId, setHighlightedFieldId] = useState<string | null>(null);
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [draggedFieldId, setDraggedFieldId] = useState<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [localCustomFields, setLocalCustomFields] = useState<any[]>([]);
+
+  // Remove highlight after 3 seconds
+  React.useEffect(() => {
+    if (highlightedFieldId) {
+      const timer = setTimeout(() => {
+        setHighlightedFieldId(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedFieldId]);
 
   // Auto-initialize pricing table plans if missing
   React.useEffect(() => {
@@ -106,6 +146,137 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
           ...component.props,
           plans: defaultPlans,
           popularPlanId: '2',
+        },
+      });
+    }
+  }, [component?.id]); // Only run once when component changes
+
+  // Auto-initialize checkout custom fields if missing
+  React.useEffect(() => {
+    if (component && component.type === 'checkout' && (!component.props?.customFields || component.props.customFields.length === 0)) {
+      const defaultFields = [
+        {
+          id: 'firstName',
+          type: 'text',
+          label: 'First Name',
+          name: 'firstName',
+          placeholder: 'Enter your first name',
+          required: true,
+          section: 'billing',
+          order: 1,
+          gridCols: 6,
+          isImportant: true
+        },
+        {
+          id: 'lastName',
+          type: 'text',
+          label: 'Last Name',
+          name: 'lastName',
+          placeholder: 'Enter your last name',
+          required: true,
+          section: 'billing',
+          order: 2,
+          gridCols: 6,
+          isImportant: true
+        },
+        {
+          id: 'email',
+          type: 'email',
+          label: 'Email',
+          name: 'email',
+          placeholder: 'Enter your email',
+          required: true,
+          section: 'billing',
+          order: 3,
+          gridCols: 12,
+          isImportant: true
+        },
+        {
+          id: 'phone',
+          type: 'tel',
+          label: 'Phone',
+          name: 'phone',
+          placeholder: 'Enter your phone number',
+          required: false,
+          section: 'billing',
+          order: 4,
+          gridCols: 12,
+          isImportant: false
+        },
+        {
+          id: 'address',
+          type: 'text',
+          label: 'Address',
+          name: 'address',
+          placeholder: 'Enter your address',
+          required: true,
+          section: 'billing',
+          order: 5,
+          gridCols: 12,
+          isImportant: true
+        },
+        {
+          id: 'city',
+          type: 'text',
+          label: 'City',
+          name: 'city',
+          placeholder: 'Enter your city',
+          required: true,
+          section: 'billing',
+          order: 6,
+          gridCols: 4,
+          isImportant: true
+        },
+        {
+          id: 'state',
+          type: 'text',
+          label: 'State',
+          name: 'state',
+          placeholder: 'Enter your state',
+          required: true,
+          section: 'billing',
+          order: 7,
+          gridCols: 4,
+          isImportant: true
+        },
+        {
+          id: 'zipCode',
+          type: 'text',
+          label: 'ZIP Code',
+          name: 'zipCode',
+          placeholder: 'Enter ZIP code',
+          required: true,
+          section: 'billing',
+          order: 8,
+          gridCols: 4,
+          isImportant: true
+        },
+        {
+          id: 'country',
+          type: 'select',
+          label: 'Country',
+          name: 'country',
+          placeholder: 'Select country',
+          required: true,
+          section: 'billing',
+          order: 9,
+          gridCols: 12,
+          isImportant: true,
+          options: [
+            { label: 'United States', value: 'US' },
+            { label: 'Canada', value: 'CA' },
+            { label: 'United Kingdom', value: 'GB' },
+            { label: 'Australia', value: 'AU' },
+            { label: 'Germany', value: 'DE' },
+            { label: 'France', value: 'FR' }
+          ]
+        }
+      ];
+      onUpdate({
+        ...component,
+        props: {
+          ...component.props,
+          customFields: defaultFields,
         },
       });
     }
@@ -182,6 +353,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
   };
 
   return (
+    <React.Fragment>
     <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600">
@@ -264,48 +436,122 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
             {activeTab === 'content' && (
               <div className="space-y-4">
                 <Accordion title="Logo" defaultOpen={true}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Text</label>
+              <input
+                type="text"
+                value={component.props?.logoText || 'NextPanel'}
+                onChange={(e) => updateProp('logoText', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="Company Name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Image URL</label>
+              <input
+                type="url"
+                value={component.props?.logoImage || ''}
+                onChange={(e) => updateProp('logoImage', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+            </div>
+                </Accordion>
+                <Accordion title="Navigation">
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo Text</label>
-                      <input
-                        type="text"
-                        value={component.props?.logoText || 'NextPanel'}
-                        onChange={(e) => updateProp('logoText', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                        placeholder="Company Name"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo Image URL</label>
-                      <input
-                        type="url"
-                        value={component.props?.logoImage || ''}
-                        onChange={(e) => updateProp('logoImage', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                        placeholder="https://example.com/logo.png"
-                      />
-                    </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Navigation Items (JSON)</label>
+              <textarea
+                value={JSON.stringify(component.props?.navigationItems || [
+                  { name: 'Home', url: '/' },
+                  { name: 'Products', url: '/products' },
+                  { name: 'About', url: '/about' },
+                  { name: 'Contact', url: '/contact' }
+                ], null, 2)}
+                onChange={(e) => {
+                  try {
+                    const items = JSON.parse(e.target.value);
+                    updateProp('navigationItems', items);
+                  } catch (error) {
+                    // Invalid JSON, don't update
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                rows={6}
+                placeholder='[{ "name": "Home", "url": "/" }]'
+              />
+            </div>
+                    <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showNavigation !== false}
+                  onChange={(e) => updateProp('showNavigation', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Navigation</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showCart !== false}
+                  onChange={(e) => updateProp('showCart', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Cart</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showUserMenu !== false}
+                  onChange={(e) => updateProp('showUserMenu', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show User Menu</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={component.props?.showSearch || false}
+                  onChange={(e) => updateProp('showSearch', e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show Search</span>
+              </label>
+            </div>
+                  </div>
+                </Accordion>
+              </div>
+            )}
+            {/* Style Tab */}
+            {activeTab === 'style' && (
+              <div className="space-y-4">
+                {/* Colors removed - available in account settings */}
+                <Accordion title="Layout">
+                  <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+            <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Logo Width</label>
-                        <input
+                <input
                           type="text"
                           value={component.props?.logoWidth || '120px'}
                           onChange={(e) => updateProp('logoWidth', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                           placeholder="120px"
-                        />
-                      </div>
-                      <div>
+              />
+            </div>
+            <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Logo Height</label>
-                        <input
+                <input
                           type="text"
                           value={component.props?.logoHeight || '40px'}
                           onChange={(e) => updateProp('logoHeight', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                           placeholder="40px"
-                        />
-                      </div>
+              />
+            </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Logo Position</label>
@@ -321,107 +567,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                     </div>
                   </div>
                 </Accordion>
-                <Accordion title="Navigation">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Navigation Items (JSON)</label>
-                      <textarea
-                        value={JSON.stringify(component.props?.navigationItems || [
-                          { name: 'Home', url: '/' },
-                          { name: 'Products', url: '/products' },
-                          { name: 'About', url: '/about' },
-                          { name: 'Contact', url: '/contact' }
-                        ], null, 2)}
-                        onChange={(e) => {
-                          try {
-                            const items = JSON.parse(e.target.value);
-                            updateProp('navigationItems', items);
-                          } catch (error) {
-                            // Invalid JSON, don't update
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                        rows={6}
-                        placeholder='[{ "name": "Home", "url": "/" }]'
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={component.props?.showNavigation !== false}
-                          onChange={(e) => updateProp('showNavigation', e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Show Navigation</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={component.props?.showCart !== false}
-                          onChange={(e) => updateProp('showCart', e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Show Cart</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={component.props?.showUserMenu !== false}
-                          onChange={(e) => updateProp('showUserMenu', e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Show User Menu</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={component.props?.showSearch || false}
-                          onChange={(e) => updateProp('showSearch', e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Show Search</span>
-                      </label>
-                    </div>
-                  </div>
-                </Accordion>
-              </div>
-            )}
-            {/* Style Tab */}
-            {activeTab === 'style' && (
-              <div className="space-y-4">
-                <Accordion title="Colors" defaultOpen={true}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-                      <input
-                        type="color"
-                        value={component.props?.backgroundColor || '#ffffff'}
-                        onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                        className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-                      <input
-                        type="color"
-                        value={component.props?.textColor || '#374151'}
-                        onChange={(e) => updateProp('textColor', e.target.value)}
-                        className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Logo Color</label>
-                      <input
-                        type="color"
-                        value={component.props?.logoColor || '#4f46e5'}
-                        onChange={(e) => updateProp('logoColor', e.target.value)}
-                        className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-                </Accordion>
-              </div>
+          </div>
             )}
             {/* Motion Tab */}
             {activeTab === 'motion' && (
@@ -435,7 +581,9 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         )}
 
         {/* Footer Component Properties */}
-        {activeTab === 'content' && component.type === 'footer' && (
+        {component.type === 'footer' && (
+          <>
+            {activeTab === 'content' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
@@ -477,29 +625,20 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 <span className="ml-2 text-sm text-gray-700">Show Social</span>
               </label>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-                <input
-                  type="color"
-                  value={component.props?.backgroundColor || '#111827'}
-                  onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-                <input
-                  type="color"
-                  value={component.props?.textColor || '#ffffff'}
-                  onChange={(e) => updateProp('textColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
+            )}
+            {activeTab === 'style' && (
+              <div className="space-y-4">
+                {/* Colors removed - available in account settings */}
           </div>
+            )}
+          </>
         )}
 
         {/* Cart Component Properties */}
-        {activeTab === 'content' && component.type === 'cart' && (
+        {component.type === 'cart' && (
+          <>
+            {activeTab === 'content' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Header Text</label>
@@ -571,16 +710,14 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 <span className="ml-2 text-sm text-gray-700">Show Total</span>
               </label>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Button Color</label>
-                <input
-                  type="color"
-                  value={component.props?.buttonColor || '#4f46e5'}
-                  onChange={(e) => updateProp('buttonColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
             </div>
+            )}
+            {activeTab === 'style' && (
+              <div className="space-y-4">
+                {/* Colors removed - available in account settings */}
           </div>
+            )}
+          </>
         )}
 
         {/* Slider Component Properties */}
@@ -729,100 +866,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Desktop)</label>
-              <input
-                type="text"
-                value={component.props?.height || '600px'}
-                onChange={(e) => updateProp('height', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="600px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Tablet)</label>
-              <input
-                type="text"
-                value={component.props?.heightTablet || '500px'}
-                onChange={(e) => updateProp('heightTablet', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="500px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Mobile)</label>
-              <input
-                type="text"
-                value={component.props?.heightMobile || '400px'}
-                onChange={(e) => updateProp('heightMobile', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="400px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Autoplay Interval (ms)</label>
-              <input
-                type="number"
-                value={component.props?.autoplayInterval || 5000}
-                onChange={(e) => updateProp('autoplayInterval', parseInt(e.target.value) || 5000)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="5000"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Animation Speed (ms)</label>
-              <input
-                type="number"
-                value={component.props?.animationSpeed || 500}
-                onChange={(e) => updateProp('animationSpeed', parseInt(e.target.value) || 500)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Size</label>
-              <select
-                value={component.props?.backgroundSize || 'cover'}
-                onChange={(e) => updateProp('backgroundSize', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="cover">Cover</option>
-                <option value="contain">Contain</option>
-                <option value="auto">Auto</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Position</label>
-              <select
-                value={component.props?.backgroundPosition || 'center'}
-                onChange={(e) => updateProp('backgroundPosition', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="center">Center</option>
-                <option value="top">Top</option>
-                <option value="bottom">Bottom</option>
-                <option value="left">Left</option>
-                <option value="right">Right</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Title Color</label>
-              <input
-                type="color"
-                value={component.props?.titleColor || '#ffffff'}
-                onChange={(e) => updateProp('titleColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description Color</label>
-              <input
-                type="color"
-                value={component.props?.descriptionColor || '#ffffff'}
-                onChange={(e) => updateProp('descriptionColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Button Background Color</label>
               <input
                 type="color"
@@ -913,36 +956,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Desktop)</label>
-              <input
-                type="text"
-                value={component.props?.height || '300px'}
-                onChange={(e) => updateProp('height', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="300px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Tablet)</label>
-              <input
-                type="text"
-                value={component.props?.heightTablet || '250px'}
-                onChange={(e) => updateProp('heightTablet', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="250px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height (Mobile)</label>
-              <input
-                type="text"
-                value={component.props?.heightMobile || '200px'}
-                onChange={(e) => updateProp('heightMobile', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="200px"
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Background Image</label>
               {component.props?.backgroundImage && (
                 <div className="mb-2">
@@ -953,52 +966,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 onUploadSuccess={(imageUrl) => updateProp('backgroundImage', imageUrl)}
                 currentImageUrl={component.props?.backgroundImage}
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-              <input
-                type="color"
-                value={component.props?.backgroundColor || '#4f46e5'}
-                onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Gradient (CSS)</label>
-              <input
-                type="text"
-                value={component.props?.backgroundGradient || ''}
-                onChange={(e) => updateProp('backgroundGradient', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                placeholder="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-              />
-              <p className="text-xs text-gray-500 mt-1">CSS gradient string (overrides background color if set)</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Size</label>
-              <select
-                value={component.props?.backgroundSize || 'cover'}
-                onChange={(e) => updateProp('backgroundSize', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="cover">Cover</option>
-                <option value="contain">Contain</option>
-                <option value="auto">Auto</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Position</label>
-              <select
-                value={component.props?.backgroundPosition || 'center'}
-                onChange={(e) => updateProp('backgroundPosition', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="center">Center</option>
-                <option value="top">Top</option>
-                <option value="bottom">Bottom</option>
-                <option value="left">Left</option>
-                <option value="right">Right</option>
-              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Text Align</label>
@@ -1335,102 +1302,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               </div>
             )}
             
-            {/* Colors */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-              <input
-                type="color"
-                value={component.props?.backgroundColor || '#ffffff'}
-                onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-              <input
-                type="color"
-                value={component.props?.textColor || '#374151'}
-                onChange={(e) => updateProp('textColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Hover Color</label>
-              <input
-                type="color"
-                value={component.props?.hoverColor || '#4f46e5'}
-                onChange={(e) => updateProp('hoverColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Active Color</label>
-              <input
-                type="color"
-                value={component.props?.activeColor || '#4f46e5'}
-                onChange={(e) => updateProp('activeColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            
-            {/* Typography */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
-              <input
-                type="text"
-                value={component.props?.fontSize || '1rem'}
-                onChange={(e) => updateProp('fontSize', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="1rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
-              <select
-                value={component.props?.fontWeight || '500'}
-                onChange={(e) => updateProp('fontWeight', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="300">Light (300)</option>
-                <option value="400">Normal (400)</option>
-                <option value="500">Medium (500)</option>
-                <option value="600">Semibold (600)</option>
-                <option value="700">Bold (700)</option>
-              </select>
-            </div>
-            
-            {/* Spacing */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
-              <input
-                type="text"
-                value={component.props?.padding || '0.75rem 1rem'}
-                onChange={(e) => updateProp('padding', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0.75rem 1rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Gap</label>
-              <input
-                type="text"
-                value={component.props?.gap || '0.5rem'}
-                onChange={(e) => updateProp('gap', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0.5rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Border Radius</label>
-              <input
-                type="text"
-                value={component.props?.borderRadius || '0.375rem'}
-                onChange={(e) => updateProp('borderRadius', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0.375rem"
-              />
-            </div>
-            
             {/* Mobile Settings */}
             <div className="border-t pt-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">Mobile Settings</h4>
@@ -1455,15 +1326,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                   <option value="sidebar">Sidebar</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Menu Background</label>
-                <input
-                  type="color"
-                  value={component.props?.mobileMenuBackgroundColor || '#ffffff'}
-                  onChange={(e) => updateProp('mobileMenuBackgroundColor', e.target.value)}
-                  className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
             </div>
             
             {/* Options */}
@@ -1481,43 +1343,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
           </div>
         )}
 
-        {/* Code Block Component Properties */}
-        {activeTab === 'content' && component.type === 'code-block' && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
-              <select
-                value={component.props?.language || 'HTML'}
-                onChange={(e) => updateProp('language', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="HTML">HTML</option>
-                <option value="CSS">CSS</option>
-                <option value="JavaScript">JavaScript</option>
-                <option value="JSON">JSON</option>
-                <option value="Python">Python</option>
-                <option value="PHP">PHP</option>
-                <option value="SQL">SQL</option>
-                <option value="XML">XML</option>
-                <option value="Markdown">Markdown</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Code Content</label>
-              <textarea
-                value={component.content || ''}
-                onChange={(e) => updateContent(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                rows={8}
-                placeholder="Enter your code here..."
-                spellCheck={false}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Enter your {component.props?.language || 'HTML'} code above. This will be displayed in a syntax-highlighted code block.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Enhanced Button Component Properties */}
         {activeTab === 'content' && component.type === 'button' && (
@@ -1561,92 +1386,13 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Link URL</label>
               <input
-                type="color"
-                value={component.props?.backgroundColor || '#4f46e5'}
-                onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-              <input
-                type="color"
-                value={component.props?.textColor || '#ffffff'}
-                onChange={(e) => updateProp('textColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
-              <input
-                type="color"
-                value={component.props?.borderColor || '#4f46e5'}
-                onChange={(e) => updateProp('borderColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Border Radius</label>
-              <input
-                type="text"
-                value={component.props?.borderRadius || '0.375rem'}
-                onChange={(e) => updateProp('borderRadius', e.target.value)}
+                type="url"
+                value={component.props?.link || ''}
+                onChange={(e) => updateProp('link', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0.375rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
-              <input
-                type="text"
-                value={component.props?.padding || '0.75rem 1.5rem'}
-                onChange={(e) => updateProp('padding', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0.75rem 1.5rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
-              <input
-                type="text"
-                value={component.props?.fontSize || '1rem'}
-                onChange={(e) => updateProp('fontSize', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="1rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
-              <select
-                value={component.props?.fontWeight || '500'}
-                onChange={(e) => updateProp('fontWeight', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="300">Light</option>
-                <option value="400">Normal</option>
-                <option value="500">Medium</option>
-                <option value="600">Semibold</option>
-                <option value="700">Bold</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Hover Background Color</label>
-              <input
-                type="color"
-                value={component.props?.hoverBackgroundColor || '#3730a3'}
-                onChange={(e) => updateProp('hoverBackgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Hover Text Color</label>
-              <input
-                type="color"
-                value={component.props?.hoverTextColor || '#ffffff'}
-                onChange={(e) => updateProp('hoverTextColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="https://example.com"
               />
             </div>
             <div className="flex items-center">
@@ -1707,113 +1453,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 <option value="h6">H6 (Smallest)</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-              <input
-                type="color"
-                value={component.props?.color || '#111827'}
-                onChange={(e) => updateProp('color', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
-              <input
-                type="text"
-                value={component.props?.fontSize || '2.25rem'}
-                onChange={(e) => updateProp('fontSize', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="2.25rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
-              <select
-                value={component.props?.fontWeight || '700'}
-                onChange={(e) => updateProp('fontWeight', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="300">Light</option>
-                <option value="400">Normal</option>
-                <option value="500">Medium</option>
-                <option value="600">Semibold</option>
-                <option value="700">Bold</option>
-                <option value="800">Extra Bold</option>
-                <option value="900">Black</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
-              <select
-                value={component.props?.fontFamily || 'Inter'}
-                onChange={(e) => updateProp('fontFamily', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="Inter">Inter</option>
-                <option value="Roboto">Roboto</option>
-                <option value="Open Sans">Open Sans</option>
-                <option value="Lato">Lato</option>
-                <option value="Montserrat">Montserrat</option>
-                <option value="Poppins">Poppins</option>
-                <option value="Source Sans Pro">Source Sans Pro</option>
-                <option value="Nunito">Nunito</option>
-                <option value="Playfair Display">Playfair Display</option>
-                <option value="Merriweather">Merriweather</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text Alignment</label>
-              <select
-                value={component.props?.textAlign || 'left'}
-                onChange={(e) => updateProp('textAlign', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-                <option value="justify">Justify</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Line Height</label>
-              <input
-                type="text"
-                value={component.props?.lineHeight || '1.2'}
-                onChange={(e) => updateProp('lineHeight', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="1.2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Letter Spacing</label>
-              <input
-                type="text"
-                value={component.props?.letterSpacing || '-0.025em'}
-                onChange={(e) => updateProp('letterSpacing', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="-0.025em"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Margin</label>
-              <input
-                type="text"
-                value={component.props?.margin || '0'}
-                onChange={(e) => updateProp('margin', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
-              <input
-                type="text"
-                value={component.props?.padding || '0'}
-                onChange={(e) => updateProp('padding', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
           </div>
         )}
 
@@ -1829,135 +1468,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               rows={4}
                 placeholder="Text content goes here..."
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-              <input
-                type="color"
-                value={component.props?.color || '#374151'}
-                onChange={(e) => updateProp('color', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
-              <input
-                type="text"
-                value={component.props?.fontSize || '1rem'}
-                onChange={(e) => updateProp('fontSize', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="1rem"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
-              <select
-                value={component.props?.fontWeight || '400'}
-                onChange={(e) => updateProp('fontWeight', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="300">Light</option>
-                <option value="400">Normal</option>
-                <option value="500">Medium</option>
-                <option value="600">Semibold</option>
-                <option value="700">Bold</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
-              <select
-                value={component.props?.fontFamily || 'Inter'}
-                onChange={(e) => updateProp('fontFamily', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="Inter">Inter</option>
-                <option value="Roboto">Roboto</option>
-                <option value="Open Sans">Open Sans</option>
-                <option value="Lato">Lato</option>
-                <option value="Montserrat">Montserrat</option>
-                <option value="Poppins">Poppins</option>
-                <option value="Source Sans Pro">Source Sans Pro</option>
-                <option value="Nunito">Nunito</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Times New Roman">Times New Roman</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text Alignment</label>
-              <select
-                value={component.props?.textAlign || 'left'}
-                onChange={(e) => updateProp('textAlign', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-                <option value="justify">Justify</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Line Height</label>
-              <input
-                type="text"
-                value={component.props?.lineHeight || '1.5'}
-                onChange={(e) => updateProp('lineHeight', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="1.5"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Letter Spacing</label>
-              <input
-                type="text"
-                value={component.props?.letterSpacing || '0'}
-                onChange={(e) => updateProp('letterSpacing', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Margin</label>
-              <input
-                type="text"
-                value={component.props?.margin || '0'}
-                onChange={(e) => updateProp('margin', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
-              <input
-                type="text"
-                value={component.props?.padding || '0'}
-                onChange={(e) => updateProp('padding', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Max Width</label>
-              <input
-                type="text"
-                value={component.props?.maxWidth || 'none'}
-                onChange={(e) => updateProp('maxWidth', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">White Space</label>
-              <select
-                value={component.props?.whiteSpace || 'normal'}
-                onChange={(e) => updateProp('whiteSpace', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="normal">Normal</option>
-                <option value="nowrap">No Wrap</option>
-                <option value="pre">Pre</option>
-                <option value="pre-line">Pre Line</option>
-                <option value="pre-wrap">Pre Wrap</option>
-              </select>
             </div>
           </div>
         )}
@@ -2011,136 +1521,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
-              <input
-                type="text"
-                value={component.props?.width || 'auto'}
-                onChange={(e) => updateProp('width', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="auto"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Height</label>
-              <input
-                type="text"
-                value={component.props?.height || 'auto'}
-                onChange={(e) => updateProp('height', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="auto"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Max Width</label>
-              <input
-                type="text"
-                value={component.props?.maxWidth || '100%'}
-                onChange={(e) => updateProp('maxWidth', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="100%"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Object Fit</label>
-              <select
-                value={component.props?.objectFit || 'cover'}
-                onChange={(e) => updateProp('objectFit', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="cover">Cover</option>
-                <option value="contain">Contain</option>
-                <option value="fill">Fill</option>
-                <option value="scale-down">Scale Down</option>
-                <option value="none">None</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Border Radius</label>
-              <input
-                type="text"
-                value={component.props?.borderRadius || '0'}
-                onChange={(e) => updateProp('borderRadius', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Shadow</label>
-              <select
-                value={component.props?.shadow || 'none'}
-                onChange={(e) => updateProp('shadow', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="none">None</option>
-                <option value="sm">Small</option>
-                <option value="md">Medium</option>
-                <option value="lg">Large</option>
-                <option value="xl">Extra Large</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Border</label>
-              <select
-                value={component.props?.border || 'none'}
-                onChange={(e) => updateProp('border', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="none">None</option>
-                <option value="1px solid">1px Solid</option>
-                <option value="2px solid">2px Solid</option>
-                <option value="1px dashed">1px Dashed</option>
-                <option value="1px dotted">1px Dotted</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
-              <input
-                type="color"
-                value={component.props?.borderColor || '#e5e7eb'}
-                onChange={(e) => updateProp('borderColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Border Width</label>
-              <input
-                type="text"
-                value={component.props?.borderWidth || '0'}
-                onChange={(e) => updateProp('borderWidth', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Margin</label>
-              <input
-                type="text"
-                value={component.props?.margin || '0'}
-                onChange={(e) => updateProp('margin', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
-              <input
-                type="text"
-                value={component.props?.padding || '0'}
-                onChange={(e) => updateProp('padding', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-              <input
-                type="color"
-                value={component.props?.backgroundColor || 'transparent'}
-                onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Caption</label>
               <input
                 type="text"
@@ -2171,25 +1551,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 <option value="overlay">Overlay</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Caption Color</label>
-              <input
-                type="color"
-                value={component.props?.captionColor || '#6b7280'}
-                onChange={(e) => updateProp('captionColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Caption Font Size</label>
-              <input
-                type="text"
-                value={component.props?.captionFontSize || '0.875rem'}
-                onChange={(e) => updateProp('captionFontSize', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="0.875rem"
-              />
-            </div>
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -2216,22 +1577,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
           </div>
         )}
 
-        {/* Spacer Height */}
-        {activeTab === 'content' && component.type === 'spacer' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Height: {component.props.height || '50px'}
-            </label>
-            <input
-              type="range"
-              min="20"
-              max="200"
-              value={parseInt(component.props.height || '50')}
-              onChange={(e) => updateProp('height', `${e.target.value}px`)}
-              className="w-full"
-            />
-          </div>
-        )}
 
         {/* Container Columns */}
         {activeTab === 'content' && component.type === 'container' && (
@@ -2260,75 +1605,10 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
           </div>
         )}
 
-        {/* Spacing */}
-        <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Spacing</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Padding</label>
-              <input
-                type="text"
-                value={component.style?.padding || ''}
-                onChange={(e) => updateStyle('padding', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="16px"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Margin</label>
-              <input
-                type="text"
-                value={component.style?.margin || ''}
-                onChange={(e) => updateStyle('margin', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="16px"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Colors */}
-        <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Colors</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Background Color</label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="color"
-                  value={component.style?.backgroundColor || '#ffffff'}
-                  onChange={(e) => updateStyle('backgroundColor', e.target.value)}
-                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={component.style?.backgroundColor || ''}
-                  onChange={(e) => updateStyle('backgroundColor', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  placeholder="#ffffff"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Text Color</label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="color"
-                  value={component.style?.color || '#000000'}
-                  onChange={(e) => updateStyle('color', e.target.value)}
-                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={component.style?.color || ''}
-                  onChange={(e) => updateStyle('color', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  placeholder="#000000"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Typography - Only show in Style tab */}
+        {activeTab === 'style' && (
+          <>
+            {/* Spacing, Colors, Border, Size removed - available in account settings */}
 
         {/* Typography */}
         {(component.type === 'text' || component.type === 'heading') && (
@@ -2375,133 +1655,10 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
           </div>
         )}
 
-        {/* Border */}
-        <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Border</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Border Width</label>
-              <input
-                type="text"
-                value={component.style?.borderWidth || ''}
-                onChange={(e) => updateStyle('borderWidth', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="1px"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Border Color</label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="color"
-                  value={component.style?.borderColor || '#000000'}
-                  onChange={(e) => updateStyle('borderColor', e.target.value)}
-                  className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={component.style?.borderColor || ''}
-                  onChange={(e) => updateStyle('borderColor', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  placeholder="#000000"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Border Radius</label>
-              <input
-                type="text"
-                value={component.style?.borderRadius || ''}
-                onChange={(e) => updateStyle('borderRadius', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="8px"
-              />
-            </div>
-          </div>
-        </div>
+            {/* Colors, Spacing, Border, Size removed - available in account settings */}
+          </>
+        )}
 
-        {/* Size */}
-        <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Size</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Width</label>
-              <input
-                type="text"
-                value={component.style?.width || ''}
-                onChange={(e) => updateStyle('width', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="100%"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Height</label>
-              <input
-                type="text"
-                value={component.style?.height || ''}
-                onChange={(e) => updateStyle('height', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="auto"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Custom CSS */}
-        <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Custom CSS Class</h4>
-          <input
-            type="text"
-            value={component.className || ''}
-            onChange={(e) => onUpdate({ ...component, className: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-            placeholder="custom-class"
-          />
-        </div>
-
-        {/* Code Editor */}
-        <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Code Editor</h4>
-          <div className="space-y-4">
-            {/* HTML Editor */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">HTML</label>
-              <textarea
-                value={component.props?.htmlCode || ''}
-                onChange={(e) => updateProp('htmlCode', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                rows={4}
-                placeholder="<div>Custom HTML code</div>"
-                spellCheck={false}
-              />
-            </div>
-            
-            {/* CSS Editor */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">CSS</label>
-              <textarea
-                value={component.props?.cssCode || ''}
-                onChange={(e) => updateProp('cssCode', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                rows={4}
-                placeholder=".custom-style { color: red; }"
-                spellCheck={false}
-              />
-            </div>
-            
-            {/* JavaScript Editor */}
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">JavaScript</label>
-              <textarea
-                value={component.props?.jsCode || ''}
-                onChange={(e) => updateProp('jsCode', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                rows={4}
-                placeholder="console.log('Custom JavaScript');"
-                spellCheck={false}
-              />
-            </div>
-          </div>
         {/* Sidebar Component Properties */}
         {activeTab === 'content' && component.type === 'sidebar' && (
           <div className="space-y-4">
@@ -2513,25 +1670,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 onChange={(e) => updateProp('title', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="Sidebar Title"
-              />
-        </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
-              <input
-                type="text"
-                value={component.props?.width || ''}
-                onChange={(e) => updateProp('width', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="300px"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-              <input
-                type="color"
-                value={component.props?.backgroundColor || '#f8fafc'}
-                onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
             <div className="flex items-center">
@@ -2821,19 +1959,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         {activeTab === 'content' && component.type === 'products-grid' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>
-              <select
-                value={component.props?.columns || 3}
-                onChange={(e) => updateProp('columns', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value={1}>1 Column</option>
-                <option value={2}>2 Columns</option>
-                <option value={3}>3 Columns</option>
-                <option value={4}>4 Columns</option>
-              </select>
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Number of Products</label>
               <input
                 type="number"
@@ -3073,31 +2198,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 placeholder="Showcase subtitle"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Layout</label>
-              <select
-                value={component.props?.layout || 'grid'}
-                onChange={(e) => updateProp('layout', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="grid">Grid</option>
-                <option value="list">List</option>
-                <option value="carousel">Carousel</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>
-              <select
-                value={component.props?.columns || 3}
-                onChange={(e) => updateProp('columns', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value={1}>1 Column</option>
-                <option value={2}>2 Columns</option>
-                <option value={3}>3 Columns</option>
-                <option value={4}>4 Columns</option>
-              </select>
-            </div>
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -3145,32 +2245,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     placeholder="Select the perfect plan for your needs"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Layout</label>
-                  <select
-                    value={component.props?.layout || 'default'}
-                    onChange={(e) => updateProp('layout', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  >
-                    <option value="default">Default</option>
-                    <option value="minimal">Minimal</option>
-                    <option value="modern">Modern</option>
-                    <option value="classic">Classic</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Columns</label>
-                  <select
-                    value={component.props?.columns || 3}
-                    onChange={(e) => updateProp('columns', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  >
-                    <option value={1}>1 Column</option>
-                    <option value={2}>2 Columns</option>
-                    <option value={3}>3 Columns</option>
-                    <option value={4}>4 Columns</option>
-                  </select>
                 </div>
                 <div className="flex items-center">
                   <input
@@ -3761,7 +2835,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               <p className="text-xs text-blue-600">Highly customizable checkout form with dynamic field management</p>
             </div>
             
-            {/* Dynamic Field Management - Moved to Top */}
+            {/* Dynamic Field Management - Summary */}
             <div className="border-t border-gray-200 pt-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
@@ -3773,268 +2847,14 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                 <button
                   type="button"
                   onClick={() => {
-                    const newField = {
-                      id: `field_${Date.now()}`,
-                      type: 'text',
-                      label: 'New Field',
-                      name: `field_${Date.now()}`,
-                      placeholder: 'Enter value',
-                      required: false,
-                      section: 'billing',
-                      order: (component.props?.customFields || []).length + 1,
-                      gridCols: 12
-                    };
-                    const currentFields = component.props?.customFields || [];
-                    updateProp('customFields', [...currentFields, newField]);
+                    // Initialize local state with current customFields when opening modal
+                    setLocalCustomFields([...(component.props?.customFields || [])]);
+                    setIsFormModalOpen(true);
                   }}
                   className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-medium"
                 >
-                  + Add Custom Field
+                  Edit Form
                 </button>
-              </div>
-              
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {(component.props?.customFields || []).map((field: any, index: number) => (
-                  <div key={field.id || index} className="border border-gray-200 rounded-md p-3 bg-gray-50">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={field.label || ''}
-                          onChange={(e) => {
-                            const fields = [...(component.props?.customFields || [])];
-                            fields[index] = { ...fields[index], label: e.target.value };
-                            updateProp('customFields', fields);
-                          }}
-                          placeholder="Field Label"
-                          className="w-full px-2 py-1 text-sm font-medium border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const fields = [...(component.props?.customFields || [])];
-                          fields.splice(index, 1);
-                          updateProp('customFields', fields);
-                        }}
-                        className="ml-2 text-red-600 hover:text-red-800"
-                        title="Remove field"
-                      >
-                        <XMarkIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Type</label>
-                        <select
-                          value={field.type || 'text'}
-                          onChange={(e) => {
-                            const fields = [...(component.props?.customFields || [])];
-                            fields[index] = { ...fields[index], type: e.target.value };
-                            updateProp('customFields', fields);
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                          <option value="text">Text</option>
-                          <option value="email">Email</option>
-                          <option value="tel">Phone</option>
-                          <option value="number">Number</option>
-                          <option value="select">Select/Dropdown</option>
-                          <option value="textarea">Textarea</option>
-                          <option value="checkbox">Checkbox</option>
-                          <option value="radio">Radio</option>
-                          <option value="date">Date</option>
-                          <option value="file">File Upload</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Section</label>
-                        <select
-                          value={field.section || 'billing'}
-                          onChange={(e) => {
-                            const fields = [...(component.props?.customFields || [])];
-                            fields[index] = { ...fields[index], section: e.target.value };
-                            updateProp('customFields', fields);
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                          <option value="billing">Billing</option>
-                          <option value="shipping">Shipping</option>
-                          <option value="payment">Payment</option>
-                          <option value="custom">Custom</option>
-                          <option value="order">Order</option>
-                        </select>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Field Name</label>
-                        <input
-                          type="text"
-                          value={field.name || ''}
-                          onChange={(e) => {
-                            const fields = [...(component.props?.customFields || [])];
-                            fields[index] = { ...fields[index], name: e.target.value };
-                            updateProp('customFields', fields);
-                          }}
-                          placeholder="fieldName"
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Order</label>
-                        <input
-                          type="number"
-                          value={field.order || index + 1}
-                          onChange={(e) => {
-                            const fields = [...(component.props?.customFields || [])];
-                            fields[index] = { ...fields[index], order: parseInt(e.target.value) || index + 1 };
-                            updateProp('customFields', fields);
-                          }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="mb-2">
-                      <label className="block text-xs text-gray-600 mb-1">Placeholder</label>
-                      <input
-                        type="text"
-                        value={field.placeholder || ''}
-                        onChange={(e) => {
-                          const fields = [...(component.props?.customFields || [])];
-                          fields[index] = { ...fields[index], placeholder: e.target.value };
-                          updateProp('customFields', fields);
-                        }}
-                        placeholder="Enter placeholder text"
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    
-                    <div className="mb-2">
-                      <label className="block text-xs text-gray-600 mb-1">Help Text (Optional)</label>
-                      <input
-                        type="text"
-                        value={field.helpText || ''}
-                        onChange={(e) => {
-                          const fields = [...(component.props?.customFields || [])];
-                          fields[index] = { ...fields[index], helpText: e.target.value };
-                          updateProp('customFields', fields);
-                        }}
-                        placeholder="Helper text shown below field"
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    
-                    <div className="mb-2">
-                      <label className="block text-xs text-gray-600 mb-1">Default Value (Optional)</label>
-                      <input
-                        type="text"
-                        value={field.defaultValue || ''}
-                        onChange={(e) => {
-                          const fields = [...(component.props?.customFields || [])];
-                          fields[index] = { ...fields[index], defaultValue: e.target.value };
-                          updateProp('customFields', fields);
-                        }}
-                        placeholder="Default value for this field"
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    
-                    <div className="mb-2">
-                      <label className="block text-xs text-gray-600 mb-1">Grid Columns (1-12)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="12"
-                        value={field.gridCols || 12}
-                        onChange={(e) => {
-                          const fields = [...(component.props?.customFields || [])];
-                          fields[index] = { ...fields[index], gridCols: parseInt(e.target.value) || 12 };
-                          updateProp('customFields', fields);
-                        }}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">Controls field width in grid layout</p>
-                    </div>
-                    
-                    {(field.type === 'select' || field.type === 'radio') && (
-                      <div className="mb-2">
-                        <label className="block text-xs text-gray-600 mb-1">Options (one per line, format: Label|Value)</label>
-                        <textarea
-                          value={field.options ? field.options.map((opt: any) => `${opt.label}|${opt.value}`).join('\n') : ''}
-                          onChange={(e) => {
-                            const options = e.target.value.split('\n').filter(Boolean).map(line => {
-                              const [label, value] = line.split('|');
-                              return { label: label?.trim() || line.trim(), value: value?.trim() || line.trim().toLowerCase().replace(/\s+/g, '_') };
-                            });
-                            const fields = [...(component.props?.customFields || [])];
-                            fields[index] = { ...fields[index], options };
-                            updateProp('customFields', fields);
-                          }}
-                          placeholder="Option 1|value1&#10;Option 2|value2"
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-mono"
-                          rows={3}
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={field.required || false}
-                          onChange={(e) => {
-                            const fields = [...(component.props?.customFields || [])];
-                            fields[index] = { ...fields[index], required: e.target.checked };
-                            updateProp('customFields', fields);
-                          }}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="ml-2 text-xs text-gray-700">Required</span>
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (index > 0) {
-                              const fields = [...(component.props?.customFields || [])];
-                              [fields[index - 1], fields[index]] = [fields[index], fields[index - 1]];
-                              updateProp('customFields', fields);
-                            }
-                          }}
-                          className="text-xs text-gray-600 hover:text-gray-800"
-                          title="Move up"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const fields = [...(component.props?.customFields || [])];
-                            if (index < fields.length - 1) {
-                              [fields[index], fields[index + 1]] = [fields[index + 1], fields[index]];
-                              updateProp('customFields', fields);
-                            }
-                          }}
-                          className="text-xs text-gray-600 hover:text-gray-800"
-                          title="Move down"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {(!component.props?.customFields || component.props.customFields.length === 0) && (
-                  <div className="text-center py-8 text-gray-400 text-sm">
-                    <p>No custom fields yet.</p>
-                    <p className="text-xs mt-1">Click "Add Field" to create your first field</p>
-                  </div>
-                )}
               </div>
             </div>
             
@@ -4084,49 +2904,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                     onChange={(e) => updateProp('borderRadius', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     placeholder="0.5rem"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Colors */}
-            <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Colors</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-                  <input
-                    type="color"
-                    value={component.props?.backgroundColor || '#ffffff'}
-                    onChange={(e) => updateProp('backgroundColor', e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-                  <input
-                    type="color"
-                    value={component.props?.textColor || '#1f2937'}
-                    onChange={(e) => updateProp('textColor', e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
-                  <input
-                    type="color"
-                    value={component.props?.primaryColor || '#4f46e5'}
-                    onChange={(e) => updateProp('primaryColor', e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
-                  <input
-                    type="color"
-                    value={component.props?.borderColor || '#e5e7eb'}
-                    onChange={(e) => updateProp('borderColor', e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-md"
                   />
                 </div>
               </div>
@@ -4206,78 +2983,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                   />
                   <span className="ml-2 text-sm text-gray-700">Show Payment Information</span>
                 </label>
-              </div>
-            </div>
-            
-            {/* Quick Add Preset Fields */}
-            <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Quick Add Preset Fields</h3>
-              <p className="text-xs text-gray-500 mb-3">Click to add common fields to your form</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: 'First Name', type: 'text', name: 'firstName', section: 'billing', placeholder: 'John' },
-                  { label: 'Last Name', type: 'text', name: 'lastName', section: 'billing', placeholder: 'Doe' },
-                  { label: 'Email', type: 'email', name: 'email', section: 'billing', placeholder: 'john@example.com' },
-                  { label: 'Phone', type: 'tel', name: 'phone', section: 'billing', placeholder: '+1 (555) 123-4567' },
-                  { label: 'Company', type: 'text', name: 'company', section: 'billing', placeholder: 'Company Name' },
-                  { label: 'Address', type: 'text', name: 'address', section: 'billing', placeholder: '123 Main St' },
-                  { label: 'City', type: 'text', name: 'city', section: 'billing', placeholder: 'New York' },
-                  { label: 'State', type: 'text', name: 'state', section: 'billing', placeholder: 'NY' },
-                  { label: 'ZIP Code', type: 'text', name: 'zipCode', section: 'billing', placeholder: '10001' },
-                  { label: 'Country', type: 'select', name: 'country', section: 'billing', placeholder: 'Select Country' },
-                  { label: 'Card Number', type: 'text', name: 'cardNumber', section: 'payment', placeholder: '1234 5678 9012 3456' },
-                  { label: 'Expiry Date', type: 'text', name: 'expiryDate', section: 'payment', placeholder: 'MM/YY' },
-                  { label: 'CVV', type: 'text', name: 'cvv', section: 'payment', placeholder: '123' },
-                  { label: 'Name on Card', type: 'text', name: 'nameOnCard', section: 'payment', placeholder: 'John Doe' },
-                  { label: 'Order Notes', type: 'textarea', name: 'orderNotes', section: 'order', placeholder: 'Special instructions...' },
-                  { label: 'PO Number', type: 'text', name: 'poNumber', section: 'order', placeholder: 'PO-12345' },
-                ].map((preset) => {
-                  const existing = component.props?.customFields?.find((f: any) => f.name === preset.name);
-                  return (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => {
-                        if (existing) {
-                          alert('This field already exists in your form');
-                          return;
-                        }
-                        const newField = {
-                          id: `field_${Date.now()}_${preset.name}`,
-                          type: preset.type,
-                          label: preset.label,
-                          name: preset.name,
-                          placeholder: preset.placeholder,
-                          required: ['firstName', 'lastName', 'email', 'address', 'city', 'state', 'zipCode'].includes(preset.name),
-                          section: preset.section,
-                          order: (component.props?.customFields || []).length + 1,
-                          gridCols: 12,
-                          ...(preset.type === 'select' && preset.name === 'country' ? {
-                            options: [
-                              { label: 'United States', value: 'US' },
-                              { label: 'Canada', value: 'CA' },
-                              { label: 'United Kingdom', value: 'GB' },
-                              { label: 'Australia', value: 'AU' },
-                              { label: 'Germany', value: 'DE' },
-                              { label: 'France', value: 'FR' }
-                            ]
-                          } : {})
-                        };
-                        const currentFields = component.props?.customFields || [];
-                        updateProp('customFields', [...currentFields, newField]);
-                      }}
-                      disabled={!!existing}
-                      className={`text-xs px-3 py-2 rounded border text-left transition-colors ${
-                        existing 
-                          ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' 
-                          : 'bg-white border-gray-300 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300'
-                      }`}
-                      title={existing ? 'Field already added' : `Add ${preset.label} field`}
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
               </div>
             </div>
             
@@ -4518,17 +3223,6 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
               </div>
             </div>
             
-            {/* Custom CSS */}
-            <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Custom CSS</h3>
-              <textarea
-                value={component.props?.customCSS || ''}
-                onChange={(e) => updateProp('customCSS', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                rows={4}
-                placeholder="/* Add custom CSS here */"
-              />
-            </div>
           </div>
         )}
 
@@ -4641,92 +3335,98 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
         {/* Style Tab - General styling for all components */}
         {activeTab === 'style' && component.type !== 'header' && (
           <div className="space-y-4">
-            <Accordion title="Colors" defaultOpen={true}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-                  <input
-                    type="color"
-                    value={component.style?.backgroundColor || component.props?.backgroundColor || '#ffffff'}
-                    onChange={(e) => {
-                      if (component.style) {
-                        updateStyle('backgroundColor', e.target.value);
-                      } else {
-                        updateProp('backgroundColor', e.target.value);
-                      }
-                    }}
-                    className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-                  <input
-                    type="color"
-                    value={component.style?.color || component.props?.textColor || '#000000'}
-                    onChange={(e) => {
-                      if (component.style) {
-                        updateStyle('color', e.target.value);
-                      } else {
-                        updateProp('textColor', e.target.value);
-                      }
-                    }}
-                    className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-            </Accordion>
-            <Accordion title="Spacing">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
-                    <input
-                      type="text"
-                      value={component.style?.padding || ''}
-                      onChange={(e) => updateStyle('padding', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Margin</label>
-                    <input
-                      type="text"
-                      value={component.style?.margin || ''}
-                      onChange={(e) => updateStyle('margin', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </div>
-            </Accordion>
+            {/* Colors, Spacing, Border, Size removed - available in account settings */}
             <Accordion title="Typography">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
                   <input
                     type="text"
-                    value={component.style?.fontSize || ''}
-                    onChange={(e) => updateStyle('fontSize', e.target.value)}
+                    value={component.style?.fontSize || component.props?.fontSize || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('fontSize', e.target.value);
+                      } else {
+                        updateProp('fontSize', e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     placeholder="16px"
                   />
-                </div>
+        </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
                   <select
-                    value={component.style?.fontWeight || 'normal'}
-                    onChange={(e) => updateStyle('fontWeight', e.target.value)}
+                    value={component.style?.fontWeight || component.props?.fontWeight || 'normal'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('fontWeight', e.target.value);
+                      } else {
+                        updateProp('fontWeight', e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                   >
-                    <option value="normal">Normal</option>
-                    <option value="bold">Bold</option>
                     <option value="300">Light</option>
+                    <option value="400">Normal</option>
                     <option value="500">Medium</option>
                     <option value="600">Semi Bold</option>
                     <option value="700">Bold</option>
+                    <option value="800">Extra Bold</option>
+                    <option value="900">Black</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                  <select
+                    value={component.props?.fontFamily || 'Inter'}
+                    onChange={(e) => updateProp('fontFamily', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="Inter">Inter</option>
+                    <option value="Roboto">Roboto</option>
+                    <option value="Open Sans">Open Sans</option>
+                    <option value="Lato">Lato</option>
+                    <option value="Montserrat">Montserrat</option>
+                    <option value="Poppins">Poppins</option>
+                    <option value="Source Sans Pro">Source Sans Pro</option>
+                    <option value="Nunito">Nunito</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Alignment</label>
+                  <select
+                    value={component.props?.textAlign || 'left'}
+                    onChange={(e) => updateProp('textAlign', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                    <option value="justify">Justify</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Line Height</label>
+                  <input
+                    type="text"
+                    value={component.props?.lineHeight || ''}
+                    onChange={(e) => updateProp('lineHeight', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="1.5"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Letter Spacing</label>
+                  <input
+                    type="text"
+                    value={component.props?.letterSpacing || ''}
+                    onChange={(e) => updateProp('letterSpacing', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="0"
+                  />
                 </div>
               </div>
             </Accordion>
@@ -4753,6 +3453,16 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Max Width</label>
+                  <input
+                    type="text"
+                    value={component.props?.maxWidth || ''}
+                    onChange={(e) => updateProp('maxWidth', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="none"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Display</label>
                   <select
                     value={component.style?.display || 'block'}
@@ -4765,6 +3475,23 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
                     <option value="flex">Flex</option>
                     <option value="grid">Grid</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Grid Columns (CSS)</label>
+                  <input
+                    type="text"
+                    value={component.style?.gridTemplateColumns || component.props?.gridTemplateColumns || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('gridTemplateColumns', e.target.value);
+                      } else {
+                        updateProp('gridTemplateColumns', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    placeholder="repeat(3, 1fr) or 1fr 2fr 1fr"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">CSS grid-template-columns value (e.g., "repeat(3, 1fr)", "1fr 2fr 1fr", "200px 1fr")</p>
                 </div>
               </div>
             </Accordion>
@@ -4833,7 +3560,419 @@ export default function PropertiesPanel({ component, onUpdate, onClose }: Proper
 
       </div>
     </div>
-    </div>
+
+      {/* Edit Form Modal */}
+      {isFormModalOpen && component && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setIsFormModalOpen(false)}></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Edit Form Fields</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsFormModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {localCustomFields.length} field{localCustomFields.length !== 1 ? 's' : ''} configured
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newFieldId = `field_${Date.now()}`;
+                      const newField = {
+                        id: newFieldId,
+                        type: 'text',
+                        label: 'New Field',
+                        name: `field_${Date.now()}`,
+                        placeholder: 'Enter value',
+                        required: false,
+                        section: 'billing',
+                        order: 1,
+                        gridCols: 12
+                      };
+                      const currentFields = localCustomFields;
+                      // Add new field at the beginning and update order for existing fields
+                      const updatedFields = currentFields.map((f: any, idx: number) => ({
+                        ...f,
+                        order: idx + 2
+                      }));
+                      setLocalCustomFields([newField, ...updatedFields]);
+                      // Highlight and open the new field
+                      setHighlightedFieldId(newFieldId);
+                      setOpenAccordions(new Set([newFieldId]));
+                    }}
+                    className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-medium"
+                  >
+                    + Add Custom Field
+                  </button>
+                </div>
+                
+                <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                  {localCustomFields.map((field: any, index: number) => {
+                    const isHighlighted = highlightedFieldId === field.id;
+                    const isOpen = openAccordions.has(field.id);
+                    const isDragging = draggedFieldId === field.id;
+                    const isDragOver = dragOverIndex === index;
+                    return (
+                    <div
+                      key={field.id || index}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedFieldId(field.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', field.id);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        setDragOverIndex(index);
+                      }}
+                      onDragLeave={() => {
+                        setDragOverIndex(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const draggedId = e.dataTransfer.getData('text/plain');
+                        if (draggedId && draggedId !== field.id) {
+                          const fields = [...localCustomFields];
+                          const draggedIndex = fields.findIndex((f: any) => f.id === draggedId);
+                          if (draggedIndex !== -1) {
+                            const [draggedField] = fields.splice(draggedIndex, 1);
+                            fields.splice(index, 0, draggedField);
+                            // Update order values
+                            fields.forEach((f: any, idx: number) => {
+                              f.order = idx + 1;
+                            });
+                            setLocalCustomFields(fields);
+                          }
+                        }
+                        setDraggedFieldId(null);
+                        setDragOverIndex(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedFieldId(null);
+                        setDragOverIndex(null);
+                      }}
+                      className={`transition-all duration-300 cursor-move ${
+                        isHighlighted 
+                          ? 'ring-2 ring-indigo-500 ring-offset-2 bg-indigo-50 rounded-lg p-1' 
+                          : ''
+                      } ${
+                        isDragging ? 'opacity-50' : ''
+                      } ${
+                        isDragOver ? 'border-2 border-indigo-400 border-dashed rounded-lg' : ''
+                      }`}
+                    >
+                      <Accordion 
+                        title={field.label || `Field ${index + 1}`}
+                        leftIcon={
+                          <svg className="h-4 w-4 text-gray-400 cursor-move" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                          </svg>
+                        }
+                        rightIcon={
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const fields = [...localCustomFields];
+                              fields.splice(index, 1);
+                              setLocalCustomFields(fields);
+                              // Close accordion if it was open
+                              if (openAccordions.has(field.id)) {
+                                setOpenAccordions(new Set());
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded p-1 transition-colors"
+                            title="Delete field"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        }
+                        isOpen={isOpen}
+                        onToggle={() => {
+                          // If this accordion is already open, close it
+                          // Otherwise, close all others and open only this one
+                          if (openAccordions.has(field.id)) {
+                            setOpenAccordions(new Set());
+                          } else {
+                            setOpenAccordions(new Set([field.id]));
+                          }
+                        }}
+                      >
+                      <div className="space-y-3 pt-2">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Field Label</label>
+                          <input
+                            type="text"
+                            value={field.label || ''}
+                            onChange={(e) => {
+                              const fields = [...localCustomFields];
+                              fields[index] = { ...fields[index], label: e.target.value };
+                              setLocalCustomFields(fields);
+                            }}
+                            placeholder="Field Label"
+                            className="w-full px-2 py-1 text-sm font-medium border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Type</label>
+                            <select
+                              value={field.type || 'text'}
+                              onChange={(e) => {
+                                const fields = [...localCustomFields];
+                                fields[index] = { ...fields[index], type: e.target.value };
+                                setLocalCustomFields(fields);
+                              }}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                              <option value="text">Text</option>
+                              <option value="email">Email</option>
+                              <option value="tel">Phone</option>
+                              <option value="number">Number</option>
+                              <option value="select">Select/Dropdown</option>
+                              <option value="textarea">Textarea</option>
+                              <option value="checkbox">Checkbox</option>
+                              <option value="radio">Radio</option>
+                              <option value="date">Date</option>
+                              <option value="file">File Upload</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Section</label>
+                            <select
+                              value={field.section || 'billing'}
+                              onChange={(e) => {
+                                const fields = [...localCustomFields];
+                                fields[index] = { ...fields[index], section: e.target.value };
+                                setLocalCustomFields(fields);
+                              }}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                              <option value="billing">Billing</option>
+                              <option value="shipping">Shipping</option>
+                              <option value="payment">Payment</option>
+                              <option value="custom">Custom</option>
+                              <option value="order">Order</option>
+                            </select>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Field Name</label>
+                            <input
+                              type="text"
+                              value={field.name || ''}
+                              onChange={(e) => {
+                                const fields = [...localCustomFields];
+                                fields[index] = { ...fields[index], name: e.target.value };
+                                setLocalCustomFields(fields);
+                              }}
+                              placeholder="fieldName"
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Order</label>
+                            <input
+                              type="number"
+                              value={field.order || index + 1}
+                              onChange={(e) => {
+                                const fields = [...localCustomFields];
+                                fields[index] = { ...fields[index], order: parseInt(e.target.value) || index + 1 };
+                                setLocalCustomFields(fields);
+                              }}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Placeholder</label>
+                          <input
+                            type="text"
+                            value={field.placeholder || ''}
+                            onChange={(e) => {
+                              const fields = [...localCustomFields];
+                              fields[index] = { ...fields[index], placeholder: e.target.value };
+                              setLocalCustomFields(fields);
+                            }}
+                            placeholder="Enter placeholder text"
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Help Text (Optional)</label>
+                          <input
+                            type="text"
+                            value={field.helpText || ''}
+                            onChange={(e) => {
+                              const fields = [...localCustomFields];
+                              fields[index] = { ...fields[index], helpText: e.target.value };
+                              setLocalCustomFields(fields);
+                            }}
+                            placeholder="Helper text shown below field"
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Default Value (Optional)</label>
+                          <input
+                            type="text"
+                            value={field.defaultValue || ''}
+                            onChange={(e) => {
+                              const fields = [...localCustomFields];
+                              fields[index] = { ...fields[index], defaultValue: e.target.value };
+                              setLocalCustomFields(fields);
+                            }}
+                            placeholder="Default value for this field"
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Grid Columns (1-12)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="12"
+                            value={field.gridCols || 12}
+                            onChange={(e) => {
+                              const fields = [...localCustomFields];
+                              fields[index] = { ...fields[index], gridCols: parseInt(e.target.value) || 12 };
+                              setLocalCustomFields(fields);
+                            }}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                          <p className="text-xs text-gray-400 mt-1">Controls field width in grid layout</p>
+                        </div>
+                        
+                        {(field.type === 'select' || field.type === 'radio') && (
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Options (one per line, format: Label|Value)</label>
+                            <textarea
+                              value={field.options ? field.options.map((opt: any) => `${opt.label}|${opt.value}`).join('\n') : ''}
+                              onChange={(e) => {
+                                const options = e.target.value.split('\n').filter(Boolean).map(line => {
+                                  const [label, value] = line.split('|');
+                                  return { label: label?.trim() || line.trim(), value: value?.trim() || line.trim().toLowerCase().replace(/\s+/g, '_') };
+                                });
+                                const fields = [...localCustomFields];
+                                fields[index] = { ...fields[index], options };
+                                setLocalCustomFields(fields);
+                              }}
+                              placeholder="Option 1|value1&#10;Option 2|value2"
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                              rows={3}
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={field.required || false}
+                              onChange={(e) => {
+                                const fields = [...localCustomFields];
+                                fields[index] = { ...fields[index], required: e.target.checked };
+                                setLocalCustomFields(fields);
+                              }}
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="ml-2 text-xs text-gray-700">Required</span>
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (index > 0) {
+                                  const fields = [...localCustomFields];
+                                  [fields[index - 1], fields[index]] = [fields[index], fields[index - 1]];
+                                  setLocalCustomFields(fields);
+                                }
+                              }}
+                              className="text-xs px-2 py-1 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                              title="Move up"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const fields = [...localCustomFields];
+                                if (index < fields.length - 1) {
+                                  [fields[index], fields[index + 1]] = [fields[index + 1], fields[index]];
+                                  setLocalCustomFields(fields);
+                                }
+                              }}
+                              className="text-xs px-2 py-1 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                              title="Move down"
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      </Accordion>
+                    </div>
+                    );
+                  })}
+                  
+                  {localCustomFields.length === 0 && (
+                    <div className="text-center py-8 text-gray-400 text-sm">
+                      <p>No custom fields yet.</p>
+                      <p className="text-xs mt-1">Click "Add Custom Field" above to create your first field</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse sm:space-x-reverse sm:space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  // Save the local state to the component
+                  updateProp('customFields', localCustomFields);
+                  setIsFormModalOpen(false);
+                }}
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Cancel without saving - reset local state and close
+                  setLocalCustomFields([...(component.props?.customFields || [])]);
+                  setIsFormModalOpen(false);
+                }}
+                className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+          </div>
+        </div>
+      )}
+    </React.Fragment>
   );
 }
 

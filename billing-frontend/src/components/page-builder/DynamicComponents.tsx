@@ -1762,21 +1762,8 @@ export function CheckoutComponent({
     padding: props?.padding || '2rem',
     maxWidth: props?.maxWidth || '1200px',
     
-    // Form Fields
-    showFirstName: props?.showFirstName !== false,
-    showLastName: props?.showLastName !== false,
-    showEmail: props?.showEmail !== false,
-    showPhone: props?.showPhone !== false,
-    showCompany: props?.showCompany || false,
-    showAddress: props?.showAddress !== false,
-    showCity: props?.showCity !== false,
-    showState: props?.showState !== false,
-    showZipCode: props?.showZipCode !== false,
-    showCountry: props?.showCountry !== false,
-    showCardNumber: props?.showCardNumber !== false,
-    showExpiryDate: props?.showExpiryDate !== false,
-    showCVV: props?.showCVV !== false,
-    showNameOnCard: props?.showNameOnCard !== false,
+    // Custom Fields
+    customFields: props?.customFields || [],
     
     // Labels
     title: props?.title || 'Checkout',
@@ -1798,33 +1785,55 @@ export function CheckoutComponent({
     autoFillUserData: props?.autoFillUserData !== false,
     showProgressIndicator: props?.showProgressIndicator !== false,
     
-    // Validation
-    requirePhone: props?.requirePhone || false,
-    requireCompany: props?.requireCompany || false,
-    
     // Custom CSS
     customCSS: props?.customCSS || '',
   };
   
-  const [formData, setFormData] = useState({
-    firstName: config.autoFillUserData && user ? (user.full_name?.split(' ')[0] || '') : '',
-    lastName: config.autoFillUserData && user ? (user.full_name?.split(' ').slice(1).join(' ') || '') : '',
-    email: config.autoFillUserData && user ? (user.email || '') : '',
-    phone: '',
-    company: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: 'US',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    nameOnCard: '',
+  // Initialize formData dynamically from customFields
+  const initializeFormData = () => {
+    const initialData: Record<string, any> = {
     couponCode: '',
     acceptTerms: false,
     subscribeNewsletter: false,
-  });
+    };
+    
+    // Initialize from customFields
+    if (config.customFields && config.customFields.length > 0) {
+      config.customFields.forEach((field: any) => {
+        if (field.defaultValue !== undefined) {
+          initialData[field.name] = field.defaultValue;
+        } else if (field.type === 'checkbox' || field.type === 'radio') {
+          initialData[field.name] = false;
+        } else if (field.type === 'select' && field.options && field.options.length > 0) {
+          initialData[field.name] = field.options[0].value;
+        } else {
+          initialData[field.name] = '';
+        }
+      });
+    }
+    
+    // Auto-fill user data if available
+    if (config.autoFillUserData && user) {
+      if (initialData.firstName === undefined || initialData.firstName === '') {
+        initialData.firstName = user.full_name?.split(' ')[0] || '';
+      }
+      if (initialData.lastName === undefined || initialData.lastName === '') {
+        initialData.lastName = user.full_name?.split(' ').slice(1).join(' ') || '';
+      }
+      if (initialData.email === undefined || initialData.email === '') {
+        initialData.email = user.email || '';
+      }
+    }
+    
+    // Set default country if not set
+    if (initialData.country === undefined || initialData.country === '') {
+      initialData.country = 'US';
+    }
+    
+    return initialData;
+  };
+  
+  const [formData, setFormData] = useState(initializeFormData());
   
   const [paymentMethod, setPaymentMethod] = useState(config.defaultPaymentMethod);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1858,41 +1867,33 @@ export function CheckoutComponent({
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    if (config.showFirstName && !formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
+    // Validate customFields
+    if (config.customFields && config.customFields.length > 0) {
+      config.customFields.forEach((field: any) => {
+        const value = formData[field.name];
+        if (field.required) {
+          if (field.type === 'checkbox') {
+            if (!value) {
+              newErrors[field.name] = `${field.label} is required`;
     }
-    if (config.showLastName && !formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
+          } else if (field.type === 'textarea' || field.type === 'text' || field.type === 'email' || field.type === 'tel' || field.type === 'number') {
+            if (!value || (typeof value === 'string' && !value.trim())) {
+              newErrors[field.name] = `${field.label} is required`;
     }
-    if (config.showEmail && !formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (config.showEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email address';
+          } else if (field.type === 'select' || field.type === 'radio') {
+            if (!value) {
+              newErrors[field.name] = `${field.label} is required`;
     }
-    if (config.requirePhone && !formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
+          }
+        }
+        
+        // Email validation
+        if (field.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          newErrors[field.name] = 'Invalid email address';
     }
-    if (config.showAddress && !formData.address.trim()) {
-      newErrors.address = 'Address is required';
+      });
     }
-    if (config.showCity && !formData.city.trim()) {
-      newErrors.city = 'City is required';
-    }
-    if (config.showState && !formData.state.trim()) {
-      newErrors.state = 'State is required';
-    }
-    if (config.showZipCode && !formData.zipCode.trim()) {
-      newErrors.zipCode = 'ZIP code is required';
-    }
-    if (config.showCardNumber && paymentMethod === 'stripe' && !formData.cardNumber.trim()) {
-      newErrors.cardNumber = 'Card number is required';
-    }
-    if (config.showExpiryDate && paymentMethod === 'stripe' && !formData.expiryDate.trim()) {
-      newErrors.expiryDate = 'Expiry date is required';
-    }
-    if (config.showCVV && paymentMethod === 'stripe' && !formData.cvv.trim()) {
-      newErrors.cvv = 'CVV is required';
-    }
+    
     if (config.showTermsCheckbox && !formData.acceptTerms) {
       newErrors.acceptTerms = 'You must accept the terms and conditions';
     }
@@ -1935,17 +1936,23 @@ export function CheckoutComponent({
         total: total,
         payment_method: paymentMethod,
         billing_info: {
-          customer_name: `${formData.firstName} ${formData.lastName}`,
-          customer_email: formData.email,
+          customer_name: `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || 'Customer',
+          customer_email: formData.email || '',
           customer_phone: formData.phone || null,
           company_name: formData.company || null,
           billing_address: {
-            street: formData.address,
-            city: formData.city,
-            state: formData.state,
-            zip_code: formData.zipCode,
-            country: formData.country
-          }
+            street: formData.address || '',
+            city: formData.city || '',
+            state: formData.state || '',
+            zip_code: formData.zipCode || '',
+            country: formData.country || 'US'
+          },
+          custom_fields: config.customFields ? config.customFields.reduce((acc: any, field: any) => {
+            if (formData[field.name] !== undefined) {
+              acc[field.name] = formData[field.name];
+            }
+            return acc;
+          }, {}) : {}
         },
         billing_period: 'monthly'
       };
@@ -2058,261 +2065,156 @@ export function CheckoutComponent({
                   {config.billingTitle}
                 </h2>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  {config.showFirstName && (
+                {/* Render Custom Fields */}
+                {config.customFields && config.customFields.length > 0 ? (
+                  (() => {
+                    // Group fields by section and sort by order
+                    const billingFields = config.customFields
+                      .filter((field: any) => field.section === 'billing')
+                      .sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+                    
+                    // Group fields into rows based on gridCols
+                    const rows: any[][] = [];
+                    let currentRow: any[] = [];
+                    let currentRowCols = 0;
+                    
+                    billingFields.forEach((field: any) => {
+                      const cols = field.gridCols || 12;
+                      if (currentRowCols + cols > 12 || currentRow.length === 0) {
+                        if (currentRow.length > 0) rows.push(currentRow);
+                        currentRow = [field];
+                        currentRowCols = cols;
+                      } else {
+                        currentRow.push(field);
+                        currentRowCols += cols;
+                      }
+                    });
+                    if (currentRow.length > 0) rows.push(currentRow);
+                    
+                    return (
                     <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                        First Name *
+                        {rows.map((row, rowIndex) => (
+                          <div 
+                            key={rowIndex}
+                        style={{
+                              display: 'grid', 
+                              gridTemplateColumns: row.map((f: any) => `${(f.gridCols || 12) * (100/12)}%`).join(' '),
+                              gap: '1rem',
+                              marginTop: rowIndex > 0 ? '1rem' : '0'
+                            }}
+                          >
+                            {row.map((field: any) => {
+                              const fieldValue = formData[field.name] || '';
+                              const fieldError = errors[field.name];
+                              
+                              return (
+                                <div key={field.id || field.name}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                                    {field.label} {field.required && '*'}
+                    </label>
+                                  
+                                  {field.type === 'select' ? (
+                                    <select
+                                      name={field.name}
+                                      value={fieldValue}
+                      onChange={handleInputChange}
+                                      required={field.required}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                                        border: `1px solid ${fieldError ? '#ef4444' : config.borderColor}`,
+                        borderRadius: '0.375rem',
+                        fontSize: '1rem'
+                      }}
+                                    >
+                                      {field.options && field.options.map((opt: any) => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  ) : field.type === 'textarea' ? (
+                                    <textarea
+                                      name={field.name}
+                                      value={fieldValue}
+                      onChange={handleInputChange}
+                                      required={field.required}
+                                      placeholder={field.placeholder}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                                        border: `1px solid ${fieldError ? '#ef4444' : config.borderColor}`,
+                        borderRadius: '0.375rem',
+                                        fontSize: '1rem',
+                                        minHeight: '100px'
+                      }}
+                    />
+                                  ) : field.type === 'checkbox' ? (
+                                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                                        type="checkbox"
+                                        name={field.name}
+                                        checked={!!fieldValue}
+                      onChange={handleInputChange}
+                                        required={field.required}
+                                        style={{ marginRight: '0.5rem' }}
+                    />
+                                      <span>{field.placeholder || field.label}</span>
+                    </label>
+                                  ) : field.type === 'radio' && field.options ? (
+                                    <div>
+                                      {field.options.map((opt: any) => (
+                                        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                                            type="radio"
+                                            name={field.name}
+                                            value={opt.value}
+                                            checked={fieldValue === opt.value}
+                      onChange={handleInputChange}
+                                            required={field.required}
+                                            style={{ marginRight: '0.5rem' }}
+                                          />
+                                          <span>{opt.label}</span>
                       </label>
+                                      ))}
+                                    </div>
+                                  ) : (
                       <input
-                        type="text"
-                        name="firstName"
-                        value={formData.firstName}
+                                      type={field.type || 'text'}
+                                      name={field.name}
+                                      value={fieldValue}
                         onChange={handleInputChange}
-                        required
+                                      required={field.required}
+                                      placeholder={field.placeholder}
                         style={{
                           width: '100%',
                           padding: '0.75rem',
-                          border: `1px solid ${errors.firstName ? '#ef4444' : config.borderColor}`,
+                                        border: `1px solid ${fieldError ? '#ef4444' : config.borderColor}`,
                           borderRadius: '0.375rem',
                           fontSize: '1rem'
                         }}
                       />
-                      {errors.firstName && (
-                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.firstName}</span>
-                      )}
-                    </div>
                   )}
                   
-                  {config.showLastName && (
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                        Last Name *
-                      </label>
-                      <input
-                        type="text"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: `1px solid ${errors.lastName ? '#ef4444' : config.borderColor}`,
-                          borderRadius: '0.375rem',
-                          fontSize: '1rem'
-                        }}
-                      />
-                      {errors.lastName && (
-                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.lastName}</span>
+                                  {field.helpText && (
+                                    <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                                      {field.helpText}
+                                    </p>
+                                  )}
+                                  
+                                  {fieldError && (
+                                    <span style={{ color: '#ef4444', fontSize: '0.875rem', display: 'block', marginTop: '0.25rem' }}>
+                                      {fieldError}
+                                    </span>
                       )}
                     </div>
-                  )}
+                              );
+                            })}
                 </div>
-                
-                {config.showEmail && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: `1px solid ${errors.email ? '#ef4444' : config.borderColor}`,
-                        borderRadius: '0.375rem',
-                        fontSize: '1rem'
-                      }}
-                    />
-                    {errors.email && (
-                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.email}</span>
-                    )}
+                        ))}
                   </div>
-                )}
-                
-                {config.showPhone && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                      Phone {config.requirePhone && '*'}
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required={config.requirePhone}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: `1px solid ${errors.phone ? '#ef4444' : config.borderColor}`,
-                        borderRadius: '0.375rem',
-                        fontSize: '1rem'
-                      }}
-                    />
-                    {errors.phone && (
-                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.phone}</span>
-                    )}
-                  </div>
-                )}
-                
-                {config.showCompany && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                      Company {config.requireCompany && '*'}
-                    </label>
-                    <input
-                      type="text"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleInputChange}
-                      required={config.requireCompany}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: `1px solid ${errors.company ? '#ef4444' : config.borderColor}`,
-                        borderRadius: '0.375rem',
-                        fontSize: '1rem'
-                      }}
-                    />
-                    {errors.company && (
-                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.company}</span>
-                    )}
-                  </div>
-                )}
-                
-                {config.showAddress && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                      Address *
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: `1px solid ${errors.address ? '#ef4444' : config.borderColor}`,
-                        borderRadius: '0.375rem',
-                        fontSize: '1rem'
-                      }}
-                    />
-                    {errors.address && (
-                      <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.address}</span>
-                    )}
-                  </div>
-                )}
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                  {config.showCity && (
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                        City *
-                      </label>
-                      <input
-                        type="text"
-                        name="city"
-                        value={formData.city}
-                        onChange={handleInputChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: `1px solid ${errors.city ? '#ef4444' : config.borderColor}`,
-                          borderRadius: '0.375rem',
-                          fontSize: '1rem'
-                        }}
-                      />
-                      {errors.city && (
-                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.city}</span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {config.showState && (
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                        State *
-                      </label>
-                      <input
-                        type="text"
-                        name="state"
-                        value={formData.state}
-                        onChange={handleInputChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: `1px solid ${errors.state ? '#ef4444' : config.borderColor}`,
-                          borderRadius: '0.375rem',
-                          fontSize: '1rem'
-                        }}
-                      />
-                      {errors.state && (
-                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.state}</span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {config.showZipCode && (
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                        ZIP Code *
-                      </label>
-                      <input
-                        type="text"
-                        name="zipCode"
-                        value={formData.zipCode}
-                        onChange={handleInputChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: `1px solid ${errors.zipCode ? '#ef4444' : config.borderColor}`,
-                          borderRadius: '0.375rem',
-                          fontSize: '1rem'
-                        }}
-                      />
-                      {errors.zipCode && (
-                        <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{errors.zipCode}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                {config.showCountry && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                      Country *
-                    </label>
-                    <select
-                      name="country"
-                      value={formData.country}
-                      onChange={handleInputChange}
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: `1px solid ${config.borderColor}`,
-                        borderRadius: '0.375rem',
-                        fontSize: '1rem'
-                      }}
-                    >
-                      <option value="US">United States</option>
-                      <option value="CA">Canada</option>
-                      <option value="GB">United Kingdom</option>
-                      <option value="AU">Australia</option>
-                      <option value="DE">Germany</option>
-                      <option value="FR">France</option>
-                    </select>
-                  </div>
+                    );
+                  })()
+                ) : (
+                  <p style={{ color: config.textColor, opacity: 0.7 }}>No fields configured. Add custom fields in the page builder.</p>
                 )}
               </div>
             )}

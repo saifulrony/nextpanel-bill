@@ -19,8 +19,13 @@ export function DropZone({ id, index }: DropZoneProps) {
       className={`transition-all ${
         isOver
           ? 'h-8 bg-indigo-200 border-2 border-dashed border-indigo-500 rounded my-2'
-          : 'h-2 hover:h-4 hover:bg-indigo-50 my-1'
+          : 'h-0 my-0'
       }`}
+      style={{
+        // Prevent layout shift by maintaining consistent spacing
+        minHeight: isOver ? '32px' : '0px',
+        boxSizing: 'border-box',
+      }}
     />
   );
 }

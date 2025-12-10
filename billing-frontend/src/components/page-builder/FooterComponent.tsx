@@ -54,7 +54,7 @@ export default function FooterComponent({
 
   return (
     <footer 
-      className={`mt-24 ${className}`}
+      className={className}
       style={{
         backgroundColor,
         color: textColor,

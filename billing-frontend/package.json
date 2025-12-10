@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4000 -H 0.0.0.0 --turbo",
+    "dev": "NEXT_DISABLE_SOURCEMAPS=true next dev -p 4000 -H 0.0.0.0 --turbo",
+    "dev:no-sourcemaps": "NEXT_DISABLE_SOURCEMAPS=true next dev -p 4000 -H 0.0.0.0 --turbo",
     "dev:fast": "next dev -p 4000 -H 0.0.0.0 --turbo --experimental-https",
     "build": "next build",
     "start": "next start -p 4000 -H 0.0.0.0",
