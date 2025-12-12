@@ -51,6 +51,26 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Log network errors with more details
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      console.error('=== NETWORK ERROR DETAILS ===');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Request URL:', error.config?.url);
+      console.error('Request baseURL:', error.config?.baseURL);
+      console.error('Full request URL:', error.config?.baseURL + error.config?.url);
+      console.error('Request method:', error.config?.method);
+      console.error('Request headers:', error.config?.headers);
+      
+      // Provide a more helpful error message
+      const apiUrl = error.config?.baseURL || 'unknown';
+      error.networkErrorDetails = {
+        message: `Cannot connect to backend API at ${apiUrl}. Please check if the backend server is running.`,
+        url: apiUrl,
+        suggestion: 'Make sure the backend server is running on port 8001'
+      };
+    }
+    
     // If error response is a blob (from PDF endpoints), try to parse it as JSON
     if (error.config?.responseType === 'blob' && error.response?.data instanceof Blob) {
       try {
@@ -923,6 +943,33 @@ export const recurringBillingAPI = {
   processRenewals: () => api.post('/recurring-billing/process-renewals'),
   processDunning: () => api.post('/recurring-billing/process-dunning'),
   processPaymentRetries: () => api.post('/recurring-billing/process-payment-retries'),
+};
+
+// Dedicated Servers API
+export const dedicatedServersAPI = {
+  // Products
+  listProducts: (params?: { server_type?: string; is_active?: boolean }) => 
+    api.get('/dedicated-servers/products', { params }),
+  getProduct: (id: number) => api.get(`/dedicated-servers/products/${id}`),
+  createProduct: (data: any) => api.post('/dedicated-servers/products', data),
+  updateProduct: (id: number, data: any) => api.put(`/dedicated-servers/products/${id}`, data),
+  deleteProduct: (id: number) => api.delete(`/dedicated-servers/products/${id}`),
+  
+  // Instances (customer-facing)
+  listInstances: () => api.get('/dedicated-servers/instances'),
+  getInstance: (id: number) => api.get(`/dedicated-servers/instances/${id}`),
+  rebootInstance: (id: number, bootType?: string) => {
+    const params = bootType ? { boot_type: bootType } : {};
+    return api.post(`/dedicated-servers/instances/${id}/reboot`, null, { params });
+  },
+  suspendInstance: (id: number, reason?: string) => 
+    api.post(`/dedicated-servers/instances/${id}/suspend`, { reason }),
+  unsuspendInstance: (id: number) => 
+    api.post(`/dedicated-servers/instances/${id}/unsuspend`),
+  terminateInstance: (id: number) => 
+    api.post(`/dedicated-servers/instances/${id}/terminate`),
+  getInstanceStatus: (id: number) => 
+    api.get(`/dedicated-servers/instances/${id}/status`),
 };
 
 // Reports API

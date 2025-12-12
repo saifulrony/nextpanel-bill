@@ -62,9 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Checking authentication...');
       
-      // Add shorter timeout to prevent hanging (2 seconds instead of 5)
+      // Add timeout to prevent hanging (5 seconds)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Auth check timeout')), 2000)
+        setTimeout(() => reject(new Error('Auth check timeout')), 5000)
       );
       
       const response = await Promise.race([
@@ -79,15 +79,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading: false,
       });
     } catch (error: any) {
+      // Silently handle timeout - don't log as error, just mark as not authenticated
+      if (error.message === 'Auth check timeout') {
+        console.log('Auth check timeout - backend may be slow, keeping token for retry');
+        setAuthState({ user: null, isAuthenticated: false, isLoading: false });
+        return;
+      }
+      
       console.error('Auth check failed:', error);
       console.error('Error details:', error.response?.data || error.message);
-      // Don't clear tokens on timeout - just mark as not authenticated
-      if (error.message !== 'Auth check timeout') {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'refresh_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      }
+      
+      // Clear tokens on actual auth errors (not timeout)
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      document.cookie = 'access_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refresh_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       setAuthState({ user: null, isAuthenticated: false, isLoading: false });
     }
   };

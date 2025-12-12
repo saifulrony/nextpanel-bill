@@ -51,11 +51,92 @@ async def generate_invoice_number(db: AsyncSession) -> str:
 
 
 async def provision_services_from_order(order: Order, db: AsyncSession):
-    """Provision services (domains, hosting) based on order items"""
+    """Provision services (domains, hosting, dedicated servers) based on order items"""
     try:
+        from app.models.dedicated_server import DedicatedServerProduct, DedicatedServerInstance, ServerStatus
+        from app.services.provisioning.factory import ProvisioningModuleFactory
+        from sqlalchemy import select
+        
         for item in order.items:
             product_name = item.get('product_name', '').lower()
             product_id = item.get('product_id', '')
+            
+            # Check if this is a dedicated server/VPS product
+            is_server_product = False
+            server_product = None
+            
+            # Try to find dedicated server product by name
+            if any(keyword in product_name for keyword in ['dedicated', 'vps', 'server', 'cloud']):
+                result = await db.execute(
+                    select(DedicatedServerProduct).where(
+                        DedicatedServerProduct.name.ilike(f"%{item.get('product_name', '')}%")
+                    ).limit(1)
+                )
+                server_product = result.scalar_one_or_none()
+                if server_product:
+                    is_server_product = True
+            
+            # Handle dedicated server/VPS products
+            if is_server_product and server_product:
+                try:
+                    # Get provisioning module
+                    module = ProvisioningModuleFactory.get_module(
+                        server_product.provisioning_module or "manual",
+                        server_product.module_config or {}
+                    )
+                    
+                    # Generate hostname
+                    hostname = f"server-{order.customer_id[:8]}-{order.id}"
+                    
+                    # Provision server
+                    provision_result = module.create_account({
+                        "order_id": order.id,
+                        "customer_id": order.customer_id,
+                        "product_specs": {
+                            "cpu_cores": server_product.cpu_cores,
+                            "ram_gb": server_product.ram_gb,
+                            "storage_gb": server_product.storage_gb,
+                            "bandwidth_tb": server_product.bandwidth_tb
+                        },
+                        "hostname": hostname,
+                        "os": server_product.available_os[0] if server_product.available_os else "ubuntu-22.04",
+                        "datacenter": server_product.datacenter_location or "default"
+                    })
+                    
+                    # Create server instance record
+                    server = DedicatedServerInstance(
+                        customer_id=order.customer_id,
+                        order_id=order.id,
+                        product_id=server_product.id,
+                        hostname=hostname,
+                        ip_address=provision_result.get("ip_address"),
+                        provider=server_product.provider,
+                        provider_server_id=str(provision_result.get("server_id")) if provision_result.get("server_id") else None,
+                        status=ServerStatus.PROVISIONING if not provision_result.get("requires_manual_setup") else ServerStatus.PENDING_PROVISIONING,
+                        cpu_cores=server_product.cpu_cores,
+                        ram_gb=server_product.ram_gb,
+                        storage_gb=server_product.storage_gb,
+                        storage_type=server_product.storage_type,
+                        bandwidth_tb=server_product.bandwidth_tb,
+                        operating_system=server_product.available_os[0] if server_product.available_os else None,
+                        datacenter_location=server_product.datacenter_location,
+                        region=server_product.region,
+                        provider_api_response=provision_result,
+                        meta_data={
+                            "provisioned_via": server_product.provisioning_module or "manual",
+                            "auto_provisioned": True
+                        }
+                    )
+                    db.add(server)
+                    
+                    # Update product order count
+                    server_product.current_orders += 1
+                    
+                    print(f"Provisioned server: {hostname} for order {order.id}")
+                    continue  # Skip other provisioning logic for server products
+                except Exception as e:
+                    print(f"Error provisioning server for order {order.id}: {e}")
+                    # Continue to try other provisioning methods
             
             # Handle domain products - check for .com, .net, .org etc in product name
             if ('.com' in product_name or '.net' in product_name or '.org' in product_name or 

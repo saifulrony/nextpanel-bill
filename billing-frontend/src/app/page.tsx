@@ -314,11 +314,78 @@ export default function Home() {
     try {
       setLoadingProducts(true);
       
-      // Use centralized API client instead of direct axios calls
-      const response = await plansAPI.list({ is_active: true, is_featured: true });
+      // Get API URL
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      // Load all active products (regular + server products)
+      const [productsResponse, serverProductsRes] = await Promise.all([
+        plansAPI.list({ is_active: true }), // Load all active regular products
+        // Fetch all active server products (public endpoint, no auth required)
+        fetch(`${apiUrl}/api/v1/dedicated-servers/products`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }).then(res => res.ok ? res.json() : []).catch(() => []),
+      ]);
+      
+      // Debug logging
+      console.log('🔍 Products API Response (full):', JSON.stringify(productsResponse, null, 2));
+      console.log('🔍 Server Products Response:', serverProductsRes);
+      
+      // Handle axios response format - data is wrapped in response.data
+      let regularProducts: any[] = [];
+      if (productsResponse && productsResponse.data) {
+        // Axios wraps the response in .data
+        regularProducts = Array.isArray(productsResponse.data) 
+          ? productsResponse.data 
+          : [];
+      } else if (Array.isArray(productsResponse)) {
+        // Direct array response
+        regularProducts = productsResponse;
+      }
+      
+      console.log('✅ Regular products extracted:', regularProducts.length);
+      console.log('✅ Regular products:', regularProducts.map(p => ({ id: p.id, name: p.name, is_active: p.is_active })));
+      
+      // Filter server products to only active ones
+      const activeServerProducts = Array.isArray(serverProductsRes) 
+        ? serverProductsRes.filter((sp: any) => sp.is_active !== false)
+        : [];
+      
+      // Transform server products to match FeaturedProduct interface
+      const serverProducts: FeaturedProduct[] = activeServerProducts.map((sp: any) => ({
+        id: `server-${sp.id}`,
+        name: sp.name,
+        description: sp.description || '',
+        price_monthly: sp.price_monthly,
+        price_yearly: sp.price_yearly || sp.price_monthly * 12,
+        max_accounts: 0,
+        max_domains: 0,
+        max_databases: 0,
+        max_emails: 0,
+        features: {
+          category: 'server',
+          server_type: sp.server_type,
+          cpu_cores: sp.cpu_cores,
+          ram_gb: sp.ram_gb,
+          storage_gb: sp.storage_gb,
+          storage_type: sp.storage_type,
+          bandwidth_tb: sp.bandwidth_tb,
+          provisioning_type: sp.provisioning_type,
+        },
+        is_featured: false,
+        sort_order: 0,
+      }));
+      
+      // Combine regular products and server products
+      const products = [...regularProducts, ...serverProducts];
+      
+      console.log(`✅ Total products to display: ${products.length} (${regularProducts.length} regular + ${serverProducts.length} server)`);
+      console.log('✅ All products:', products.map(p => ({ id: p.id, name: p.name })));
+      console.log('✅ Setting featuredProducts state with', products.length, 'products');
       
       // Check if API returned empty data
-      const products = response.data || [];
       if (products.length === 0) {
         console.log('API returned empty products, using demo data...');
         const demoProducts: FeaturedProduct[] = [
@@ -391,7 +458,9 @@ export default function Home() {
         ];
         setFeaturedProducts(demoProducts);
       } else {
+        console.log('✅ Setting featuredProducts:', products.length, 'products');
         setFeaturedProducts(products);
+        console.log('✅ featuredProducts state updated');
       }
     } catch (error: any) {
       console.error('Failed to load featured products:', error);
@@ -475,17 +544,68 @@ export default function Home() {
 
   const loadCategoryProducts = async () => {
     try {
-      // Use centralized API client instead of direct axios calls
-      // Load all active products
-      const productsResponse = await plansAPI.list({ is_active: true });
+      // Get API URL
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
-      // Load categories
-      const categoriesResponse = await plansAPI.categories();
+      // Load all products (regular + server products) - show all products on home page
+      const [productsResponse, categoriesResponse, serverProductsRes] = await Promise.all([
+        plansAPI.list(), // Load all products (not just active)
+        plansAPI.categories(),
+        // Fetch all server products (public endpoint, no auth required)
+        fetch(`${apiUrl}/api/v1/dedicated-servers/products`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }).then(res => res.ok ? res.json() : []).catch(() => []),
+      ]);
+      
+      // Debug logging
+      console.log('Products API Response:', productsResponse);
+      console.log('Server Products Response:', serverProductsRes);
+      
+      // Handle both direct array and wrapped response formats
+      const regularProducts = Array.isArray(productsResponse.data) 
+        ? productsResponse.data 
+        : Array.isArray(productsResponse) 
+          ? productsResponse 
+          : [];
+      
+      // Transform server products to match FeaturedProduct interface
+      const serverProducts: FeaturedProduct[] = Array.isArray(serverProductsRes) 
+        ? serverProductsRes.map((sp: any) => ({
+              id: `server-${sp.id}`,
+              name: sp.name,
+              description: sp.description || '',
+              price_monthly: sp.price_monthly,
+              price_yearly: sp.price_yearly || sp.price_monthly * 12,
+              max_accounts: 0,
+              max_domains: 0,
+              max_databases: 0,
+              max_emails: 0,
+              features: {
+                category: 'server',
+                server_type: sp.server_type,
+                cpu_cores: sp.cpu_cores,
+                ram_gb: sp.ram_gb,
+                storage_gb: sp.storage_gb,
+                storage_type: sp.storage_type,
+                bandwidth_tb: sp.bandwidth_tb,
+                provisioning_type: sp.provisioning_type,
+              },
+              is_featured: false,
+              sort_order: 0,
+            }))
+        : [];
+      
+      // Combine regular products and server products
+      const allProducts = [...regularProducts, ...serverProducts];
+      
+      console.log(`Total products loaded: ${allProducts.length} (${regularProducts.length} regular + ${serverProducts.length} server)`);
       
       // Group products by category
       const grouped: Record<string, FeaturedProduct[]> = {};
-      const products = productsResponse.data || [];
-      products.forEach((product: FeaturedProduct) => {
+      allProducts.forEach((product: FeaturedProduct) => {
         const category = product.features?.category || 'other';
         if (!grouped[category]) {
           grouped[category] = [];
@@ -493,10 +613,23 @@ export default function Home() {
         grouped[category].push(product);
       });
       
+      console.log('Grouped products by category:', grouped);
+      
       setCategoryProducts(grouped);
-      setCategories(categoriesResponse.data?.categories || []);
+      
+      // Ensure "Server" category is in the list if we have server products
+      const categories = Array.isArray(categoriesResponse.data?.categories) 
+        ? categoriesResponse.data.categories 
+        : Array.isArray(categoriesResponse.data)
+          ? categoriesResponse.data
+          : [];
+      if (serverProducts.length > 0 && !categories.find((c: any) => c.id === 'server')) {
+        categories.push({ id: 'server', name: 'Server (Dedicated/VPS)' });
+      }
+      setCategories(categories);
     } catch (error: any) {
       console.error('Failed to load category products:', error);
+      console.error('Error details:', error.response?.data || error.message);
       if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
         console.warn('Backend not reachable. Category products will not be loaded.');
       }
@@ -606,12 +739,16 @@ export default function Home() {
 
   // If there's a custom homepage, render it
   if (hasCustomHomepage) {
+    console.log('⚠️ Custom homepage detected - using DynamicHomepage component');
+    console.log('⚠️ This might limit products if ProductsGridComponent has productCount: 3');
     return (
       <div>
         <DynamicHomepage />
       </div>
     );
   }
+  
+  console.log('✅ Using default homepage, featuredProducts.length:', featuredProducts.length);
 
   // Otherwise, render the default homepage
   return (

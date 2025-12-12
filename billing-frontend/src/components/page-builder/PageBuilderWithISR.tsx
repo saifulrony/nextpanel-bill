@@ -765,6 +765,15 @@ const SortableComponent = React.memo(function SortableComponent({
             }
           }}
           onMouseDown={(e) => {
+            // Prevent dragging from top border area (toolbar region) to avoid gap
+            const rect = e.currentTarget.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            // If clicking in the top 50px (toolbar area + some buffer), prevent drag
+            if (y < 50) {
+              e.stopPropagation();
+              return;
+            }
+            
             // Only allow resize when selected, not on hover
             if (isSelected && !isResizing && onUpdate) {
               const handle = detectBorderHandle(e);
@@ -877,6 +886,17 @@ const SortableComponent = React.memo(function SortableComponent({
             e.stopPropagation();
             if (onContextMenu) {
               onContextMenu(e, component.id);
+            }
+          }}
+          onMouseDown={(e) => {
+            // Prevent dragging from top border area (toolbar region) to avoid gap
+            const rect = e.currentTarget.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            // If clicking in the top 50px (toolbar area + buffer), prevent drag
+            if (y < 50) {
+              e.stopPropagation();
+              e.preventDefault();
+              return;
             }
           }}
           {...listeners}
@@ -1962,7 +1982,7 @@ export function PageBuilderWithISR({
           ...baseComponent, 
           props: { 
             columns: 3,
-            productCount: 6,
+            categories: [],
             title: 'Our Products',
             subtitle: 'Choose from our range of hosting solutions designed to meet your needs',
             showPrices: true,
@@ -1984,7 +2004,7 @@ export function PageBuilderWithISR({
           ...baseComponent, 
           props: { 
             columns: 3,
-            productCount: 3,
+            categories: [],
             title: 'Featured Products',
             subtitle: 'Discover our most popular and recommended hosting solutions',
             showPrices: true,
@@ -3106,32 +3126,106 @@ export function PageBuilderWithISR({
       // Get auth token
       const token = localStorage.getItem('access_token');
       
-      // Save the page
-      const saveResponse = await fetch(`${apiUrl}/api/v1/pages/${currentPageId.trim()}`, {
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+      
+      const pageSlug = currentPageId.trim();
+      if (!pageSlug) {
+        throw new Error('Page ID is required');
+      }
+      
+      const requestBody = {
+        title,
+        description,
+        components,
+        is_active: 'active',
+        metadata: {
+          updatedAt: new Date().toISOString(),
+        }
+      };
+      
+      console.log('Publishing page:', {
+        url: `${apiUrl}/api/v1/pages/${pageSlug}`,
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          components,
-          is_active: 'active',
-          metadata: {
-            updatedAt: new Date().toISOString(),
-          }
-        }),
+        hasToken: !!token,
+        body: requestBody
       });
+      
+      // Try to update the page first (PUT), if it doesn't exist, create it (POST)
+      let saveResponse;
+      try {
+        saveResponse = await fetch(`${apiUrl}/api/v1/pages/${pageSlug}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody),
+        });
+        
+        console.log('Save response status:', saveResponse.status, saveResponse.statusText);
 
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save page');
+        // If page doesn't exist (404), create it instead
+        if (saveResponse.status === 404) {
+          console.log('Page not found, creating new page...');
+          const createBody = {
+            slug: pageSlug,
+            ...requestBody
+          };
+          saveResponse = await fetch(`${apiUrl}/api/v1/pages/`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(createBody),
+          });
+          console.log('Create response status:', saveResponse.status, saveResponse.statusText);
+        }
+      } catch (fetchError: any) {
+        // Catch network errors from fetch itself
+        if (fetchError.message === 'Failed to fetch' || fetchError.name === 'TypeError' || fetchError.message?.includes('NetworkError')) {
+          throw new Error(`Network error. Unable to connect to ${apiUrl}.\n\nPlease verify:\n- Backend server is running (check terminal/processes)\n- Backend is accessible at ${apiUrl}/health\n- No firewall blocking port 8001`);
+        }
+        throw fetchError;
       }
 
+      if (!saveResponse.ok) {
+        // Try to get error details from response
+        let errorMessage = 'Failed to save page';
+        try {
+          const errorData = await saveResponse.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+          console.error('API Error Response:', errorData);
+        } catch (e) {
+          // If response is not JSON, get text
+          try {
+            const errorText = await saveResponse.text();
+            console.error('API Error Response (text):', errorText);
+            errorMessage = errorText || errorMessage;
+          } catch (e2) {
+            console.error('Failed to parse error response');
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      const responseData = await saveResponse.json().catch(() => ({}));
       alert(`Page published successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error publishing page:', error);
-      alert('Failed to publish page');
+      
+      // Check for network errors
+      if (error.message === 'Network Error' || error.code === 'ERR_NETWORK' || error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+          (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+        const errorMessage = `Network error. Unable to connect to ${apiUrl}.\n\nPlease verify:\n- Backend server is running (check terminal/processes)\n- Backend is accessible at ${apiUrl}/health\n- No firewall blocking port 8001`;
+        alert(errorMessage);
+      } else {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to publish page';
+        alert(`Failed to publish page: ${errorMessage}`);
+      }
     } finally {
       setIsPublishing(false);
     }

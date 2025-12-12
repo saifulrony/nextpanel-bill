@@ -69,10 +69,24 @@ export default function CustomerLoginPage() {
     } catch (error: any) {
       console.error('=== CUSTOMER LOGIN ERROR ===');
       console.error('Error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
       console.error('Error response:', error.response?.data);
-      setGeneralError(
-        error.response?.data?.detail || 'Login failed. Please check your credentials.'
-      );
+      console.error('Network error details:', error.networkErrorDetails);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Login failed. Please check your credentials.';
+      
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        errorMessage = error.networkErrorDetails?.message || 
+          'Cannot connect to the server. Please check if the backend is running.';
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setGeneralError(errorMessage);
       isSubmitting.current = false;
       setIsLoading(false);
     }

@@ -34,11 +34,19 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
       biennially: { enabled: false, price: '' },
       triennially: { enabled: false, price: '' },
     },
-    // Resource limits
+    // Resource limits (for regular products)
     max_accounts: '1',
     max_domains: '1',
     max_databases: '5',
     max_emails: '10',
+    // Server product fields (for dedicated/VPS)
+    server_type: 'vps', // 'vps' or 'dedicated'
+    cpu_cores: '2',
+    ram_gb: '4',
+    storage_gb: '80',
+    storage_type: 'SSD',
+    bandwidth_tb: '2',
+    provisioning_type: 'manual', // 'manual', 'automated', 'api'
     // Advanced features (stored in features JSON)
     storage: '',
     bandwidth: '',
@@ -225,6 +233,67 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
       priceMonthly = Math.round(priceMonthly * 100) / 100;
       priceYearly = Math.round(priceYearly * 100) / 100;
 
+      // Check if this is a server product (dedicated/VPS)
+      if (formData.category === 'server') {
+        // Use dedicated servers API
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          throw new Error('Authentication token not found. Please login again.');
+        }
+
+        const serverPayload = {
+          name: formData.name,
+          description: formData.description || '',
+          server_type: formData.server_type,
+          cpu_cores: parseInt(formData.cpu_cores) || 2,
+          ram_gb: parseInt(formData.ram_gb) || 4,
+          storage_gb: parseInt(formData.storage_gb) || 80,
+          storage_type: formData.storage_type || 'SSD',
+          bandwidth_tb: parseInt(formData.bandwidth_tb) || 2,
+          price_monthly: priceMonthly,
+          price_quarterly: formData.billing_cycles.quarterly.enabled ? parseFloat(formData.billing_cycles.quarterly.price) : null,
+          price_yearly: priceYearly,
+          setup_fee: 0,
+          provisioning_type: formData.provisioning_type || 'manual',
+          provisioning_module: formData.provisioning_type === 'manual' ? 'manual' : null,
+          is_active: true,
+          stock_count: formData.stock_enabled ? (parseInt(formData.stock_quantity) || null) : null,
+        };
+
+        console.log('Creating server product with payload:', JSON.stringify(serverPayload, null, 2));
+
+        const response = await fetch('http://192.168.177.129:8001/api/v1/dedicated-servers/products', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(serverPayload),
+        });
+
+        console.log('Response status:', response.status, response.statusText);
+
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+            console.error('Server product creation failed:', errorData);
+          } catch (e) {
+            const text = await response.text();
+            console.error('Failed to parse error response:', text);
+            errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
+          }
+          throw new Error(errorData.detail || errorData.message || `Failed to create server product: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Server product created successfully:', result);
+        alert('Server product created successfully!');
+        onSuccess();
+        return;
+      }
+
+      // Regular product - use existing API
       const payload = {
         name: formData.name,
         description: formData.description,
@@ -355,8 +424,27 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                         {cat.name}
                       </option>
                     ))}
+                    <option value="server">Server (Dedicated/VPS)</option>
                   </select>
                 </div>
+
+                {formData.category === 'server' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Server Type *
+                    </label>
+                    <select
+                      name="server_type"
+                      value={formData.server_type}
+                      onChange={handleChange}
+                      required
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="vps">VPS</option>
+                      <option value="dedicated">Dedicated Server</option>
+                    </select>
+                  </div>
+                )}
 
                 {formData.category === 'hosting' && (
                   <div>
@@ -450,6 +538,115 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
         );
 
       case 3:
+        // Show server-specific fields if category is server
+        if (formData.category === 'server') {
+          return (
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Server Specifications</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      CPU Cores *
+                    </label>
+                    <input
+                      type="number"
+                      name="cpu_cores"
+                      value={formData.cpu_cores}
+                      onChange={handleChange}
+                      min="1"
+                      required
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      RAM (GB) *
+                    </label>
+                    <input
+                      type="number"
+                      name="ram_gb"
+                      value={formData.ram_gb}
+                      onChange={handleChange}
+                      min="1"
+                      required
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Storage (GB) *
+                    </label>
+                    <input
+                      type="number"
+                      name="storage_gb"
+                      value={formData.storage_gb}
+                      onChange={handleChange}
+                      min="1"
+                      required
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Storage Type
+                    </label>
+                    <select
+                      name="storage_type"
+                      value={formData.storage_type}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="SSD">SSD</option>
+                      <option value="HDD">HDD</option>
+                      <option value="NVMe">NVMe</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Bandwidth (TB) *
+                    </label>
+                    <input
+                      type="number"
+                      name="bandwidth_tb"
+                      value={formData.bandwidth_tb}
+                      onChange={handleChange}
+                      min="1"
+                      required
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Provisioning Type *
+                    </label>
+                    <select
+                      name="provisioning_type"
+                      value={formData.provisioning_type}
+                      onChange={handleChange}
+                      required
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="manual">Manual (Admin provisions)</option>
+                      <option value="automated">Automated (API)</option>
+                      <option value="api">API Integration</option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      How the server will be provisioned when ordered
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Regular product - show resource limits
         return (
           <div className="space-y-6">
             <div>

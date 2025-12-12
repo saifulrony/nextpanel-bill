@@ -2,120 +2,183 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { plansAPI } from '@/lib/api';
+import { dedicatedServersAPI } from '@/lib/api';
 import {
   ServerIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ClockIcon,
   Cog6ToothIcon,
-  PlusIcon,
   EyeIcon,
-  PencilIcon,
   ShoppingCartIcon,
   CloudIcon,
   CpuChipIcon,
   CircleStackIcon,
   WifiIcon,
-  ShieldCheckIcon,
+  PowerIcon,
+  ArrowPathIcon,
+  StopIcon,
+  PlayIcon,
+  CommandLineIcon,
+  ClipboardDocumentIcon,
+  KeyIcon,
+  InformationCircleIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-interface ServerService {
-  id: string;
-  name: string;
-  description: string;
-  price_monthly: number;
-  price_yearly: number;
-  category: string;
-  subcategory?: string;
-  status: 'active' | 'suspended' | 'expired' | 'pending' | 'maintenance';
-  server_type: string;
+interface ServerInstance {
+  id: number;
+  customer_id: string;
+  order_id: number | null;
+  product_id: number;
+  hostname: string | null;
+  ip_address: string | null;
+  status: 'provisioning' | 'active' | 'suspended' | 'cancelled' | 'terminated' | 'pending_provisioning';
   cpu_cores: number;
   ram_gb: number;
   storage_gb: number;
-  bandwidth_gb: number;
-  ip_address: string;
-  location: string;
-  os: string;
-  nextpanel_url: string;
-  nextpanel_username: string;
-  purchased_at: string;
-  next_renewal: string;
-  features: any;
+  storage_type: string | null;
+  bandwidth_tb: number;
+  operating_system: string | null;
+  datacenter_location: string | null;
+  created_at: string;
+  provisioned_at: string | null;
+  root_password: string | null;
+  ssh_port: number;
+  control_panel_url: string | null;
+  control_panel_type: string | null;
+  provider: string | null;
+  meta_data: any;
+}
+
+interface ServerProduct {
+  id: number;
+  name: string;
+  description: string | null;
+  server_type: 'vps' | 'dedicated';
 }
 
 export default function MyServersPage() {
   const { user } = useAuth();
-  const [serverServices, setServerServices] = useState<ServerService[]>([]);
+  const [servers, setServers] = useState<ServerInstance[]>([]);
+  const [products, setProducts] = useState<Record<number, ServerProduct>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddServer, setShowAddServer] = useState(false);
+  const [selectedServer, setSelectedServer] = useState<ServerInstance | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [showPassword, setShowPassword] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    const loadServerServices = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch user's purchased server services
-        const response = await plansAPI.list({ 
-          is_active: true,
-          category: 'servers',
-        });
-        
-        // Transform products to server services with mock data for demonstration
-        const services = (response.data || []).map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          price_monthly: product.price_monthly,
-          price_yearly: product.price_yearly,
-          category: product.category,
-          subcategory: product.subcategory,
-          status: 'active' as const,
-          server_type: product.features?.server_type || 'VPS',
-          cpu_cores: product.features?.cpu_cores || 2,
-          ram_gb: product.features?.ram_gb || 4,
-          storage_gb: product.features?.storage_gb || 50,
-          bandwidth_gb: product.features?.bandwidth_gb || 1000,
-          ip_address: `192.168.1.${Math.floor(Math.random() * 254) + 1}`,
-          location: product.features?.location || 'US East',
-          os: product.features?.os || 'Ubuntu 22.04',
-          nextpanel_url: 'https://panel.example.com',
-          nextpanel_username: user?.email?.split('@')[0] || 'user',
-          purchased_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
-          next_renewal: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          features: product.features || {},
-        }));
-        
-        setServerServices(services);
-        
-      } catch (err) {
-        console.error('Failed to load server services:', err);
-        setError('Failed to load your server services. Please try again later.');
-        setServerServices([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user?.id) {
-      loadServerServices();
+      loadServers();
     }
   }, [user?.id]);
+
+  const loadServers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setError('Please login to view your servers');
+        return;
+      }
+
+      // Fetch customer's server instances using centralized API client
+      // The endpoint automatically filters by the authenticated user's ID from the JWT token
+      const serverData = await dedicatedServersAPI.listInstances();
+      const serversList = Array.isArray(serverData.data) ? serverData.data : [];
+      setServers(serversList);
+
+      // Load product details for each server
+      const productIds = [...new Set(serversList.map((s: ServerInstance) => s.product_id))];
+      const productPromises = productIds.map(async (productId: number) => {
+        try {
+          const productResponse = await dedicatedServersAPI.getProduct(productId);
+          return { [productId]: productResponse.data };
+        } catch (e) {
+          console.error(`Failed to load product ${productId}:`, e);
+          return {};
+        }
+      });
+
+      const productResults = await Promise.all(productPromises);
+      const productsMap = Object.assign({}, ...productResults);
+      setProducts(productsMap);
+
+    } catch (err: any) {
+      console.error('Failed to load servers:', err);
+      
+      // Provide more helpful error messages
+      let errorMessage = 'Failed to load your servers. Please try again later.';
+      
+      if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+        errorMessage = 'Cannot connect to the server. Please check if the backend is running.';
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      setServers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleServerAction = async (serverId: number, action: 'reboot' | 'suspend' | 'unsuspend', bootType?: string) => {
+    if (!confirm(`Are you sure you want to ${action} this server?`)) {
+      return;
+    }
+
+    setActionLoading(serverId);
+    try {
+      // Use centralized API client
+      if (action === 'reboot') {
+        await dedicatedServersAPI.rebootInstance(serverId, bootType);
+      } else if (action === 'suspend') {
+        await dedicatedServersAPI.suspendInstance(serverId, 'Customer requested');
+      } else if (action === 'unsuspend') {
+        await dedicatedServersAPI.unsuspendInstance(serverId);
+      }
+
+      alert(`Server ${action}ed successfully!`);
+      await loadServers(); // Reload servers
+      
+      // Update selected server if it's the one we just modified
+      if (selectedServer?.id === serverId) {
+        const updatedServerResponse = await dedicatedServersAPI.getInstance(serverId);
+        setSelectedServer(updatedServerResponse.data);
+      }
+    } catch (err: any) {
+      console.error(`Failed to ${action} server:`, err);
+      const errorMessage = err.response?.data?.detail || err.message || `Failed to ${action} server`;
+      alert(errorMessage);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    alert(`${label} copied to clipboard!`);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'active':
         return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
       case 'suspended':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />;
-      case 'expired':
-        return <ClockIcon className="h-5 w-5 text-red-500" />;
-      case 'pending':
+        return <StopIcon className="h-5 w-5 text-yellow-500" />;
+      case 'provisioning':
+      case 'pending_provisioning':
         return <ClockIcon className="h-5 w-5 text-blue-500" />;
-      case 'maintenance':
-        return <Cog6ToothIcon className="h-5 w-5 text-orange-500" />;
+      case 'cancelled':
+      case 'terminated':
+        return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />;
       default:
         return <ClockIcon className="h-5 w-5 text-gray-500" />;
     }
@@ -127,15 +190,19 @@ export default function MyServersPage() {
         return 'bg-green-100 text-green-800';
       case 'suspended':
         return 'bg-yellow-100 text-yellow-800';
-      case 'expired':
-        return 'bg-red-100 text-red-800';
-      case 'pending':
+      case 'provisioning':
+      case 'pending_provisioning':
         return 'bg-blue-100 text-blue-800';
-      case 'maintenance':
-        return 'bg-orange-100 text-orange-800';
+      case 'cancelled':
+      case 'terminated':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getStatusLabel = (status: string) => {
+    return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   if (loading) {
@@ -143,8 +210,8 @@ export default function MyServersPage() {
       <div className="space-y-6">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
-            <h1 className="text-2xl font-bold text-gray-900">My Server Services</h1>
-            <p className="mt-1 text-sm text-gray-500">Loading your server services...</p>
+            <h1 className="text-2xl font-bold text-gray-900">My Servers</h1>
+            <p className="mt-1 text-sm text-gray-500">Loading your servers...</p>
           </div>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -159,8 +226,14 @@ export default function MyServersPage() {
       <div className="space-y-6">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
-            <h1 className="text-2xl font-bold text-gray-900">My Server Services</h1>
+            <h1 className="text-2xl font-bold text-gray-900">My Servers</h1>
             <p className="mt-1 text-sm text-red-500">{error}</p>
+            <button
+              onClick={loadServers}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            >
+              Retry
+            </button>
           </div>
         </div>
       </div>
@@ -174,210 +247,257 @@ export default function MyServersPage() {
         <div className="px-4 py-5 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Server Services</h1>
+              <h1 className="text-2xl font-bold text-gray-900">My Servers</h1>
               <p className="mt-1 text-sm text-gray-500">
-                Manage your dedicated servers, VPS, and cloud instances.
+                Manage your dedicated servers and VPS instances.
               </p>
             </div>
-            <div className="flex space-x-3">
-              <a
-                href="/customer/services?category=servers"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <ShoppingCartIcon className="h-4 w-4 mr-2" />
-                Buy More Servers
-              </a>
-              <button
-                onClick={() => setShowAddServer(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add Server
-              </button>
-            </div>
+            <a
+              href="/customer/services?category=server"
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              <ShoppingCartIcon className="h-4 w-4 mr-2" />
+              Buy More Servers
+            </a>
           </div>
         </div>
       </div>
 
-      {/* Server Services List */}
+      {/* Server List */}
       <div className="space-y-4">
-        {serverServices.map((service) => (
-          <div
-            key={service.id}
-            className="bg-white shadow rounded-lg overflow-hidden"
-          >
-            <div className="px-4 py-5 sm:p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <ServerIcon className="h-6 w-6 text-indigo-500 mr-3" />
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {service.name}
-                      </h3>
-                      <p className="text-sm text-gray-500">{service.description}</p>
+        {servers.map((server) => {
+          const product = products[server.product_id];
+          const isActionLoading = actionLoading === server.id;
+          
+          return (
+            <div
+              key={server.id}
+              className="bg-white shadow rounded-lg overflow-hidden"
+            >
+              <div className="px-4 py-5 sm:p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <ServerIcon className="h-6 w-6 text-indigo-500 mr-3" />
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900">
+                          {product?.name || `Server #${server.id}`}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {product?.description || `${server.server_type || 'Server'} Instance`}
+                        </p>
+                      </div>
+                      <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(server.status)}`}>
+                        {getStatusIcon(server.status)}
+                        <span className="ml-1">{getStatusLabel(server.status)}</span>
+                      </span>
                     </div>
-                    <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
-                      {getStatusIcon(service.status)}
-                      <span className="ml-1 capitalize">{service.status}</span>
-                    </span>
+                    
+                    {/* Server Specifications */}
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium text-gray-900 mb-4">Server Specifications</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center">
+                            <CpuChipIcon className="h-5 w-5 text-indigo-500 mr-2" />
+                            <span className="text-sm font-medium text-gray-900">CPU</span>
+                          </div>
+                          <div className="mt-2">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {server.cpu_cores} Cores
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center">
+                            <CloudIcon className="h-5 w-5 text-indigo-500 mr-2" />
+                            <span className="text-sm font-medium text-gray-900">RAM</span>
+                          </div>
+                          <div className="mt-2">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {server.ram_gb} GB
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center">
+                            <CircleStackIcon className="h-5 w-5 text-indigo-500 mr-2" />
+                            <span className="text-sm font-medium text-gray-900">Storage</span>
+                          </div>
+                          <div className="mt-2">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {server.storage_gb} GB
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {server.storage_type || 'SSD'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center">
+                            <WifiIcon className="h-5 w-5 text-indigo-500 mr-2" />
+                            <span className="text-sm font-medium text-gray-900">Bandwidth</span>
+                          </div>
+                          <div className="mt-2">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {server.bandwidth_tb} TB
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Monthly Transfer
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Server Details */}
+                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {server.ip_address && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">IP Address</dt>
+                          <dd className="mt-1 text-sm text-gray-900 font-mono flex items-center">
+                            {server.ip_address}
+                            <button
+                              onClick={() => copyToClipboard(server.ip_address!, 'IP Address')}
+                              className="ml-2 text-indigo-600 hover:text-indigo-500"
+                              title="Copy IP Address"
+                            >
+                              <ClipboardDocumentIcon className="h-4 w-4" />
+                            </button>
+                          </dd>
+                        </div>
+                      )}
+                      {server.hostname && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Hostname</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{server.hostname}</dd>
+                        </div>
+                      )}
+                      {server.datacenter_location && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Location</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{server.datacenter_location}</dd>
+                        </div>
+                      )}
+                      {server.operating_system && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Operating System</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{server.operating_system}</dd>
+                        </div>
+                      )}
+                      {server.control_panel_url && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Control Panel</dt>
+                          <dd className="mt-1 text-sm text-gray-900">
+                            <a 
+                              href={server.control_panel_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-500"
+                            >
+                              {server.control_panel_type || 'Control Panel'}
+                            </a>
+                          </dd>
+                        </div>
+                      )}
+                      {server.provisioned_at && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Provisioned</dt>
+                          <dd className="mt-1 text-sm text-gray-900">
+                            {new Date(server.provisioned_at).toLocaleDateString()}
+                          </dd>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  
-                  {/* Server Specifications */}
-                  <div className="mt-6">
-                    <h4 className="text-sm font-medium text-gray-900 mb-4">Server Specifications</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {/* CPU */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center">
-                          <CpuChipIcon className="h-5 w-5 text-indigo-500 mr-2" />
-                          <span className="text-sm font-medium text-gray-900">CPU</span>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-lg font-semibold text-gray-900">
-                            {service.cpu_cores} Cores
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {service.server_type}
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* RAM */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center">
-                          <CloudIcon className="h-5 w-5 text-indigo-500 mr-2" />
-                          <span className="text-sm font-medium text-gray-900">RAM</span>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-lg font-semibold text-gray-900">
-                            {service.ram_gb} GB
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Memory
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Storage */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center">
-                          <CircleStackIcon className="h-5 w-5 text-indigo-500 mr-2" />
-                          <span className="text-sm font-medium text-gray-900">Storage</span>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-lg font-semibold text-gray-900">
-                            {service.storage_gb} GB
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            SSD Storage
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bandwidth */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center">
-                          <WifiIcon className="h-5 w-5 text-indigo-500 mr-2" />
-                          <span className="text-sm font-medium text-gray-900">Bandwidth</span>
-                        </div>
-                        <div className="mt-2">
-                          <div className="text-lg font-semibold text-gray-900">
-                            {service.bandwidth_gb} GB
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Monthly Transfer
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Server Details */}
-                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">IP Address</dt>
-                      <dd className="mt-1 text-sm text-gray-900 font-mono">
-                        {service.ip_address}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Location</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {service.location}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Operating System</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {service.os}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">NextPanel URL</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        <a 
-                          href={service.nextpanel_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-indigo-600 hover:text-indigo-500"
-                        >
-                          {service.nextpanel_url}
-                        </a>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Username</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{service.nextpanel_username}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Next Renewal</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {service.next_renewal}
-                      </dd>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="ml-6 flex flex-col space-y-2">
-                  <a
-                    href={service.nextpanel_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    <EyeIcon className="h-4 w-4 mr-2" />
-                    Open Control Panel
-                  </a>
-                  <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    <Cog6ToothIcon className="h-4 w-4 mr-2" />
-                    Settings
-                  </button>
-                  {service.status === 'expired' && (
-                    <button className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                      <PencilIcon className="h-4 w-4 mr-2" />
-                      Renew
+                  {/* Action Buttons */}
+                  <div className="ml-6 flex flex-col space-y-2 min-w-[200px]">
+                    <button
+                      onClick={() => {
+                        setSelectedServer(server);
+                        setShowDetailsModal(true);
+                      }}
+                      className="inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      <InformationCircleIcon className="h-4 w-4 mr-2" />
+                      View Details
                     </button>
-                  )}
+                    
+                    {server.status === 'active' && (
+                      <>
+                        <button
+                          onClick={() => handleServerAction(server.id, 'reboot', 'soft')}
+                          disabled={isActionLoading}
+                          className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                        >
+                          {isActionLoading ? (
+                            <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <ArrowPathIcon className="h-4 w-4 mr-2" />
+                          )}
+                          Reboot
+                        </button>
+                        <button
+                          onClick={() => handleServerAction(server.id, 'suspend')}
+                          disabled={isActionLoading}
+                          className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                        >
+                          <StopIcon className="h-4 w-4 mr-2" />
+                          Suspend
+                        </button>
+                      </>
+                    )}
+                    
+                    {server.status === 'suspended' && (
+                      <button
+                        onClick={() => handleServerAction(server.id, 'unsuspend')}
+                        disabled={isActionLoading}
+                        className="inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                      >
+                        {isActionLoading ? (
+                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <PlayIcon className="h-4 w-4 mr-2" />
+                        )}
+                        Unsuspend
+                      </button>
+                    )}
+
+                    {server.control_panel_url && (
+                      <a
+                        href={server.control_panel_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        <EyeIcon className="h-4 w-4 mr-2" />
+                        Control Panel
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Empty State */}
-      {serverServices.length === 0 && (
-        <div className="text-center py-12">
+      {servers.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg shadow">
           <ServerIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No server services</h3>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No servers</h3>
           <p className="mt-1 text-sm text-gray-500">
-            You don't have any server services yet. Browse our server plans to get started.
+            You don't have any servers yet. Browse our server plans to get started.
           </p>
           <div className="mt-6">
             <a
-              href="/customer/services?category=servers"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              href="/customer/services?category=server"
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
             >
               <ShoppingCartIcon className="h-4 w-4 mr-2" />
               Browse Server Plans
@@ -386,33 +506,264 @@ export default function MyServersPage() {
         </div>
       )}
 
-      {/* Add Server Modal Placeholder */}
-      {showAddServer && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Add Server Service</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                This feature will be available soon. You can purchase server plans through our services page.
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowAddServer(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
-                >
-                  Close
-                </button>
-                <a
-                  href="/customer/services?category=servers"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                >
-                  Browse Services
-                </a>
+      {/* Server Details Modal */}
+      {showDetailsModal && selectedServer && (
+        <ServerDetailsModal
+          server={selectedServer}
+          product={products[selectedServer.product_id]}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedServer(null);
+          }}
+          onAction={handleServerAction}
+          actionLoading={actionLoading === selectedServer.id}
+        />
+      )}
+    </div>
+  );
+}
+
+function ServerDetailsModal({
+  server,
+  product,
+  onClose,
+  onAction,
+  actionLoading,
+}: {
+  server: ServerInstance;
+  product?: ServerProduct;
+  onClose: () => void;
+  onAction: (serverId: number, action: 'reboot' | 'suspend' | 'unsuspend', bootType?: string) => void;
+  actionLoading: boolean;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showSSHCommand, setShowSSHCommand] = useState(false);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    alert(`${label} copied to clipboard!`);
+  };
+
+  const sshCommand = server.ip_address && server.root_password
+    ? `ssh root@${server.ip_address} -p ${server.ssh_port || 22}`
+    : null;
+
+  return (
+    <div className="fixed z-10 inset-0 overflow-y-auto">
+      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+        
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Server Details - {product?.name || `Server #${server.id}`}
+              </h3>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Server Information */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Server Information</h4>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Status</dt>
+                    <dd className="mt-1 text-sm text-gray-900 capitalize">{server.status.replace('_', ' ')}</dd>
+                  </div>
+                  {server.hostname && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Hostname</dt>
+                      <dd className="mt-1 text-sm text-gray-900 font-mono">{server.hostname}</dd>
+                    </div>
+                  )}
+                  {server.ip_address && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">IP Address</dt>
+                      <dd className="mt-1 text-sm text-gray-900 font-mono flex items-center">
+                        {server.ip_address}
+                        <button
+                          onClick={() => copyToClipboard(server.ip_address!, 'IP Address')}
+                          className="ml-2 text-indigo-600 hover:text-indigo-500"
+                        >
+                          <ClipboardDocumentIcon className="h-4 w-4" />
+                        </button>
+                      </dd>
+                    </div>
+                  )}
+                  {server.operating_system && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Operating System</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{server.operating_system}</dd>
+                    </div>
+                  )}
+                  {server.datacenter_location && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Location</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{server.datacenter_location}</dd>
+                    </div>
+                  )}
+                  {server.provider && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Provider</dt>
+                      <dd className="mt-1 text-sm text-gray-900 capitalize">{server.provider}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              {/* SSH Access */}
+              {server.ip_address && (
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                    <CommandLineIcon className="h-5 w-5 mr-2 text-indigo-500" />
+                    SSH Access
+                  </h4>
+                  <div className="space-y-3">
+                    {server.root_password && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <dt className="text-sm font-medium text-gray-500">Root Password</dt>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="text-xs text-indigo-600 hover:text-indigo-500"
+                            >
+                              {showPassword ? 'Hide' : 'Show'}
+                            </button>
+                            <button
+                              onClick={() => copyToClipboard(server.root_password!, 'Root Password')}
+                              className="text-indigo-600 hover:text-indigo-500"
+                              title="Copy Password"
+                            >
+                              <ClipboardDocumentIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <dd className="mt-1 text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded">
+                          {showPassword ? server.root_password : '••••••••••••'}
+                        </dd>
+                      </div>
+                    )}
+                    {sshCommand && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <dt className="text-sm font-medium text-gray-500">SSH Command</dt>
+                          <button
+                            onClick={() => copyToClipboard(sshCommand, 'SSH Command')}
+                            className="text-indigo-600 hover:text-indigo-500"
+                            title="Copy SSH Command"
+                          >
+                            <ClipboardDocumentIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <dd className="mt-1 text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded">
+                          {sshCommand}
+                        </dd>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Use this command to connect via SSH. Password will be prompted.
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">SSH Port</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{server.ssh_port || 22}</dd>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Control Panel */}
+              {server.control_panel_url && (
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Control Panel</h4>
+                  <div className="flex items-center space-x-2">
+                    <a
+                      href={server.control_panel_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:text-indigo-500 text-sm"
+                    >
+                      {server.control_panel_url}
+                    </a>
+                    <button
+                      onClick={() => copyToClipboard(server.control_panel_url!, 'Control Panel URL')}
+                      className="text-indigo-600 hover:text-indigo-500"
+                    >
+                      <ClipboardDocumentIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {server.control_panel_type && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Type: {server.control_panel_type}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Server Actions */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Server Actions</h4>
+                <div className="flex flex-wrap gap-2">
+                  {server.status === 'active' && (
+                    <>
+                      <button
+                        onClick={() => onAction(server.id, 'reboot', 'soft')}
+                        disabled={actionLoading}
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {actionLoading ? (
+                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <ArrowPathIcon className="h-4 w-4 mr-2" />
+                        )}
+                        Reboot
+                      </button>
+                      <button
+                        onClick={() => onAction(server.id, 'suspend')}
+                        disabled={actionLoading}
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <StopIcon className="h-4 w-4 mr-2" />
+                        Suspend
+                      </button>
+                    </>
+                  )}
+                  {server.status === 'suspended' && (
+                    <button
+                      onClick={() => onAction(server.id, 'unsuspend')}
+                      disabled={actionLoading}
+                      className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {actionLoading ? (
+                        <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <PlayIcon className="h-4 w-4 mr-2" />
+                      )}
+                      Unsuspend
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
+          
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Close
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
   ListBulletIcon,
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
+  LinkIcon,
 } from '@heroicons/react/24/outline';
 import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
@@ -101,23 +102,75 @@ export default function ProductsPage() {
     setIsLoading(true);
     try {
       try {
-        const [productsRes, categoriesRes, statsRes] = await Promise.all([
-          plansAPI.list(),
+        const token = localStorage.getItem('access_token');
+        const [productsRes, categoriesRes, statsRes, serverProductsRes] = await Promise.all([
+          plansAPI.list(), // Load all products (admin can see inactive too)
           plansAPI.categories(),
           plansAPI.stats().catch(() => ({ data: null })),
+          // Fetch all server products (admin can see inactive too)
+          fetch('http://192.168.177.129:8001/api/v1/dedicated-servers/products', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }).then(res => res.ok ? res.json() : []).catch(() => []),
         ]);
         
+        // Transform server products to match Product interface
+        const serverProducts = Array.isArray(serverProductsRes) ? serverProductsRes.map((sp: any) => ({
+          id: `server-${sp.id}`,
+          name: sp.name,
+          description: sp.description || '',
+          price_monthly: sp.price_monthly,
+          price_yearly: sp.price_yearly || sp.price_monthly * 12,
+          max_accounts: 0,
+          max_domains: 0,
+          max_databases: 0,
+          max_emails: 0,
+          features: {
+            category: 'server',
+            server_type: sp.server_type,
+            cpu_cores: sp.cpu_cores,
+            ram_gb: sp.ram_gb,
+            storage_gb: sp.storage_gb,
+            storage_type: sp.storage_type,
+            bandwidth_tb: sp.bandwidth_tb,
+            provisioning_type: sp.provisioning_type,
+          },
+          is_active: sp.is_active,
+          is_featured: false,
+          sort_order: 0,
+          created_at: sp.created_at,
+          stock_quantity: sp.stock_count,
+          stock_enabled: sp.stock_count !== null,
+          stock_status: sp.is_in_stock ? 'in_stock' : 'out_of_stock',
+          allow_backorder: false,
+          _isServerProduct: true, // Flag to identify server products
+          _serverProductId: sp.id, // Store original ID for editing/deleting
+        })) : [];
+        
+        // Merge regular products and server products
+        const allProducts = [
+          ...(productsRes.data || []),
+          ...serverProducts
+        ];
+        
         // Check if API returned empty data (no products in database)
-        if (productsRes.data && productsRes.data.length === 0) {
+        if (allProducts.length === 0) {
           console.log('📦 API returned empty data, using demo products...');
           throw new Error('No products in database');
         }
         
-        setProducts(productsRes.data);
-        setCategories(categoriesRes.data.categories || []);
+        setProducts(allProducts);
+        
+        // Add server category if not exists
+        const categories = categoriesRes.data.categories || [];
+        if (!categories.find((c: any) => c.id === 'server')) {
+          categories.push({ id: 'server', name: 'Server (Dedicated/VPS)' });
+        }
+        setCategories(categories);
         setStats(statsRes.data);
         setIsUsingDemoData(false);
-        console.log('✅ Products loaded from API');
+        console.log('✅ Products loaded from API (including server products):', allProducts.length);
       } catch (apiError) {
         console.log('📦 API not available, using demo data...');
         
@@ -187,7 +240,23 @@ export default function ProductsPage() {
     }
     
     try {
-      await plansAPI.delete(id);
+      // Check if it's a server product
+      const product = products.find(p => p.id === id);
+      if (product && (product as any)._isServerProduct) {
+        const token = localStorage.getItem('access_token');
+        const serverId = (product as any)._serverProductId;
+        const response = await fetch(`http://192.168.177.129:8001/api/v1/dedicated-servers/products/${serverId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Failed to delete server product');
+        }
+      } else {
+        await plansAPI.delete(id);
+      }
       await loadData();
     } catch (error) {
       console.error('Failed to delete product:', error);
@@ -196,6 +265,11 @@ export default function ProductsPage() {
   };
 
   const handleEdit = (product: Product) => {
+    // Server products need special handling - redirect to edit via API
+    if ((product as any)._isServerProduct) {
+      alert('Server products editing will be available soon. For now, you can delete and recreate.');
+      return;
+    }
     setSelectedProduct(product);
     setShowEditModal(true);
   };
@@ -525,7 +599,7 @@ export default function ProductsPage() {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Total Products</dt>
                     <dd className="text-2xl font-semibold text-gray-900">
-                      {stats.total_active_plans}
+                      {products.length}
                     </dd>
                   </dl>
                 </div>
@@ -883,7 +957,19 @@ export default function ProductsPage() {
 
                   {/* Actions - Compact Buttons */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => {
+                          // Open product detail page in new tab
+                          const productUrl = `/products/${product.id}`;
+                          window.open(productUrl, '_blank');
+                        }}
+                        className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50 transition-colors"
+                        title="View product page"
+                      >
+                        <LinkIcon className="h-3.5 w-3.5 mr-1" />
+                        Product Link
+                      </button>
                       <button
                         onClick={() => handleViewDetails(product)}
                         className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
@@ -1058,6 +1144,17 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            // Open product detail page in new tab
+                            const productUrl = `/products/${product.id}`;
+                            window.open(productUrl, '_blank');
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="View Product Page"
+                        >
+                          <LinkIcon className="h-5 w-5" />
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedProduct(product);

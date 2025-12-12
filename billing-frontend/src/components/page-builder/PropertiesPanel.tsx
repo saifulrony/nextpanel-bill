@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Component } from './types';
 import { XMarkIcon, PhotoIcon, ArrowUpTrayIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { plansAPI } from '@/lib/api';
 
 interface PropertiesPanelProps {
   component: Component | null;
@@ -58,6 +59,346 @@ function Accordion({ title, children, defaultOpen = false, isOpen: controlledIsO
           {children}
         </div>
       )}
+    </div>
+  );
+}
+
+// Products Grid Properties Component
+function ProductsGridProperties({ component, updateProp }: { component: Component; updateProp: (key: string, value: any) => void }) {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const selectedCategories = component.props?.categories || [];
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const response = await plansAPI.categories();
+        let categoriesData = response.data?.categories || response.data || [];
+        
+        // Ensure server category is included
+        if (!categoriesData.find((c: any) => c.id === 'server')) {
+          categoriesData.push({ id: 'server', name: 'Server (Dedicated/VPS)' });
+        }
+        
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+        // Fallback to default categories
+        setCategories([
+          { id: 'hosting', name: 'Hosting' },
+          { id: 'domain', name: 'Domains' },
+          { id: 'server', name: 'Server (Dedicated/VPS)' },
+          { id: 'software', name: 'Software & Licenses' },
+          { id: 'email', name: 'Email Services' },
+          { id: 'ssl', name: 'SSL Certificates' },
+          { id: 'backup', name: 'Backup Solutions' },
+          { id: 'cdn', name: 'CDN Services' },
+        ]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  const handleCategoryToggle = (categoryId: string) => {
+    const newCategories = selectedCategories.includes(categoryId)
+      ? selectedCategories.filter((id: string) => id !== categoryId)
+      : [...selectedCategories, categoryId];
+    updateProp('categories', newCategories);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Product Categories
+          <span className="text-xs text-gray-500 ml-2">(Select categories to show. Leave empty to show all)</span>
+        </label>
+        {loadingCategories ? (
+          <div className="text-sm text-gray-500">Loading categories...</div>
+        ) : (
+          <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
+            {categories.length === 0 ? (
+              <div className="text-sm text-gray-500">No categories available</div>
+            ) : (
+              categories.map((category) => (
+                <label key={category.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.includes(category.id)}
+                    onChange={() => handleCategoryToggle(category.id)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-700">{category.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        )}
+        {selectedCategories.length > 0 && (
+          <div className="mt-2 text-xs text-gray-500">
+            Selected: {selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+        <input
+          type="text"
+          value={component.props?.title || 'Our Products'}
+          onChange={(e) => updateProp('title', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+          placeholder="Our Products"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
+        <input
+          type="text"
+          value={component.props?.subtitle || 'Choose from our range of hosting solutions designed to meet your needs'}
+          onChange={(e) => updateProp('subtitle', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+          placeholder="Choose from our range of hosting solutions designed to meet your needs"
+        />
+      </div>
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          checked={component.props?.showPrices !== false}
+          onChange={(e) => updateProp('showPrices', e.target.checked)}
+          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+        />
+        <label className="ml-2 block text-sm text-gray-700">Show Prices</label>
+      </div>
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          checked={component.props?.showFeatures !== false}
+          onChange={(e) => updateProp('showFeatures', e.target.checked)}
+          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+        />
+        <label className="ml-2 block text-sm text-gray-700">Show Features</label>
+      </div>
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          checked={component.props?.showButtons !== false}
+          onChange={(e) => updateProp('showButtons', e.target.checked)}
+          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+        />
+        <label className="ml-2 block text-sm text-gray-700">Show Buttons</label>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Card Style</label>
+        <select
+          value={component.props?.cardStyle || 'default'}
+          onChange={(e) => updateProp('cardStyle', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+        >
+          <option value="default">Default</option>
+          <option value="minimal">Minimal</option>
+          <option value="elevated">Elevated</option>
+          <option value="outlined">Outlined</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+        <input
+          type="color"
+          value={component.props?.backgroundColor || '#ffffff'}
+          onChange={(e) => updateProp('backgroundColor', e.target.value)}
+          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Card Background Color</label>
+        <input
+          type="color"
+          value={component.props?.cardBackgroundColor || '#ffffff'}
+          onChange={(e) => updateProp('cardBackgroundColor', e.target.value)}
+          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
+        <input
+          type="color"
+          value={component.props?.borderColor || '#e5e7eb'}
+          onChange={(e) => updateProp('borderColor', e.target.value)}
+          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+        <input
+          type="color"
+          value={component.props?.textColor || '#374151'}
+          onChange={(e) => updateProp('textColor', e.target.value)}
+          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Price Color</label>
+        <input
+          type="color"
+          value={component.props?.priceColor || '#4f46e5'}
+          onChange={(e) => updateProp('priceColor', e.target.value)}
+          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Button Color</label>
+        <input
+          type="color"
+          value={component.props?.buttonColor || '#4f46e5'}
+          onChange={(e) => updateProp('buttonColor', e.target.value)}
+          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Button Text Color</label>
+        <input
+          type="color"
+          value={component.props?.buttonTextColor || '#ffffff'}
+          onChange={(e) => updateProp('buttonTextColor', e.target.value)}
+          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Spacing</label>
+        <input
+          type="text"
+          value={component.props?.spacing || '1rem'}
+          onChange={(e) => updateProp('spacing', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+          placeholder="1rem"
+        />
+      </div>
+    </div>
+  );
+}
+
+// Featured Products Properties Component
+function FeaturedProductsProperties({ component, updateProp }: { component: Component; updateProp: (key: string, value: any) => void }) {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const selectedCategories = component.props?.categories || [];
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const response = await plansAPI.categories();
+        let categoriesData = response.data?.categories || response.data || [];
+        
+        // Ensure server category is included
+        if (!categoriesData.find((c: any) => c.id === 'server')) {
+          categoriesData.push({ id: 'server', name: 'Server (Dedicated/VPS)' });
+        }
+        
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+        setCategories([
+          { id: 'hosting', name: 'Hosting' },
+          { id: 'domain', name: 'Domains' },
+          { id: 'server', name: 'Server (Dedicated/VPS)' },
+          { id: 'software', name: 'Software & Licenses' },
+          { id: 'email', name: 'Email Services' },
+          { id: 'ssl', name: 'SSL Certificates' },
+        ]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  const handleCategoryToggle = (categoryId: string) => {
+    const newCategories = selectedCategories.includes(categoryId)
+      ? selectedCategories.filter((id: string) => id !== categoryId)
+      : [...selectedCategories, categoryId];
+    updateProp('categories', newCategories);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>
+        <select
+          value={component.props?.columns || 3}
+          onChange={(e) => updateProp('columns', parseInt(e.target.value))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+        >
+          <option value={1}>1 Column</option>
+          <option value={2}>2 Columns</option>
+          <option value={3}>3 Columns</option>
+          <option value={4}>4 Columns</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Product Categories
+          <span className="text-xs text-gray-500 ml-2">(Select categories to show. Leave empty to show all)</span>
+        </label>
+        {loadingCategories ? (
+          <div className="text-sm text-gray-500">Loading categories...</div>
+        ) : (
+          <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
+            {categories.length === 0 ? (
+              <div className="text-sm text-gray-500">No categories available</div>
+            ) : (
+              categories.map((category) => (
+                <label key={category.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.includes(category.id)}
+                    onChange={() => handleCategoryToggle(category.id)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-700">{category.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        )}
+        {selectedCategories.length > 0 && (
+          <div className="mt-2 text-xs text-gray-500">
+            Selected: {selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+        <input
+          type="text"
+          value={component.props?.title || 'Featured Products'}
+          onChange={(e) => updateProp('title', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+          placeholder="Featured Products"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
+        <input
+          type="text"
+          value={component.props?.subtitle || 'Discover our most popular and recommended hosting solutions'}
+          onChange={(e) => updateProp('subtitle', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+          placeholder="Discover our most popular and recommended hosting solutions"
+        />
+      </div>
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          checked={component.props?.showPrices !== false}
+          onChange={(e) => updateProp('showPrices', e.target.checked)}
+          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+        />
+        <label className="ml-2 block text-sm text-gray-700">Show Prices</label>
+      </div>
     </div>
   );
 }
@@ -2011,6 +2352,22 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
 
         {/* Products Grid Component Properties */}
         {activeTab === 'content' && component.type === 'products-grid' && (
+          <ProductsGridProperties 
+            component={component} 
+            updateProp={updateProp}
+          />
+        )}
+
+        {/* Featured Products Component Properties */}
+        {activeTab === 'content' && component.type === 'featured-products' && (
+          <FeaturedProductsProperties 
+            component={component} 
+            updateProp={updateProp}
+          />
+        )}
+
+        {/* Legacy Products Grid Component Properties (for backward compatibility) */}
+        {activeTab === 'content' && component.type === 'products-grid' && false && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Number of Products</label>
@@ -2160,8 +2517,8 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
           </div>
         )}
 
-        {/* Featured Products Component Properties */}
-        {activeTab === 'content' && component.type === 'featured-products' && (
+        {/* Legacy Featured Products Component Properties (for backward compatibility) */}
+        {activeTab === 'content' && component.type === 'featured-products' && false && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>

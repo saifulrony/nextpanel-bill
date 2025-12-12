@@ -946,7 +946,7 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
   style?: React.CSSProperties;
   props?: {
     columns?: number;
-    productCount?: number;
+    categories?: string[]; // Array of category IDs to filter products
     showPrices?: boolean;
     showFeatures?: boolean;
     showButtons?: boolean;
@@ -972,7 +972,7 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
 
   // Get configuration from props (before hooks that depend on them)
   const columns = props?.columns || 3;
-  const productCount = props?.productCount || products.length;
+  const selectedCategories = props?.categories || []; // Selected category IDs
   const showPrices = props?.showPrices !== false; // Default to true
   const showButtons = props?.showButtons !== false; // Default to true
   const title = props?.title || "Our Products";
@@ -989,8 +989,13 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
   const buttonTextColor = props?.buttonTextColor || '#ffffff';
   const spacing = props?.spacing || '1rem';
 
-  // Limit products based on productCount
-  const displayProducts = products.slice(0, productCount);
+  // Filter products by selected categories (if any selected)
+  const displayProducts = selectedCategories.length > 0
+    ? products.filter((product: any) => {
+        const productCategory = product.features?.category || product.category || 'other';
+        return selectedCategories.includes(productCategory);
+      })
+    : products; // Show all products if no categories selected
 
   // Responsive columns hooks
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -1230,7 +1235,7 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
   style?: React.CSSProperties;
   props?: {
     columns?: number;
-    productCount?: number;
+    categories?: string[]; // Array of category IDs to filter products
     showPrices?: boolean;
     showFeatures?: boolean;
     showButtons?: boolean;
@@ -1338,14 +1343,19 @@ export const FeaturedProductsComponent = React.memo(function FeaturedProductsCom
 
   // Get configuration from props
   const columns = props?.columns || 3;
-  const productCount = props?.productCount || products.length;
+  const selectedCategories = props?.categories || [];
   const showPrices = props?.showPrices !== false; // Default to true
   const showButtons = props?.showButtons !== false; // Default to true
   const title = props?.title || "Featured Products";
   const subtitle = props?.subtitle || "Discover our most popular and recommended hosting solutions";
 
-  // Limit products based on productCount
-  const displayProducts = products.slice(0, productCount);
+  // Filter products by selected categories (if any selected)
+  const displayProducts = selectedCategories.length > 0
+    ? products.filter((product: any) => {
+        const productCategory = product.features?.category || product.category || 'other';
+        return selectedCategories.includes(productCategory);
+      })
+    : products; // Show all products if no categories selected
 
   // Generate grid classes based on columns
   const getGridClasses = (cols: number) => {
