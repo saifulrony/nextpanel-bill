@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
+import { DashboardElement } from '@/components/admin/DashboardCustomization';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -60,6 +61,7 @@ export default function DashboardPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [revenueTimeSeries, setRevenueTimeSeries] = useState<Array<{period: string; revenue: number}>>([]);
+  const [dashboardElements, setDashboardElements] = useState<DashboardElement[]>([]);
 
   const loadDashboardData = useCallback(async () => {
     // Build query params for all endpoints (declare outside try for error handling)
@@ -187,23 +189,79 @@ export default function DashboardPage() {
     loadDashboardData();
   }, [loadDashboardData]);
 
+  // Load dashboard customization
+  useEffect(() => {
+    const loadCustomization = () => {
+      const saved = localStorage.getItem('dashboard_elements_customization');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDashboardElements(parsed);
+          }
+        } catch (e) {
+          console.error('Failed to load dashboard customization:', e);
+        }
+      }
+    };
+
+    loadCustomization();
+
+    // Listen for storage changes (when customization is updated)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'dashboard_elements_customization') {
+        loadCustomization();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom event (for same-window updates)
+    const handleCustomStorageChange = () => {
+      loadCustomization();
+    };
+    
+    window.addEventListener('dashboardCustomizationUpdated', handleCustomStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('dashboardCustomizationUpdated', handleCustomStorageChange);
+    };
+  }, []);
+
+  // Helper function to get width class (for 12-column grid)
+  const getWidthClass = (width?: string) => {
+    switch (width) {
+      case '1/4': return 'lg:col-span-3';
+      case '1/3': return 'lg:col-span-4';
+      case '1/2': return 'lg:col-span-6';
+      case '2/3': return 'lg:col-span-8';
+      case '3/4': return 'lg:col-span-9';
+      case 'full':
+      default: return 'lg:col-span-12';
+    }
+  };
+
+  // Helper function to check if element is visible
+  const isElementVisible = (elementId: string) => {
+    if (dashboardElements.length === 0) return true; // Show all if no customization
+    const element = dashboardElements.find(el => el.id === elementId);
+    return element ? element.visible : true; // Default to visible if not found
+  };
+
+  // Helper function to get element width
+  const getElementWidth = (elementId: string) => {
+    if (dashboardElements.length === 0) return 'full';
+    const element = dashboardElements.find(el => el.id === elementId);
+    return element?.width || 'full';
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4 mx-auto"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Prepare chart data
   const customerDistributionData = [
@@ -247,7 +305,7 @@ export default function DashboardPage() {
     : 0;
 
   return (
-    <div className="space-y-6" key={lastUpdate.getTime()}>
+    <div className="space-y-6">
 
       {/* Notification Banner */}
       {notification && (
@@ -358,6 +416,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Key Metrics Row */}
+      {isElementVisible('key-metrics') && (
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Customers Card */}
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
@@ -429,11 +488,14 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Charts Row 1: Customer & License Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {(isElementVisible('customer-distribution') || isElementVisible('license-status') || isElementVisible('invoice-status')) && (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Customer Distribution Chart */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('customer-distribution') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('customer-distribution'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Distribution</h3>
           <div className="h-64 flex items-center justify-center">
             <div className="text-center">
@@ -452,9 +514,11 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* License Status Chart */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('license-status') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('license-status'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">License Status</h3>
           <div className="h-64">
             <Bar
@@ -505,9 +569,11 @@ export default function DashboardPage() {
             />
           </div>
         </div>
+        )}
 
         {/* Invoice Status Chart */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('invoice-status') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('invoice-status'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Status</h3>
           <div className="h-64">
             <Bar
@@ -558,12 +624,16 @@ export default function DashboardPage() {
             />
           </div>
         </div>
+        )}
       </div>
+      )}
 
       {/* Charts Row 2: Revenue & Orders */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {(isElementVisible('revenue-trend') || isElementVisible('order-status')) && (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Revenue Trend Line Chart */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('revenue-trend') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('revenue-trend'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Revenue Trend
             <span className="ml-2 text-sm font-normal text-gray-500">
@@ -634,9 +704,11 @@ export default function DashboardPage() {
             />
           </div>
         </div>
+        )}
 
         {/* Order Status Bar Chart */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('order-status') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('order-status'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Status</h3>
           <div className="h-64">
             <Bar
@@ -687,12 +759,16 @@ export default function DashboardPage() {
             />
           </div>
         </div>
+        )}
       </div>
+      )}
 
       {/* Charts Row 3: Activity divs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {(isElementVisible('customer-active-rate') || isElementVisible('license-active-rate') || isElementVisible('domain-active-rate')) && (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Customer Active Rate div */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('customer-active-rate') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('customer-active-rate'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Customer Active Rate</h3>
           <div className="flex justify-center">
             <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
@@ -712,9 +788,11 @@ export default function DashboardPage() {
             {stats?.active_customers || 0} / {stats?.total_customers || 0} active
           </p>
         </div>
+        )}
 
         {/* License Active Rate div */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('license-active-rate') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('license-active-rate'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">License Active Rate</h3>
           <div className="flex justify-center">
             <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
@@ -734,9 +812,11 @@ export default function DashboardPage() {
             {stats?.active_licenses || 0} / {stats?.total_licenses || 0} active
           </p>
         </div>
+        )}
 
         {/* Domain Active Rate div */}
-        <div className="bg-white shadow rounded-lg p-6">
+        {isElementVisible('domain-active-rate') && (
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('domain-active-rate'))}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Domain Active Rate</h3>
           <div className="flex justify-center">
             <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
@@ -756,9 +836,12 @@ export default function DashboardPage() {
             {stats?.active_domains || 0} / {stats?.total_domains || 0} active
           </p>
         </div>
+        )}
       </div>
+      )}
 
       {/* Top Customers Section */}
+      {isElementVisible('top-customers') && (
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -858,8 +941,10 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Quick Stats Grid */}
+      {isElementVisible('quick-stats') && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white shadow rounded-lg p-5">
           <div className="flex items-center justify-between">
@@ -913,8 +998,10 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+      )}
 
       {/* Recent Activity Summary */}
+      {isElementVisible('recent-activity') && (
       <div className="bg-white shadow rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity (Last 24 Hours)</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -932,8 +1019,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Real-time Status Info */}
+      {isElementVisible('realtime-status') && (
       <div className={`border rounded-lg p-4 ${
         realtimeEnabled ? (isConnected ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-blue-50 border-blue-200'
       }`}>
@@ -964,6 +1053,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
       <style jsx>{`
         @keyframes slide-in-right {

@@ -34,17 +34,38 @@ export class GoogleDriveService {
     }
 
     try {
+      const credentialsPath = config.credentialsPath || process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+      
+      if (!credentialsPath) {
+        console.error('No credentials path provided');
+        this.initialized = false;
+        return;
+      }
+
+      // Check if file exists
+      const fs = require('fs');
+      if (!fs.existsSync(credentialsPath)) {
+        console.error(`Credentials file not found: ${credentialsPath}`);
+        this.initialized = false;
+        return;
+      }
+
       const auth = new google.auth.GoogleAuth({
-        keyFile: config.credentialsPath || process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE,
+        keyFile: credentialsPath,
         scopes: config.scopes || ['https://www.googleapis.com/auth/drive'],
       });
+
+      // Get credentials to verify authentication works
+      await auth.getClient();
 
       this.drive = google.drive({ version: 'v3', auth });
       this.initialized = true;
       
       console.log('Google Drive service initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Google Drive service:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Failed to initialize Google Drive service:', errorMessage);
+      console.error('Error details:', error);
       this.initialized = false;
     }
   }
@@ -303,15 +324,45 @@ export class GoogleDriveService {
   public async testConnection(): Promise<boolean> {
     try {
       if (!this.initialized) {
+        console.error('Google Drive service not initialized');
         return false;
       }
 
-      // Try to list files to test connection
-      await this.listFiles();
-      return true;
+      // First, try to get the folder info to verify it exists and is accessible
+      try {
+        const folderInfo = await this.drive.files.get({
+          fileId: this.folderId,
+          fields: 'id,name,mimeType,permissions',
+        });
+        console.log('Folder found:', folderInfo.data.name);
+      } catch (folderError: any) {
+        // If folder doesn't exist or access denied, the error will be caught
+        if (folderError?.code === 404) {
+          console.error('Google Drive folder not found. Folder ID:', this.folderId);
+          throw new Error(`Folder not found. Please verify the folder ID is correct: ${this.folderId}`);
+        } else if (folderError?.code === 403) {
+          console.error('Access denied to folder. Folder ID:', this.folderId);
+          throw new Error(`Access denied. Please share the folder with the service account: ${this.folderId}`);
+        } else {
+          console.error('Error accessing folder:', folderError?.message || folderError);
+          throw new Error(`Cannot access folder: ${folderError?.message || 'Unknown error'}`);
+        }
+      }
+
+      // Try to list files to test connection and folder access
+      try {
+        await this.listFiles();
+        return true;
+      } catch (listError: any) {
+        console.error('Error listing files:', listError?.message || listError);
+        if (listError?.code === 403) {
+          throw new Error(`Access denied. Please share the folder with the service account email and give it Editor permission.`);
+        }
+        throw listError;
+      }
     } catch (error) {
       console.error('Google Drive connection test failed:', error);
-      return false;
+      throw error; // Re-throw to get detailed error message
     }
   }
 }

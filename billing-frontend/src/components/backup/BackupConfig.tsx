@@ -15,6 +15,7 @@ interface BackupConfig {
   googleDrive: {
     enabled: boolean;
     folderId: string;
+    credentialsPath?: string;
     autoUpload: boolean;
     encrypt: boolean;
   };
@@ -39,6 +40,7 @@ export default function BackupConfig() {
     googleDrive: {
       enabled: false,
       folderId: '',
+      credentialsPath: '',
       autoUpload: false,
       encrypt: false,
     },
@@ -107,12 +109,28 @@ export default function BackupConfig() {
   };
 
   const testGoogleDriveConnection = async () => {
+    // Check if folder ID is provided
+    if (!config.googleDrive.folderId || config.googleDrive.folderId.trim() === '') {
+      alert('Please enter a Google Drive folder ID before testing the connection.');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/backup/test-google-drive');
-      if (response.ok) {
+      const params = new URLSearchParams({
+        folderId: config.googleDrive.folderId,
+      });
+      
+      if (config.googleDrive.credentialsPath) {
+        params.append('credentialsPath', config.googleDrive.credentialsPath);
+      }
+      
+      const response = await fetch(`/api/backup/test-google-drive?${params.toString()}`);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
         alert('Google Drive connection successful!');
       } else {
-        alert('Google Drive connection failed. Please check your credentials.');
+        alert(data.message || 'Google Drive connection failed. Please check your credentials.');
       }
     } catch (error) {
       alert('Error testing Google Drive connection.');
@@ -179,6 +197,37 @@ export default function BackupConfig() {
 
           {config.googleDrive.enabled && (
             <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Service Account Credentials File Path
+                </label>
+                <input
+                  type="text"
+                  value={config.googleDrive.credentialsPath || ''}
+                  onChange={(e) => updateConfig('googleDrive', 'credentialsPath', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="/path/to/service-account-key.json"
+                />
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-xs font-medium text-green-700 mb-2">
+                    ✅ <strong>No app approval needed!</strong> Works immediately for private use.
+                  </p>
+                  <p className="text-xs font-medium text-blue-900 mb-1">📖 How to get the credentials file:</p>
+                  <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="underline">Google Cloud Console</a></li>
+                    <li>Create a project → Enable "Google Drive API" (ignore OAuth warnings)</li>
+                    <li>Create a Service Account → Download JSON key file</li>
+                    <li>Upload the JSON file to your server (e.g., <code className="bg-blue-100 px-1 rounded">/etc/backup/google-credentials.json</code>)</li>
+                    <li>Set permissions: <code className="bg-blue-100 px-1 rounded">chmod 600</code></li>
+                    <li>Share a Google Drive folder with the service account email</li>
+                    <li>Enter the file path above</li>
+                  </ol>
+                  <p className="text-xs text-blue-700 mt-2">
+                    💡 <strong>Full guide:</strong> See <code className="bg-blue-100 px-1 rounded">GOOGLE_DRIVE_SETUP_GUIDE.md</code> in the project root for detailed instructions
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Google Drive Folder ID
@@ -394,8 +443,9 @@ export default function BackupConfig() {
           <div>
             <h4 className="text-sm font-medium text-yellow-800">Security Notice</h4>
             <p className="text-sm text-yellow-700 mt-1">
-              Ensure your Google Drive service account credentials are securely stored and never commit them to version control. 
-              Consider using environment variables or a secure secrets management system.
+              Ensure your Google Drive service account credentials file is securely stored and never commit it to version control. 
+              The credentials file should be placed in a secure location (e.g., /etc/backup/) with restricted permissions (chmod 600).
+              You can configure the path to your credentials file above, or set the GOOGLE_SERVICE_ACCOUNT_KEY_FILE environment variable.
             </p>
           </div>
         </div>

@@ -17,6 +17,7 @@ export async function GET() {
         googleDrive: {
           enabled: false,
           folderId: '',
+          credentialsPath: '',
           autoUpload: false,
           encrypt: false,
         },

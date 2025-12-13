@@ -40,9 +40,11 @@ import {
   CurrencyDollarIcon,
   CalculatorIcon,
   ShieldCheckIcon,
+  AdjustmentsHorizontalIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
 import { useInstalledModules } from '@/hooks/useInstalledModules';
+import DashboardCustomization, { SidebarItem, SidebarSubmenuItem, DashboardElement } from '@/components/admin/DashboardCustomization';
 
 // Base navigation items (always available)
 const getBaseNavigation = () => [
@@ -223,6 +225,9 @@ export default function DashboardLayout({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
+  const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
+  const [customizedSidebar, setCustomizedSidebar] = useState<SidebarItem[]>([]);
+  const [customizedDashboard, setCustomizedDashboard] = useState<DashboardElement[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -329,6 +334,200 @@ export default function DashboardLayout({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Default dashboard elements
+  const getDefaultDashboardElements = (): DashboardElement[] => [
+    { id: 'key-metrics', name: 'Key Metrics (4 Cards)', type: 'stat', visible: true, order: 0, width: 'full', description: 'Total Customers, Orders, Revenue, Active Licenses' },
+    { id: 'customer-distribution', name: 'Customer Distribution Chart', type: 'chart', visible: true, order: 1, width: '1/3', description: 'Pie chart showing active vs inactive customers' },
+    { id: 'license-status', name: 'License Status Chart', type: 'chart', visible: true, order: 2, width: '1/3', description: 'Bar chart showing license status breakdown' },
+    { id: 'invoice-status', name: 'Invoice Status Chart', type: 'chart', visible: true, order: 3, width: '1/3', description: 'Bar chart showing invoice status' },
+    { id: 'revenue-trend', name: 'Revenue Trend Line Chart', type: 'chart', visible: true, order: 4, width: '1/2', description: 'Line chart showing revenue over time' },
+    { id: 'order-status', name: 'Order Status Chart', type: 'chart', visible: true, order: 5, width: '1/2', description: 'Bar chart showing order status' },
+    { id: 'customer-active-rate', name: 'Customer Active Rate Gauge', type: 'gauge', visible: true, order: 6, width: '1/3', description: 'Circular gauge showing customer active percentage' },
+    { id: 'license-active-rate', name: 'License Active Rate Gauge', type: 'gauge', visible: true, order: 7, width: '1/3', description: 'Circular gauge showing license active percentage' },
+    { id: 'domain-active-rate', name: 'Domain Active Rate Gauge', type: 'gauge', visible: true, order: 8, width: '1/3', description: 'Circular gauge showing domain active percentage' },
+    { id: 'top-customers', name: 'Top Customers Table', type: 'table', visible: true, order: 9, width: 'full', description: 'Table showing top customers by orders' },
+    { id: 'quick-stats', name: 'Quick Stats Grid', type: 'widget', visible: true, order: 10, width: 'full', description: 'Products, Subscriptions, Invoices, Domains' },
+    { id: 'recent-activity', name: 'Recent Activity Summary', type: 'widget', visible: true, order: 11, width: 'full', description: 'New signups, payments, orders (last 24h)' },
+    { id: 'realtime-status', name: 'Real-time Status Info', type: 'widget', visible: true, order: 12, width: 'full', description: 'Connection status and mode indicator' },
+  ];
+
+  // Load customization from localStorage on mount
+  useEffect(() => {
+    const savedSidebar = localStorage.getItem('dashboard_sidebar_customization');
+    const savedDashboard = localStorage.getItem('dashboard_elements_customization');
+    
+    if (savedSidebar) {
+      try {
+        setCustomizedSidebar(JSON.parse(savedSidebar));
+      } catch (e) {
+        console.error('Failed to load sidebar customization:', e);
+      }
+    }
+    
+    if (savedDashboard) {
+      try {
+        const parsed = JSON.parse(savedDashboard);
+        // Validate saved data - check if it has the new format (has width property) and has reasonable number of items
+        const hasNewFormat = Array.isArray(parsed) && parsed.length > 0 && 
+          parsed.some((item: any) => item.width !== undefined);
+        const hasReasonableCount = parsed.length >= 10; // Should have at least 10 items (we have 13 defaults)
+        
+        if (hasNewFormat && hasReasonableCount) {
+          setCustomizedDashboard(parsed);
+        } else {
+          // Old format or invalid data - use defaults
+          console.log('Dashboard customization data is in old format or incomplete, using defaults');
+          const defaults = getDefaultDashboardElements();
+          setCustomizedDashboard(defaults);
+          localStorage.setItem('dashboard_elements_customization', JSON.stringify(defaults));
+        }
+      } catch (e) {
+        console.error('Failed to load dashboard customization:', e);
+        // Initialize with defaults on error
+        const defaults = getDefaultDashboardElements();
+        setCustomizedDashboard(defaults);
+        localStorage.setItem('dashboard_elements_customization', JSON.stringify(defaults));
+      }
+    } else {
+      // No saved data, initialize with defaults
+      const defaults = getDefaultDashboardElements();
+      setCustomizedDashboard(defaults);
+      localStorage.setItem('dashboard_elements_customization', JSON.stringify(defaults));
+    }
+  }, []);
+
+  // Convert navigation to SidebarItem format
+  const convertNavigationToSidebarItems = (nav: any[]): SidebarItem[] => {
+    return nav.map((item, index) => {
+      const sidebarItem: SidebarItem = {
+        id: item.href || `nav-${index}`,
+        name: item.name,
+        href: item.href,
+        icon: item.icon ? (typeof item.icon === 'function' ? item.icon.name : item.icon) : '',
+        visible: true,
+        order: index,
+        isCustom: false,
+      };
+      
+      // Add children if they exist
+      if (item.children && item.children.length > 0) {
+        sidebarItem.children = item.children.map((child: any, childIndex: number) => ({
+          id: child.href || `nav-${index}-child-${childIndex}`,
+          name: child.name,
+          href: child.href,
+          visible: true,
+          order: childIndex,
+          isCustom: false,
+        }));
+      }
+      
+      return sidebarItem;
+    });
+  };
+
+  // Initialize sidebar items on mount if not already customized
+  useEffect(() => {
+    if (customizedSidebar.length === 0 && navigation.length > 0) {
+      const initialItems = convertNavigationToSidebarItems(navigation);
+      setCustomizedSidebar(initialItems);
+    }
+  }, [navigation.length]);
+
+  // Get sidebar items (use customized if available, otherwise convert from navigation)
+  const getSidebarItems = (): SidebarItem[] => {
+    if (customizedSidebar.length > 0) {
+      return customizedSidebar;
+    }
+    return convertNavigationToSidebarItems(navigation);
+  };
+
+  // Handle sidebar customization update
+  const handleSidebarUpdate = (items: SidebarItem[]) => {
+    setCustomizedSidebar(items);
+    localStorage.setItem('dashboard_sidebar_customization', JSON.stringify(items));
+  };
+
+  // Handle dashboard customization update
+  const handleDashboardUpdate = (elements: DashboardElement[]) => {
+    setCustomizedDashboard(elements);
+    localStorage.setItem('dashboard_elements_customization', JSON.stringify(elements));
+  };
+
+  // Get filtered navigation based on customization
+  const getFilteredNavigation = () => {
+    const sidebarItems = getSidebarItems();
+    const visibleItems = sidebarItems.filter(item => item.visible);
+    const sortedItems = visibleItems.sort((a, b) => a.order - b.order);
+    
+    // Map back to navigation format
+    return sortedItems.map(item => {
+      const originalItem = navigation.find(nav => nav.href === item.href);
+      if (originalItem) {
+        const result = { ...originalItem, name: item.name };
+        
+        // Handle submenus
+        if (item.children && item.children.length > 0) {
+          const visibleChildren = item.children
+            .filter((child: SidebarSubmenuItem) => child.visible)
+            .sort((a: SidebarSubmenuItem, b: SidebarSubmenuItem) => a.order - b.order);
+          
+          if (visibleChildren.length > 0) {
+            result.children = visibleChildren.map((child: SidebarSubmenuItem) => {
+              // Find original child or create custom one
+              const originalChild = originalItem.children?.find((c: any) => c.href === child.href);
+              if (originalChild) {
+                return { ...originalChild, name: child.name };
+              }
+              return {
+                name: child.name,
+                href: child.href,
+                icon: HomeIcon,
+              };
+            });
+          }
+        }
+        
+        return result;
+      }
+      
+      // Custom item - find in all navigation including children
+      let foundItem = null;
+      navigation.forEach(nav => {
+        if (nav.children) {
+          const child = nav.children.find((c: any) => c.href === item.href);
+          if (child) foundItem = child;
+        }
+      });
+      if (foundItem) {
+        return { ...foundItem, name: item.name };
+      }
+      
+      // New custom item
+      const customItem: any = {
+        name: item.name,
+        href: item.href,
+        icon: HomeIcon, // Default icon for custom items
+      };
+      
+      // Add submenus if they exist
+      if (item.children && item.children.length > 0) {
+        const visibleChildren = item.children
+          .filter((child: SidebarSubmenuItem) => child.visible)
+          .sort((a: SidebarSubmenuItem, b: SidebarSubmenuItem) => a.order - b.order);
+        
+        if (visibleChildren.length > 0) {
+          customItem.children = visibleChildren.map((child: SidebarSubmenuItem) => ({
+            name: child.name,
+            href: child.href,
+            icon: HomeIcon,
+          }));
+        }
+      }
+      
+      return customItem;
+    });
+  };
 
   const renderNavigationItem = (item: any, isCollapsed = false) => {
     const hasChildren = item.children && item.children.length > 0;
@@ -449,7 +648,7 @@ export default function DashboardLayout({
             </button>
           </div>
           <nav className="flex-1 px-2 py-4 space-y-1">
-            {navigation.map((item) => renderNavigationItem(item, sidebarCollapsed))}
+            {getFilteredNavigation().map((item) => renderNavigationItem(item, sidebarCollapsed))}
           </nav>
         </div>
       </div>
@@ -538,6 +737,13 @@ export default function DashboardLayout({
             </div>
             
             <div className="ml-4 flex items-center md:ml-6 space-x-4">
+              <button
+                onClick={() => setCustomizeModalOpen(true)}
+                className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                title="Customize Dashboard"
+              >
+                <AdjustmentsHorizontalIcon className="h-6 w-6" />
+              </button>
               <button className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 <BellIcon className="h-6 w-6" />
               </button>
@@ -617,6 +823,18 @@ export default function DashboardLayout({
           </div>
         </main>
       </div>
+
+      {/* Customization Modal */}
+      <DashboardCustomization
+        isOpen={customizeModalOpen}
+        onClose={() => setCustomizeModalOpen(false)}
+        sidebarItems={getSidebarItems()}
+        dashboardElements={customizedDashboard.length > 0 ? customizedDashboard : getDefaultDashboardElements()}
+        defaultSidebarItems={convertNavigationToSidebarItems(navigation)}
+        defaultDashboardElements={getDefaultDashboardElements()}
+        onSidebarUpdate={handleSidebarUpdate}
+        onDashboardUpdate={handleDashboardUpdate}
+      />
     </div>
     </AdminProtectedRoute>
   );
