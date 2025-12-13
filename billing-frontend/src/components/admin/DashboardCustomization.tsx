@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import DashboardBlockEditModal from './DashboardBlockEditModal';
 import {
   DndContext,
   closestCenter,
@@ -457,6 +458,7 @@ function SortableDashboardElement({
   onRename,
   onDelete,
   onUpdateWidth,
+  onEdit,
   editingItem,
   setEditingItem,
   editingValue,
@@ -467,6 +469,7 @@ function SortableDashboardElement({
   onRename: (id: string, newName: string) => void;
   onDelete: (id: string) => void;
   onUpdateWidth: (id: string, width: DashboardElement['width']) => void;
+  onEdit?: (element: DashboardElement) => void;
   editingItem: string | null;
   setEditingItem: (id: string | null) => void;
   editingValue: string;
@@ -561,12 +564,16 @@ function SortableDashboardElement({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setEditingItem(element.id);
-              setEditingValue(element.name);
+              if (onEdit) {
+                onEdit(element);
+              } else {
+                setEditingItem(element.id);
+                setEditingValue(element.name);
+              }
             }}
             onMouseDown={(e) => e.stopPropagation()}
             className="p-1 text-gray-400 hover:text-gray-600"
-            title="Rename"
+            title={onEdit ? "Edit" : "Rename"}
           >
             <PencilIcon className="h-3.5 w-3.5" />
           </button>
@@ -640,6 +647,8 @@ export default function DashboardCustomization({
     width: 'full',
     buttons: [{ id: `btn-${Date.now()}`, label: '', icon: '', link: '' }],
   });
+  const [editingBlock, setEditingBlock] = useState<DashboardElement | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -856,6 +865,24 @@ export default function DashboardCustomization({
       pendingDashboardUpdate.current = updated;
       return updated;
     });
+  };
+
+  const handleEditBlock = (element: DashboardElement) => {
+    setEditingBlock(element);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateBlock = (updatedElement: DashboardElement) => {
+    setLocalDashboardElements(elements => {
+      const updated = elements.map(el => 
+        el.id === updatedElement.id ? updatedElement : el
+      );
+      // Schedule update for after render
+      pendingDashboardUpdate.current = updated;
+      return updated;
+    });
+    setIsEditModalOpen(false);
+    setEditingBlock(null);
   };
 
   const handleAddCustomSidebarItem = () => {
@@ -1393,7 +1420,6 @@ export default function DashboardCustomization({
                 {/* Default Time Period Setting */}
                 <div className="bg-blue-50 p-3 rounded-lg mb-3 border border-blue-200">
                   <h4 className="text-xs font-medium text-gray-900 mb-1.5">Default Time Period</h4>
-                  <p className="text-xs text-gray-600 mb-2">Default period when dashboard loads</p>
                     <select
                       value={defaultTimePeriod}
                       onChange={(e) => {
@@ -1437,6 +1463,7 @@ export default function DashboardCustomization({
                           onRename={(id, name) => handleRename(id, name, 'dashboard')}
                           onDelete={(id) => handleDelete(element.id, 'dashboard')}
                           onUpdateWidth={handleUpdateWidth}
+                          onEdit={handleEditBlock}
                           editingItem={editingItem}
                           setEditingItem={setEditingItem}
                           editingValue={editingValue}
@@ -1451,6 +1478,17 @@ export default function DashboardCustomization({
 
           </div>
         </div>
+
+        {/* Block Edit Modal */}
+        <DashboardBlockEditModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingBlock(null);
+          }}
+          element={editingBlock}
+          onUpdate={handleUpdateBlock}
+        />
     </>
   );
 }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import { DashboardElement } from '@/components/admin/DashboardCustomization';
+import DashboardBlockEditModal from '@/components/admin/DashboardBlockEditModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -33,6 +34,7 @@ import {
   DocumentTextIcon,
   CubeIcon,
   LinkIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
 
 // Register Chart.js components
@@ -69,7 +71,11 @@ export default function DashboardPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [revenueTimeSeries, setRevenueTimeSeries] = useState<Array<{period: string; revenue: number}>>([]);
+  const [customerTimeSeries, setCustomerTimeSeries] = useState<Array<{period: string; customers: number}>>([]);
+  const [orderTimeSeries, setOrderTimeSeries] = useState<Array<{period: string; orders: number}>>([]);
   const [dashboardElements, setDashboardElements] = useState<DashboardElement[]>([]);
+  const [editingBlock, setEditingBlock] = useState<DashboardElement | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     // Build query params for all endpoints (declare outside try for error handling)
@@ -93,10 +99,12 @@ export default function DashboardPage() {
       console.log('Request params:', params);
       
       // Make requests with individual error handling
-      const [statsResponse, customersResponse, revenueResponse] = await Promise.allSettled([
+      const [statsResponse, customersResponse, revenueResponse, customerTrendResponse, orderTrendResponse] = await Promise.allSettled([
           api.get(`/dashboard/stats?${params}`),
           api.get(`/dashboard/customers/analytics?${params}`),
           api.get(`/dashboard/revenue/time-series?${params}`),
+          api.get(`/dashboard/customers/time-series?${params}`),
+          api.get(`/dashboard/orders/time-series?${params}`),
       ]);
       
       // Handle stats response
@@ -116,6 +124,16 @@ export default function DashboardPage() {
         ? revenueResponse.value.data 
         : { data: [] };
       
+      // Handle customer trend response (optional, can fail silently)
+      const customerTrendData = customerTrendResponse.status === 'fulfilled' 
+        ? customerTrendResponse.value.data 
+        : { data: [] };
+      
+      // Handle order trend response (optional, can fail silently)
+      const orderTrendData = orderTrendResponse.status === 'fulfilled' 
+        ? orderTrendResponse.value.data 
+        : { data: [] };
+      
       // Use real data from API
         setStats({
           ...statsResponse.value.data,
@@ -124,6 +142,8 @@ export default function DashboardPage() {
         
       setTopCustomers(Array.isArray(customersResponse.value.data?.top_customers) ? customersResponse.value.data.top_customers : []);
       setRevenueTimeSeries(Array.isArray(revenueData?.data) ? revenueData.data : []);
+      setCustomerTimeSeries(Array.isArray(customerTrendData?.data) ? customerTrendData.data : []);
+      setOrderTimeSeries(Array.isArray(orderTrendData?.data) ? orderTrendData.data : []);
         setLastUpdate(new Date());
         console.log('✅ Dashboard stats loaded from API');
     } catch (error: any) {
@@ -161,6 +181,8 @@ export default function DashboardPage() {
       });
       setTopCustomers([]);
       setRevenueTimeSeries([]);
+      setCustomerTimeSeries([]);
+      setOrderTimeSeries([]);
     } finally {
       setIsLoading(false);
     }
@@ -286,6 +308,30 @@ export default function DashboardPage() {
     return element?.order ?? 999; // Default to high number if not found
   };
 
+  // Handle block edit
+  const handleEditBlock = (elementId: string) => {
+    const element = dashboardElements.find(el => el.id === elementId);
+    if (element) {
+      setEditingBlock(element);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  // Handle block update
+  const handleUpdateBlock = (updatedElement: DashboardElement) => {
+    const updatedElements = dashboardElements.map(el =>
+      el.id === updatedElement.id ? updatedElement : el
+    );
+    setDashboardElements(updatedElements);
+    localStorage.setItem('dashboard_elements_customization', JSON.stringify(updatedElements));
+    
+    // Trigger custom event to notify other components
+    window.dispatchEvent(new CustomEvent('dashboardCustomizationUpdated'));
+    
+    setNotification('Block updated successfully!');
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -309,6 +355,16 @@ export default function DashboardPage() {
   const revenueData = revenueTimeSeries.length > 0 
     ? revenueTimeSeries 
     : [{ period: 'No Data', revenue: 0 }];
+
+  // Use real customer time-series data from API
+  const customerData = customerTimeSeries.length > 0 
+    ? customerTimeSeries 
+    : [{ period: 'No Data', customers: 0 }];
+
+  // Use real order time-series data from API
+  const orderData = orderTimeSeries.length > 0 
+    ? orderTimeSeries 
+    : [{ period: 'No Data', orders: 0 }];
 
   const orderStatusData = [
     { status: 'Completed', orders: stats?.completed_orders || 0 },
@@ -342,8 +398,10 @@ export default function DashboardPage() {
       getElementOrder('license-status'),
       getElementOrder('invoice-status')
     ) },
-    { id: 'charts-row-2', elementIds: ['revenue-trend', 'order-status'], order: Math.min(
+    { id: 'charts-row-2', elementIds: ['revenue-trend', 'customer-trend', 'order-trend', 'order-status'], order: Math.min(
       getElementOrder('revenue-trend'),
+      getElementOrder('customer-trend'),
+      getElementOrder('order-trend'),
       getElementOrder('order-status')
     ) },
     { id: 'gauges-row', elementIds: ['customer-active-rate', 'license-active-rate', 'domain-active-rate'], order: Math.min(
@@ -598,7 +656,14 @@ export default function DashboardPage() {
 
         {/* License Status Chart */}
         {isElementVisible('license-status') && (
-        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('license-status'))}`}>
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('license-status'))} relative group`}>
+          <button
+            onClick={() => handleEditBlock('license-status')}
+            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit block"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">License Status</h3>
           <div className="h-64">
             <Bar
@@ -653,7 +718,14 @@ export default function DashboardPage() {
 
         {/* Invoice Status Chart */}
         {isElementVisible('invoice-status') && (
-        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('invoice-status'))}`}>
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('invoice-status'))} relative group`}>
+          <button
+            onClick={() => handleEditBlock('invoice-status')}
+            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit block"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Status</h3>
           <div className="h-64">
             <Bar
@@ -708,22 +780,33 @@ export default function DashboardPage() {
       </div>
       )}
 
-      {/* Charts Row 2: Revenue & Orders */}
-      {(isElementVisible('revenue-trend') || isElementVisible('order-status')) && (
+      {/* Charts Row 2: Revenue, Customer & Order Trends */}
+      {(isElementVisible('revenue-trend') || isElementVisible('customer-trend') || isElementVisible('order-trend') || isElementVisible('order-status')) && (
       <div 
         key={`charts-row-2-${Math.min(
           getElementOrder('revenue-trend'),
+          getElementOrder('customer-trend'),
+          getElementOrder('order-trend'),
           getElementOrder('order-status')
         )}`}
         className="grid grid-cols-1 lg:grid-cols-12 gap-5" 
         style={{ order: Math.min(
           getElementOrder('revenue-trend'),
+          getElementOrder('customer-trend'),
+          getElementOrder('order-trend'),
           getElementOrder('order-status')
         ) }}
       >
         {/* Revenue Trend Line Chart */}
         {isElementVisible('revenue-trend') && (
-        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('revenue-trend'))}`}>
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('revenue-trend'))} relative group`}>
+          <button
+            onClick={() => handleEditBlock('revenue-trend')}
+            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit block"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Revenue Trend
             <span className="ml-2 text-sm font-normal text-gray-500">
@@ -798,7 +881,14 @@ export default function DashboardPage() {
 
         {/* Order Status Bar Chart */}
         {isElementVisible('order-status') && (
-        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('order-status'))}`}>
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('order-status'))} relative group`}>
+          <button
+            onClick={() => handleEditBlock('order-status')}
+            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit block"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Status</h3>
           <div className="h-64">
             <Bar
@@ -870,7 +960,14 @@ export default function DashboardPage() {
       >
         {/* Customer Active Rate div */}
         {isElementVisible('customer-active-rate') && (
-        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('customer-active-rate'))}`}>
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('customer-active-rate'))} relative group`}>
+          <button
+            onClick={() => handleEditBlock('customer-active-rate')}
+            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit block"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Customer Active Rate</h3>
           <div className="flex justify-center">
             <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
@@ -894,7 +991,14 @@ export default function DashboardPage() {
 
         {/* License Active Rate div */}
         {isElementVisible('license-active-rate') && (
-        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('license-active-rate'))}`}>
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('license-active-rate'))} relative group`}>
+          <button
+            onClick={() => handleEditBlock('license-active-rate')}
+            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit block"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">License Active Rate</h3>
           <div className="flex justify-center">
             <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
@@ -918,7 +1022,14 @@ export default function DashboardPage() {
 
         {/* Domain Active Rate div */}
         {isElementVisible('domain-active-rate') && (
-        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('domain-active-rate'))}`}>
+        <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('domain-active-rate'))} relative group`}>
+          <button
+            onClick={() => handleEditBlock('domain-active-rate')}
+            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit block"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Domain Active Rate</h3>
           <div className="flex justify-center">
             <div className="w-48 h-48 rounded-full border-8 border-gray-200 flex items-center justify-center relative" 
@@ -946,9 +1057,16 @@ export default function DashboardPage() {
       {isElementVisible('top-customers') && (
       <div 
         key={`top-customers-${getElementOrder('top-customers')}`}
-        className="bg-white shadow rounded-lg p-6" 
+        className="bg-white shadow rounded-lg p-6 relative group" 
         style={{ order: getElementOrder('top-customers') }}
       >
+        <button
+          onClick={() => handleEditBlock('top-customers')}
+          className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Edit block"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </button>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
             Top Customers by Orders
@@ -1053,9 +1171,16 @@ export default function DashboardPage() {
       {isElementVisible('quick-stats') && (
       <div 
         key={`quick-stats-${getElementOrder('quick-stats')}`}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5" 
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 relative group" 
         style={{ order: getElementOrder('quick-stats') }}
       >
+        <button
+          onClick={() => handleEditBlock('quick-stats')}
+          className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          title="Edit block"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </button>
         <div className="bg-white shadow rounded-lg p-5">
           <div className="flex items-center justify-between">
             <div>
@@ -1114,9 +1239,16 @@ export default function DashboardPage() {
       {isElementVisible('recent-activity') && (
       <div 
         key={`recent-activity-${getElementOrder('recent-activity')}`}
-        className="bg-white shadow rounded-lg p-6" 
+        className="bg-white shadow rounded-lg p-6 relative group" 
         style={{ order: getElementOrder('recent-activity') }}
       >
+        <button
+          onClick={() => handleEditBlock('recent-activity')}
+          className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Edit block"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </button>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity (Last 24 Hours)</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
@@ -1255,6 +1387,17 @@ export default function DashboardPage() {
           </div>
         ));
       })()}
+
+      {/* Block Edit Modal */}
+      <DashboardBlockEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingBlock(null);
+        }}
+        element={editingBlock}
+        onUpdate={handleUpdateBlock}
+      />
 
       <style jsx>{`
         @keyframes slide-in-right {
