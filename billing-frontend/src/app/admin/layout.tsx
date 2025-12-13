@@ -815,7 +815,7 @@ export default function DashboardLayout({
         </div>
 
         {/* Page content */}
-        <main className="flex-1">
+        <main className={`flex-1 transition-all duration-300 ${customizeModalOpen ? 'mr-96' : ''}`}>
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               {children}

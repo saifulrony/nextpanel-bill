@@ -32,6 +32,7 @@ import {
   GlobeAltIcon,
   DocumentTextIcon,
   CubeIcon,
+  LinkIcon,
 } from '@heroicons/react/24/outline';
 
 // Register Chart.js components
@@ -56,7 +57,14 @@ export default function DashboardPage() {
   const [realtimeEnabled, setRealtimeEnabled] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [notification, setNotification] = useState<string | null>(null);
-  const [timePeriod, setTimePeriod] = useState<string>('week');
+  const [timePeriod, setTimePeriod] = useState<string>(() => {
+    // Load default time period from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dashboard_default_time_period');
+      return saved || 'week';
+    }
+    return 'week';
+  });
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -203,6 +211,12 @@ export default function DashboardPage() {
           console.error('Failed to load dashboard customization:', e);
         }
       }
+      
+      // Load default time period
+      const savedTimePeriod = localStorage.getItem('dashboard_default_time_period');
+      if (savedTimePeriod) {
+        setTimePeriod(savedTimePeriod);
+      }
     };
 
     loadCustomization();
@@ -211,6 +225,10 @@ export default function DashboardPage() {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'dashboard_elements_customization') {
         loadCustomization();
+      } else if (e.key === 'dashboard_default_time_period') {
+        if (e.newValue) {
+          setTimePeriod(e.newValue);
+        }
       }
     };
 
@@ -219,6 +237,11 @@ export default function DashboardPage() {
     // Also listen for custom event (for same-window updates)
     const handleCustomStorageChange = () => {
       loadCustomization();
+      // Also update time period if changed
+      const savedTimePeriod = localStorage.getItem('dashboard_default_time_period');
+      if (savedTimePeriod) {
+        setTimePeriod(savedTimePeriod);
+      }
     };
     
     window.addEventListener('dashboardCustomizationUpdated', handleCustomStorageChange);
@@ -254,6 +277,13 @@ export default function DashboardPage() {
     if (dashboardElements.length === 0) return 'full';
     const element = dashboardElements.find(el => el.id === elementId);
     return element?.width || 'full';
+  };
+
+  // Helper function to get element order (for CSS ordering)
+  const getElementOrder = (elementId: string) => {
+    if (dashboardElements.length === 0) return 0;
+    const element = dashboardElements.find(el => el.id === elementId);
+    return element?.order ?? 999; // Default to high number if not found
   };
 
   const formatCurrency = (amount: number) => {
@@ -304,8 +334,42 @@ export default function DashboardPage() {
     ? (stats.active_domains || 0) / stats.total_domains * 100 
     : 0;
 
+  // Create sorted list of dashboard sections by order
+  const dashboardSections = [
+    { id: 'quick-stats', elementIds: ['quick-stats'], order: getElementOrder('quick-stats') },
+    { id: 'charts-row-1', elementIds: ['customer-distribution', 'license-status', 'invoice-status'], order: Math.min(
+      getElementOrder('customer-distribution'),
+      getElementOrder('license-status'),
+      getElementOrder('invoice-status')
+    ) },
+    { id: 'charts-row-2', elementIds: ['revenue-trend', 'order-status'], order: Math.min(
+      getElementOrder('revenue-trend'),
+      getElementOrder('order-status')
+    ) },
+    { id: 'gauges-row', elementIds: ['customer-active-rate', 'license-active-rate', 'domain-active-rate'], order: Math.min(
+      getElementOrder('customer-active-rate'),
+      getElementOrder('license-active-rate'),
+      getElementOrder('domain-active-rate')
+    ) },
+    { id: 'top-customers', elementIds: ['top-customers'], order: getElementOrder('top-customers') },
+    { id: 'recent-activity', elementIds: ['recent-activity'], order: getElementOrder('recent-activity') },
+    { id: 'realtime-status', elementIds: ['realtime-status'], order: getElementOrder('realtime-status') },
+  ].filter(section => section.elementIds.some(id => isElementVisible(id)))
+   .sort((a, b) => a.order - b.order);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
 
       {/* Notification Banner */}
       {notification && (
@@ -417,7 +481,11 @@ export default function DashboardPage() {
 
       {/* Key Metrics Row */}
       {isElementVisible('key-metrics') && (
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div 
+        key={`key-metrics-${getElementOrder('key-metrics')}`}
+        className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+        style={{ order: getElementOrder('key-metrics') }}
+      >
         {/* Total Customers Card */}
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div className="p-5">
@@ -492,7 +560,19 @@ export default function DashboardPage() {
 
       {/* Charts Row 1: Customer & License Distribution */}
       {(isElementVisible('customer-distribution') || isElementVisible('license-status') || isElementVisible('invoice-status')) && (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div 
+        key={`charts-row-1-${Math.min(
+          getElementOrder('customer-distribution'),
+          getElementOrder('license-status'),
+          getElementOrder('invoice-status')
+        )}`}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-5" 
+        style={{ order: Math.min(
+          getElementOrder('customer-distribution'),
+          getElementOrder('license-status'),
+          getElementOrder('invoice-status')
+        ) }}
+      >
         {/* Customer Distribution Chart */}
         {isElementVisible('customer-distribution') && (
         <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('customer-distribution'))}`}>
@@ -630,7 +710,17 @@ export default function DashboardPage() {
 
       {/* Charts Row 2: Revenue & Orders */}
       {(isElementVisible('revenue-trend') || isElementVisible('order-status')) && (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div 
+        key={`charts-row-2-${Math.min(
+          getElementOrder('revenue-trend'),
+          getElementOrder('order-status')
+        )}`}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-5" 
+        style={{ order: Math.min(
+          getElementOrder('revenue-trend'),
+          getElementOrder('order-status')
+        ) }}
+      >
         {/* Revenue Trend Line Chart */}
         {isElementVisible('revenue-trend') && (
         <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('revenue-trend'))}`}>
@@ -765,7 +855,19 @@ export default function DashboardPage() {
 
       {/* Charts Row 3: Activity divs */}
       {(isElementVisible('customer-active-rate') || isElementVisible('license-active-rate') || isElementVisible('domain-active-rate')) && (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div 
+        key={`gauges-row-${Math.min(
+          getElementOrder('customer-active-rate'),
+          getElementOrder('license-active-rate'),
+          getElementOrder('domain-active-rate')
+        )}`}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-5" 
+        style={{ order: Math.min(
+          getElementOrder('customer-active-rate'),
+          getElementOrder('license-active-rate'),
+          getElementOrder('domain-active-rate')
+        ) }}
+      >
         {/* Customer Active Rate div */}
         {isElementVisible('customer-active-rate') && (
         <div className={`bg-white shadow rounded-lg p-6 ${getWidthClass(getElementWidth('customer-active-rate'))}`}>
@@ -842,7 +944,11 @@ export default function DashboardPage() {
 
       {/* Top Customers Section */}
       {isElementVisible('top-customers') && (
-      <div className="bg-white shadow rounded-lg p-6">
+      <div 
+        key={`top-customers-${getElementOrder('top-customers')}`}
+        className="bg-white shadow rounded-lg p-6" 
+        style={{ order: getElementOrder('top-customers') }}
+      >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
             Top Customers by Orders
@@ -945,7 +1051,11 @@ export default function DashboardPage() {
 
       {/* Quick Stats Grid */}
       {isElementVisible('quick-stats') && (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div 
+        key={`quick-stats-${getElementOrder('quick-stats')}`}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5" 
+        style={{ order: getElementOrder('quick-stats') }}
+      >
         <div className="bg-white shadow rounded-lg p-5">
           <div className="flex items-center justify-between">
             <div>
@@ -1002,7 +1112,11 @@ export default function DashboardPage() {
 
       {/* Recent Activity Summary */}
       {isElementVisible('recent-activity') && (
-      <div className="bg-white shadow rounded-lg p-6">
+      <div 
+        key={`recent-activity-${getElementOrder('recent-activity')}`}
+        className="bg-white shadow rounded-lg p-6" 
+        style={{ order: getElementOrder('recent-activity') }}
+      >
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity (Last 24 Hours)</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
@@ -1023,9 +1137,13 @@ export default function DashboardPage() {
 
       {/* Real-time Status Info */}
       {isElementVisible('realtime-status') && (
-      <div className={`border rounded-lg p-4 ${
-        realtimeEnabled ? (isConnected ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-blue-50 border-blue-200'
-      }`}>
+      <div 
+        key={`realtime-status-${getElementOrder('realtime-status')}`}
+        className={`border rounded-lg p-4 ${
+          realtimeEnabled ? (isConnected ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-blue-50 border-blue-200'
+        }`}
+        style={{ order: getElementOrder('realtime-status') }}
+      >
         <div className="flex">
           <div className="flex-shrink-0">
             {realtimeEnabled ? (
@@ -1054,6 +1172,89 @@ export default function DashboardPage() {
         </div>
       </div>
       )}
+
+      {/* Custom Blocks */}
+      {(() => {
+        const customBlocks = dashboardElements
+          .filter(el => el.isCustom && el.type === 'custom' && el.buttons && el.buttons.length > 0)
+          .sort((a, b) => a.order - b.order)
+          .filter(el => isElementVisible(el.id));
+
+        if (customBlocks.length === 0) return null;
+
+        // Dynamic icon import helper
+        const getIconComponent = (iconName?: string) => {
+          if (!iconName) return LinkIcon;
+          // Map common icon names to components
+          const iconMap: { [key: string]: any } = {
+            'HomeIcon': UserGroupIcon,
+            'UserIcon': UserGroupIcon,
+            'UserGroupIcon': UserGroupIcon,
+            'ShoppingCartIcon': ShoppingCartIcon,
+            'KeyIcon': KeyIcon,
+            'GlobeAltIcon': GlobeAltIcon,
+            'DocumentTextIcon': DocumentTextIcon,
+            'CubeIcon': CubeIcon,
+            'CreditCardIcon': CreditCardIcon,
+            'BellAlertIcon': BellAlertIcon,
+            'ArrowPathIcon': ArrowPathIcon,
+          };
+          return iconMap[iconName] || LinkIcon;
+        };
+
+        // Group custom blocks that should be in the same row
+        const blocksByRow: DashboardElement[][] = [];
+        let currentRow: DashboardElement[] = [];
+        let currentRowWidth = 0;
+
+        customBlocks.forEach((element) => {
+          const widthValue = element.width || 'full';
+          const widthNum = widthValue === 'full' ? 12 : 
+                          widthValue === '1/2' ? 6 :
+                          widthValue === '1/3' ? 4 :
+                          widthValue === '1/4' ? 3 :
+                          widthValue === '2/3' ? 8 :
+                          widthValue === '3/4' ? 9 : 12;
+
+          if (currentRowWidth + widthNum > 12 && currentRow.length > 0) {
+            blocksByRow.push(currentRow);
+            currentRow = [element];
+            currentRowWidth = widthNum;
+          } else {
+            currentRow.push(element);
+            currentRowWidth += widthNum;
+          }
+        });
+
+        if (currentRow.length > 0) {
+          blocksByRow.push(currentRow);
+        }
+
+        return blocksByRow.map((row, rowIndex) => (
+          <div key={`custom-row-${rowIndex}`} className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {row.map((element) => (
+              <div key={element.id} className={`bg-white shadow rounded-lg p-6 ${getWidthClass(element.width || 'full')}`}>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{element.name}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {element.buttons?.map((button) => {
+                    const IconComponent = getIconComponent(button.icon);
+                    return (
+                      <Link
+                        key={button.id}
+                        href={button.link}
+                        className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-indigo-300 transition-colors"
+                      >
+                        <IconComponent className="h-6 w-6 text-indigo-600 flex-shrink-0" />
+                        <span className="text-sm font-medium text-gray-900">{button.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ));
+      })()}
 
       <style jsx>{`
         @keyframes slide-in-right {

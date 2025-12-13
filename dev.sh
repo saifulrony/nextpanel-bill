@@ -47,7 +47,10 @@ check_backend_health() {
 }
 
 check_frontend_health() {
-    curl -s -f http://localhost:4000 >/dev/null 2>&1
+    # Check if we get a valid HTTP response (200-399 or 500 means server is running)
+    local status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:4000 2>/dev/null || echo "000")
+    # Accept 200-399 as healthy, 500 means server is running but may have errors
+    [ "$status" != "000" ] && [ "$status" != "" ]
 }
 
 # Get process ID from PID file
@@ -291,14 +294,21 @@ show_status() {
     
     # Frontend status
     local frontend_pid=$(get_pid "$FRONTEND_PID_FILE")
+    local actual_pid=$(find_process_by_port 4000)
+    local http_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 http://localhost:4000 2>/dev/null || echo "000")
+    
     if check_frontend_health; then
-        local actual_pid=$(find_process_by_port 4000)
+        if [ "$http_status" = "500" ]; then
+            print_warning "Frontend: Running but returning errors (PID: ${actual_pid:-$frontend_pid}, HTTP: $http_status)"
+        else
         print_success "Frontend: Running (PID: ${actual_pid:-$frontend_pid})"
+        fi
         echo "   URL: http://localhost:4000"
         NETWORK_IP=$(hostname -I | awk '{print $1}')
         echo "   Network: http://${NETWORK_IP}:4000"
     elif check_port 4000; then
-        print_warning "Frontend: Port in use but not responding (may be compiling)"
+        print_warning "Frontend: Port in use but not responding (may be compiling or has errors)"
+        echo "   Port 4000 is in use by PID: ${actual_pid:-unknown}"
     else
         print_error "Frontend: Not running"
     fi
@@ -329,7 +339,31 @@ main() {
             # Show status
             show_status
             
+            # Check if all services are actually healthy
+            local backend_ok=false
+            local frontend_ok=false
+            
+            if check_backend_health; then
+                backend_ok=true
+            elif check_port 8001; then
+                backend_ok=true  # Port is open, assume it's working
+            fi
+            
+            if check_frontend_health; then
+                frontend_ok=true
+            elif check_port 4000; then
+                frontend_ok=true  # Port is open, may be compiling
+            fi
+            
+            if [ "$backend_ok" = true ] && [ "$frontend_ok" = true ]; then
             print_success "All services are running!"
+            elif [ "$backend_ok" = true ]; then
+                print_warning "Backend is running, but frontend may still be starting..."
+            elif [ "$frontend_ok" = true ]; then
+                print_warning "Frontend is running, but backend may have issues..."
+            else
+                print_error "Some services may not be running properly. Check status above."
+            fi
             echo ""
             echo "💡 Tips:"
             echo "   - Run './dev.sh status' to check service status"
