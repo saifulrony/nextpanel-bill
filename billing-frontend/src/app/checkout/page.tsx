@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDefaultPages } from '@/contexts/DefaultPageContext';
 import { TrashIcon, ShoppingBagIcon, ArrowLeftIcon, ShoppingCartIcon, CreditCardIcon } from '@heroicons/react/24/outline';
 import { DynamicPageRenderer } from '@/components/page-builder/DynamicPageRenderer';
-import { ordersAPI } from '@/lib/api';
+import { ordersAPI, couponsAPI } from '@/lib/api';
 import { Elements } from '@stripe/react-stripe-js';
 import StripePaymentForm from '@/components/payments/StripePaymentForm';
 import { useStripe } from '@/contexts/StripeContext';
@@ -20,6 +20,11 @@ export default function CheckoutPage() {
   const { defaultPageConfig, isLoading: isLoadingConfig } = useDefaultPages();
   const { stripePromise } = useStripe();
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'manual'>('stripe');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [billingPeriods, setBillingPeriods] = useState(1); // Number of billing periods to order
   const [formData, setFormData] = useState({
     firstName: 'John',
     lastName: 'Doe',
@@ -43,25 +48,140 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
+  // Helper functions for discount calculation
+  const calculateDiscount = () => {
+    if (!appliedCoupon) return 0;
+    
+    // If coupon is first_billing_period_only, discount applies only to first period
+    if (appliedCoupon.coupon?.first_billing_period_only && billingPeriods > 1) {
+      // Calculate discount for first period only
+      const singlePeriodPrice = getTotal() / billingPeriods;
+      if (appliedCoupon.coupon.coupon_type === 'percentage') {
+        return singlePeriodPrice * (appliedCoupon.coupon.discount_value / 100);
+      } else {
+        // Fixed amount discount
+        return Math.min(appliedCoupon.coupon.discount_value, singlePeriodPrice);
+      }
+    }
+    
+    // Regular discount calculation for all periods
+    return appliedCoupon.discount_amount || 0;
+  };
+
+  const calculateTotal = () => {
+    const subtotal = getTotal();
+    const discount = calculateDiscount();
+    const tax = 0; // No tax for now
+    return Math.max(0, subtotal - discount + tax);
+  };
+
+  // Calculate breakdown for multi-period orders with first-period-only discount
+  const calculatePeriodBreakdown = () => {
+    if (!appliedCoupon?.coupon?.first_billing_period_only || billingPeriods <= 1) {
+      return null;
+    }
+
+    const totalPrice = getTotal();
+    const singlePeriodPrice = totalPrice / billingPeriods;
+    let firstPeriodPrice = singlePeriodPrice;
+    
+    // Apply discount to first period only
+    if (appliedCoupon.coupon.coupon_type === 'percentage') {
+      const discountPercent = appliedCoupon.coupon.discount_value / 100;
+      firstPeriodPrice = singlePeriodPrice * (1 - discountPercent);
+      // Apply maximum discount limit if set
+      if (appliedCoupon.coupon.maximum_discount) {
+        const discountAmount = singlePeriodPrice * discountPercent;
+        if (discountAmount > appliedCoupon.coupon.maximum_discount) {
+          firstPeriodPrice = singlePeriodPrice - appliedCoupon.coupon.maximum_discount;
+        }
+      }
+    } else {
+      // Fixed amount discount
+      firstPeriodPrice = Math.max(0, singlePeriodPrice - appliedCoupon.coupon.discount_value);
+    }
+
+    return {
+      firstPeriod: firstPeriodPrice,
+      remainingPeriods: singlePeriodPrice * (billingPeriods - 1),
+      total: firstPeriodPrice + (singlePeriodPrice * (billingPeriods - 1))
+    };
+  };
+
   // Handle successful Stripe payment
   const handleStripePaymentSuccess = async (paymentIntent: any) => {
     try {
       // Create order with Stripe payment info
       const subtotal = getTotal();
+      const discount = calculateDiscount();
       const tax = 0;
-      const total = subtotal + tax;
+      const total = calculateTotal();
       
-      const orderData = {
-        customer_id: user!.id,
-        items: items.map(item => ({
+      // Build order items - if first_billing_period_only, split into multiple line items
+      let orderItems: any[] = [];
+      
+      if (appliedCoupon?.coupon?.first_billing_period_only && billingPeriods > 1) {
+        // Split into first period (discounted) and remaining periods (regular price)
+        const breakdown = calculatePeriodBreakdown();
+        if (breakdown) {
+          items.forEach(item => {
+            const itemTotalPrice = item.price * item.quantity;
+            const singlePeriodPrice = itemTotalPrice / billingPeriods;
+            
+            // Calculate first period price with discount
+            let firstPeriodPrice = singlePeriodPrice;
+            if (appliedCoupon.coupon.coupon_type === 'percentage') {
+              const discountPercent = appliedCoupon.coupon.discount_value / 100;
+              firstPeriodPrice = singlePeriodPrice * (1 - discountPercent);
+              if (appliedCoupon.coupon.maximum_discount) {
+                const discountAmount = singlePeriodPrice * discountPercent;
+                if (discountAmount > appliedCoupon.coupon.maximum_discount) {
+                  firstPeriodPrice = singlePeriodPrice - appliedCoupon.coupon.maximum_discount;
+                }
+              }
+            } else {
+              firstPeriodPrice = Math.max(0, singlePeriodPrice - appliedCoupon.coupon.discount_value);
+            }
+            
+            // First period with discount
+            orderItems.push({
+              product_id: item.id || 'custom',
+              product_name: `${item.name} - Period 1 (with discount)`,
+              quantity: item.quantity,
+              price: firstPeriodPrice / item.quantity // Price per unit
+            });
+            
+            // Remaining periods at regular price
+            for (let i = 2; i <= billingPeriods; i++) {
+              orderItems.push({
+                product_id: item.id || 'custom',
+                product_name: `${item.name} - Period ${i}`,
+                quantity: item.quantity,
+                price: singlePeriodPrice / item.quantity // Price per unit
+              });
+            }
+          });
+        }
+      } else {
+        // Regular order items
+        orderItems = items.map(item => ({
           product_id: item.id || 'custom',
           product_name: item.name,
           quantity: item.quantity,
           price: item.price
-        })),
+        }));
+      }
+      
+      const orderData = {
+        customer_id: user!.id,
+        items: orderItems,
         subtotal: subtotal,
         tax: tax,
         total: total,
+        discount_amount: discount,
+        discount_percent: appliedCoupon?.coupon?.coupon_type === 'percentage' ? appliedCoupon.coupon.discount_value : 0,
+        coupon_code: appliedCoupon?.coupon?.code || null,
+        billing_periods: billingPeriods, // Store number of periods
         payment_method: 'stripe',
         billing_info: {
           customer_name: `${formData.firstName} ${formData.lastName}`,
@@ -171,6 +291,46 @@ export default function CheckoutPage() {
       }));
     };
 
+    const handleApplyCoupon = async () => {
+      if (!couponCode.trim()) {
+        setCouponError('Please enter a coupon code');
+        return;
+      }
+
+      setIsValidatingCoupon(true);
+      setCouponError('');
+      
+      try {
+        const subtotal = getTotal();
+        const response = await couponsAPI.validate({
+          code: couponCode.trim().toUpperCase(),
+          order_amount: subtotal,
+          user_id: user?.id,
+          product_ids: items.map(item => item.id).filter(Boolean)
+        });
+
+        if (response.data.valid) {
+          setAppliedCoupon(response.data);
+          setCouponError('');
+        } else {
+          setAppliedCoupon(null);
+          setCouponError(response.data.message || 'Invalid coupon code');
+        }
+      } catch (error: any) {
+        console.error('Failed to validate coupon:', error);
+        setAppliedCoupon(null);
+        setCouponError(error.response?.data?.message || 'Failed to validate coupon. Please try again.');
+      } finally {
+        setIsValidatingCoupon(false);
+      }
+    };
+
+    const handleRemoveCoupon = () => {
+      setCouponCode('');
+      setAppliedCoupon(null);
+      setCouponError('');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsProcessing(true);
@@ -200,20 +360,75 @@ export default function CheckoutPage() {
 
         // Create order data
         const subtotal = getTotal();
+        const discount = calculateDiscount();
         const tax = 0; // No tax for now
-        const total = subtotal + tax;
+        const total = calculateTotal();
         
-        const orderData = {
-          customer_id: user.id,
-          items: items.map(item => ({
+        // Build order items - if first_billing_period_only, split into multiple line items
+        let orderItems: any[] = [];
+        
+        if (appliedCoupon?.coupon?.first_billing_period_only && billingPeriods > 1) {
+          // Split into first period (discounted) and remaining periods (regular price)
+          const breakdown = calculatePeriodBreakdown();
+          if (breakdown) {
+            items.forEach(item => {
+              const itemTotalPrice = item.price * item.quantity;
+              const singlePeriodPrice = itemTotalPrice / billingPeriods;
+              
+              // Calculate first period price with discount
+              let firstPeriodPrice = singlePeriodPrice;
+              if (appliedCoupon.coupon.coupon_type === 'percentage') {
+                const discountPercent = appliedCoupon.coupon.discount_value / 100;
+                firstPeriodPrice = singlePeriodPrice * (1 - discountPercent);
+                if (appliedCoupon.coupon.maximum_discount) {
+                  const discountAmount = singlePeriodPrice * discountPercent;
+                  if (discountAmount > appliedCoupon.coupon.maximum_discount) {
+                    firstPeriodPrice = singlePeriodPrice - appliedCoupon.coupon.maximum_discount;
+                  }
+                }
+              } else {
+                firstPeriodPrice = Math.max(0, singlePeriodPrice - appliedCoupon.coupon.discount_value);
+              }
+              
+              // First period with discount
+              orderItems.push({
+                product_id: item.id || 'custom',
+                product_name: `${item.name} - Period 1 (with discount)`,
+                quantity: item.quantity,
+                price: firstPeriodPrice / item.quantity // Price per unit
+              });
+              
+              // Remaining periods at regular price
+              for (let i = 2; i <= billingPeriods; i++) {
+                orderItems.push({
+                  product_id: item.id || 'custom',
+                  product_name: `${item.name} - Period ${i}`,
+                  quantity: item.quantity,
+                  price: singlePeriodPrice / item.quantity // Price per unit
+                });
+              }
+            });
+          }
+        } else {
+          // Regular order items
+          orderItems = items.map(item => ({
             product_id: item.id || 'custom',
             product_name: item.name,
             quantity: item.quantity,
             price: item.price
-          })),
+          }));
+        }
+        
+        const orderData = {
+          customer_id: user.id,
+          items: orderItems,
           subtotal: subtotal,
           tax: tax,
           total: total,
+          discount_amount: discount,
+          discount_percent: appliedCoupon?.coupon?.coupon_type === 'percentage' ? appliedCoupon.coupon.discount_value : 0,
+          coupon_code: appliedCoupon?.coupon?.code || null,
+          billing_periods: billingPeriods, // Store number of periods
           payment_method: 'credit_card',
           billing_info: {
             customer_name: `${formData.firstName} ${formData.lastName}`,
@@ -529,6 +744,33 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* Billing Periods Selection */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Billing Periods</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of billing periods to order
+                    </label>
+                    <select
+                      value={billingPeriods}
+                      onChange={(e) => setBillingPeriods(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                        <option key={num} value={num}>
+                          {num} {num === 1 ? 'period' : 'periods'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {billingPeriods > 1 
+                        ? `Ordering ${billingPeriods} billing periods at once. ${appliedCoupon?.coupon?.first_billing_period_only ? 'Discount applies only to the first period.' : 'Discount applies to all periods.'}`
+                        : 'Ordering for 1 billing period.'
+                      }
+                    </p>
+                  </div>
+                </div>
+
                 {/* Payment Method Selection */}
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -572,7 +814,7 @@ export default function CheckoutPage() {
                   <div className="mt-6">
                     <Elements stripe={stripePromise}>
                       <StripePaymentForm
-                        amount={getTotal()}
+                        amount={calculateTotal()}
                         onSuccess={handleStripePaymentSuccess}
                         onError={handleStripePaymentError}
                         disabled={isProcessing || items.length === 0}
@@ -585,7 +827,7 @@ export default function CheckoutPage() {
                     disabled={isProcessing || items.length === 0}
                     className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {isProcessing ? 'Processing...' : `Complete Order - ${formatPrice(getTotal())}`}
+                    {isProcessing ? 'Processing...' : `Complete Order - ${formatPrice(calculateTotal())}`}
                   </button>
                 )}
               </form>
@@ -596,21 +838,149 @@ export default function CheckoutPage() {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
               
               <div className="space-y-4">
-                {items.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{item.name}</h4>
-                      <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                {items.map((item) => {
+                  const breakdown = calculatePeriodBreakdown();
+                  const singlePeriodPrice = item.price / billingPeriods;
+                  
+                  return (
+                    <div key={item.id} className="py-2 border-b border-gray-100">
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{item.name}</h4>
+                          <p className="text-sm text-gray-500">Qty: {item.quantity} × {billingPeriods} {billingPeriods === 1 ? 'period' : 'periods'}</p>
+                        </div>
+                        <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+                      </div>
+                      
+                      {/* Show breakdown if first_billing_period_only coupon and multiple periods */}
+                      {breakdown && billingPeriods > 1 && (() => {
+                        const itemTotalPrice = item.price * item.quantity;
+                        const singlePeriodPrice = itemTotalPrice / billingPeriods;
+                        let firstPeriodPrice = singlePeriodPrice;
+                        
+                        // Calculate first period price with discount for this item
+                        if (appliedCoupon?.coupon?.coupon_type === 'percentage') {
+                          const discountPercent = appliedCoupon.coupon.discount_value / 100;
+                          firstPeriodPrice = singlePeriodPrice * (1 - discountPercent);
+                          if (appliedCoupon.coupon.maximum_discount) {
+                            const discountAmount = singlePeriodPrice * discountPercent;
+                            if (discountAmount > appliedCoupon.coupon.maximum_discount) {
+                              firstPeriodPrice = singlePeriodPrice - appliedCoupon.coupon.maximum_discount;
+                            }
+                          }
+                        } else {
+                          firstPeriodPrice = Math.max(0, singlePeriodPrice - (appliedCoupon?.coupon?.discount_value || 0));
+                        }
+                        
+                        return (
+                          <div className="ml-4 mt-2 space-y-1 text-sm text-gray-600">
+                            <div className="flex justify-between">
+                              <span>Period 1 (with discount):</span>
+                              <span className="text-green-600">{formatPrice(firstPeriodPrice)}</span>
+                            </div>
+                            {billingPeriods > 1 && (
+                              <div className="flex justify-between">
+                                <span>Periods 2-{billingPeriods}:</span>
+                                <span>{formatPrice(singlePeriodPrice * (billingPeriods - 1))}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
-                    <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
+              {/* Coupon Code Section */}
               <div className="mt-6 pt-4 border-t border-gray-200">
-                <div className="flex justify-between items-center text-lg font-semibold text-gray-900">
-                  <span>Total:</span>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Have a coupon code?</h3>
+                {!appliedCoupon ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value);
+                        setCouponError('');
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleApplyCoupon();
+                        }
+                      }}
+                      placeholder="Enter coupon code"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={isValidatingCoupon}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                    >
+                      {isValidatingCoupon ? 'Applying...' : 'Apply'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-800">
+                          Coupon Applied: {appliedCoupon.coupon?.code}
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          {appliedCoupon.coupon?.name || 'Discount applied'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-green-600 hover:text-green-800 text-sm font-medium"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {couponError && (
+                  <p className="mt-2 text-sm text-red-600">{couponError}</p>
+                )}
+              </div>
+
+              {/* Order Totals */}
+              <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Subtotal ({billingPeriods} {billingPeriods === 1 ? 'period' : 'periods'}):</span>
                   <span>{formatPrice(getTotal())}</span>
+                </div>
+                {appliedCoupon && (
+                  <>
+                    {appliedCoupon.coupon?.first_billing_period_only && billingPeriods > 1 ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Discount on Period 1 ({appliedCoupon.coupon?.code}):</span>
+                          <span>-{formatPrice(calculateDiscount())}</span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Discount applies only to the first billing period. Remaining {billingPeriods - 1} {billingPeriods - 1 === 1 ? 'period' : 'periods'} at regular price.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Discount ({appliedCoupon.coupon?.code}):</span>
+                        <span>-{formatPrice(calculateDiscount())}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Tax:</span>
+                  <span>{formatPrice(0)}</span>
+                </div>
+                <div className="flex justify-between items-center text-lg font-semibold text-gray-900 pt-2 border-t border-gray-200">
+                  <span>Total:</span>
+                  <span>{formatPrice(calculateTotal())}</span>
                 </div>
               </div>
             </div>

@@ -54,6 +54,7 @@ class Coupon(Base):
     applicable_to_products = Column(String)  # Comma-separated product IDs
     applicable_to_categories = Column(String)  # Comma-separated categories
     first_time_customers_only = Column(Boolean, default=False)
+    first_billing_period_only = Column(Boolean, default=False)  # Discount applies only to first billing period (e.g., first year)
     
     # Metadata
     created_by = Column(String(36), ForeignKey("users.id"))

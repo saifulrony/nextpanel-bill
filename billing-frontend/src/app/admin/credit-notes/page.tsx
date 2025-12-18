@@ -96,17 +96,18 @@ export default function CreditNotesPage() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Credit Notes</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Credit Notes</h1>
         <button
           onClick={() => {
             resetForm();
             setShowCreateModal(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs sm:text-sm whitespace-nowrap"
         >
-          <PlusIcon className="h-5 w-5" />
-          Create Credit Note
+          <PlusIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+          <span className="hidden sm:inline">Create Credit Note</span>
+          <span className="sm:hidden">Create</span>
         </button>
       </div>
 

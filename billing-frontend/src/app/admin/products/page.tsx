@@ -23,7 +23,6 @@ import {
   ListBulletIcon,
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
-  LinkIcon,
 } from '@heroicons/react/24/outline';
 import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
@@ -52,6 +51,11 @@ interface Product {
   stock_low_threshold?: number;
   stock_status?: 'in_stock' | 'low_stock' | 'out_of_stock';
   allow_backorder?: boolean;
+  // Discount fields
+  discount_first_day?: number;
+  discount_first_month?: number;
+  discount_first_year?: number;
+  discount_lifetime?: number;
 }
 
 interface Stats {
@@ -69,6 +73,30 @@ export default function ProductsPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUsingDemoData, setIsUsingDemoData] = useState(false);
+
+  // Helper function to calculate discounted price
+  const calculateDiscountedPrice = (basePrice: number, discountPercent: number): number => {
+    if (!discountPercent || discountPercent <= 0) return basePrice;
+    return basePrice * (1 - discountPercent / 100);
+  };
+
+  // Helper function to get discount info for display
+  const getDiscountInfo = (product: Product, period: 'day' | 'month' | 'year' | 'lifetime') => {
+    const discountField = period === 'day' ? product.discount_first_day :
+                          period === 'month' ? product.discount_first_month :
+                          period === 'year' ? product.discount_first_year :
+                          product.discount_lifetime;
+    
+    if (!discountField || discountField <= 0) return null;
+    
+    return {
+      percent: discountField,
+      label: period === 'day' ? 'First Day' :
+             period === 'month' ? 'First Month' :
+             period === 'year' ? 'First Year' :
+             'Lifetime'
+    };
+  };
   
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -108,7 +136,7 @@ export default function ProductsPage() {
           plansAPI.categories(),
           plansAPI.stats().catch(() => ({ data: null })),
           // Fetch all server products (admin can see inactive too)
-          fetch('http://192.168.177.129:8001/api/v1/dedicated-servers/products', {
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001')}/api/v1/dedicated-servers/products`, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
@@ -245,7 +273,9 @@ export default function ProductsPage() {
       if (product && (product as any)._isServerProduct) {
         const token = localStorage.getItem('access_token');
         const serverId = (product as any)._serverProductId;
-        const response = await fetch(`http://192.168.177.129:8001/api/v1/dedicated-servers/products/${serverId}`, {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+          (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+        const response = await fetch(`${apiUrl}/api/v1/dedicated-servers/products/${serverId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -279,8 +309,82 @@ export default function ProductsPage() {
     setShowDetailsModal(true);
   };
 
+  // Helper function to update server product with all required fields
+  const updateServerProductStatus = async (serverId: string, newStatus: boolean) => {
+    const token = localStorage.getItem('access_token');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+      (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+    
+    // First, fetch the current product data to get all required fields
+    const getResponse = await fetch(`${apiUrl}/api/v1/dedicated-servers/products/${serverId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!getResponse.ok) {
+      throw new Error(`Failed to fetch product: HTTP ${getResponse.status}`);
+    }
+    
+    const currentProduct = await getResponse.json();
+    
+    // Update with all required fields plus the new is_active status
+    const updateData = {
+      name: currentProduct.name,
+      description: currentProduct.description || '',
+      server_type: currentProduct.server_type,
+      cpu_cores: currentProduct.cpu_cores,
+      cpu_model: currentProduct.cpu_model || null,
+      ram_gb: currentProduct.ram_gb,
+      storage_gb: currentProduct.storage_gb,
+      storage_type: currentProduct.storage_type || null,
+      bandwidth_tb: currentProduct.bandwidth_tb || 1,
+      ip_addresses: currentProduct.ip_addresses || 1,
+      datacenter_location: currentProduct.datacenter_location || null,
+      region: currentProduct.region || null,
+      price_monthly: currentProduct.price_monthly,
+      price_quarterly: currentProduct.price_quarterly || null,
+      price_yearly: currentProduct.price_yearly || null,
+      setup_fee: currentProduct.setup_fee || 0,
+      provisioning_type: currentProduct.provisioning_type,
+      provisioning_module: currentProduct.provisioning_module || null,
+      provider: currentProduct.provider || null,
+      module_config: currentProduct.module_config || null,
+      features: currentProduct.features || null,
+      available_os: currentProduct.available_os || null,
+      stock_count: currentProduct.stock_count !== undefined ? currentProduct.stock_count : null,
+      is_active: newStatus, // This is what we're updating
+    };
+    
+    const response = await fetch(`${apiUrl}/api/v1/dedicated-servers/products/${serverId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(updateData),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+    }
+    
+    return response;
+  };
+
   const handleToggleFeatured = async (product: Product) => {
     try {
+      // Check if this is a server product
+      const isServerProduct = product.id.startsWith('server-') || (product as any)._isServerProduct;
+      
+      if (isServerProduct) {
+        // Server products don't support featured status, show a message
+        alert('Server products cannot be featured. Only regular products can be featured on the homepage.');
+        return;
+      }
+      
+      // Use plans API for regular products
       await plansAPI.update(product.id, {
         is_featured: !product.is_featured,
       });
@@ -295,10 +399,19 @@ export default function ProductsPage() {
     try {
       const newStatus = !product.is_active;
       
-      // Update the product status
+      // Check if this is a server product
+      const isServerProduct = product.id.startsWith('server-') || (product as any)._isServerProduct;
+      
+      if (isServerProduct) {
+        // Use dedicated servers API for server products
+        const serverId = (product as any)._serverProductId || product.id.replace('server-', '');
+        await updateServerProductStatus(serverId, newStatus);
+      } else {
+        // Use plans API for regular products
       await plansAPI.update(product.id, {
         is_active: newStatus,
       });
+      }
       
       // Reload all data to get fresh counts and products
       await loadData();
@@ -329,9 +442,17 @@ export default function ProductsPage() {
     }
 
     try {
-      const promises = selectedProducts.map(productId => 
-        plansAPI.update(productId, { is_active: true })
-      );
+      const promises = selectedProducts.map(productId => {
+        const product = products.find(p => p.id === productId);
+        const isServerProduct = productId.startsWith('server-') || (product as any)?._isServerProduct;
+        
+        if (isServerProduct) {
+          const serverId = (product as any)?._serverProductId || productId.replace('server-', '');
+          return updateServerProductStatus(serverId, true);
+        } else {
+          return plansAPI.update(productId, { is_active: true });
+        }
+      });
       await Promise.all(promises);
       
       alert(`Successfully activated ${selectedProducts.length} product(s)`);
@@ -356,9 +477,17 @@ export default function ProductsPage() {
     }
 
     try {
-      const promises = selectedProducts.map(productId => 
-        plansAPI.update(productId, { is_active: false })
-      );
+      const promises = selectedProducts.map(productId => {
+        const product = products.find(p => p.id === productId);
+        const isServerProduct = productId.startsWith('server-') || (product as any)?._isServerProduct;
+        
+        if (isServerProduct) {
+          const serverId = (product as any)?._serverProductId || productId.replace('server-', '');
+          return updateServerProductStatus(serverId, false);
+        } else {
+          return plansAPI.update(productId, { is_active: false });
+        }
+      });
       await Promise.all(promises);
       
       alert(`Successfully deactivated ${selectedProducts.length} product(s)`);
@@ -383,12 +512,27 @@ export default function ProductsPage() {
     }
 
     try {
-      const promises = selectedProducts.map(productId => 
+      // Filter out server products (they can't be featured)
+      const regularProducts = selectedProducts.filter(productId => {
+        const product = products.find(p => p.id === productId);
+        return !productId.startsWith('server-') && !(product as any)?._isServerProduct;
+      });
+      
+      if (regularProducts.length < selectedProducts.length) {
+        alert('Note: Server products cannot be featured. Only regular products will be featured.');
+      }
+      
+      if (regularProducts.length === 0) {
+        alert('No regular products selected. Server products cannot be featured.');
+        return;
+      }
+      
+      const promises = regularProducts.map(productId =>
         plansAPI.update(productId, { is_featured: true })
       );
       await Promise.all(promises);
       
-      alert(`Successfully featured ${selectedProducts.length} product(s)`);
+      alert(`Successfully featured ${regularProducts.length} product(s)`);
       setSelectedProducts([]);
       setShowBulkActionsModal(false);
       setBulkActionType('feature');
@@ -534,38 +678,37 @@ export default function ProductsPage() {
 
       {/* Page Header */}
       <div className="mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Products Management</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Create and manage hosting, domains, licenses, and other products
-            </p>
+            <h1 className="text-2xl sm:text-2xl font-semibold text-gray-900">Products Management</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {selectedProducts.length > 0 && (
               <button
                 onClick={() => setShowBulkActionsModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
               >
-                Bulk Actions ({selectedProducts.length})
+                <span className="hidden sm:inline">Bulk Actions</span>
+                <span className="sm:hidden">Bulk</span>
+                <span className="px-1.5 py-0.5 bg-purple-500 rounded text-xs">({selectedProducts.length})</span>
               </button>
             )}
-            <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
+            <div className="flex items-center gap-2 border-r-0 sm:border-r border-gray-300 pr-0 sm:pr-2">
               <button
                 onClick={handleExport}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 title="Export to Excel"
               >
-                <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
-                Export
+                <ArrowDownTrayIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                <span className="hidden sm:inline">Export</span>
               </button>
               <button
                 onClick={handleImportClick}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 title="Import from Excel/CSV"
               >
-                <ArrowUpTrayIcon className="h-5 w-5 mr-1" />
-                Import
+                <ArrowUpTrayIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                <span className="hidden sm:inline">Import</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -577,10 +720,11 @@ export default function ProductsPage() {
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
             >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Create Product
+              <PlusIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="hidden sm:inline">Create Product</span>
+              <span className="sm:hidden">Create</span>
             </button>
           </div>
         </div>
@@ -883,19 +1027,64 @@ export default function ProductsPage() {
                   </p>
 
                   {/* Pricing */}
-                  <div className="mt-4 flex items-baseline space-x-4">
-                    <div>
-                      <span className="text-2xl font-bold text-gray-900">
-                        ${product.price_monthly?.toFixed(2) || '0.00'}
-                      </span>
-                      <span className="text-sm text-gray-500">/mo</span>
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-baseline space-x-4">
+                      <div>
+                        {product.discount_first_month && product.discount_first_month > 0 ? (
+                          <div>
+                            <span className="text-lg line-through text-gray-400">
+                              ${product.price_monthly?.toFixed(2) || '0.00'}
+                            </span>
+                            <span className="text-2xl font-bold text-gray-900 ml-2">
+                              ${calculateDiscountedPrice(product.price_monthly || 0, product.discount_first_month).toFixed(2)}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 ml-2">
+                              -{product.discount_first_month}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-2xl font-bold text-gray-900">
+                            ${product.price_monthly?.toFixed(2) || '0.00'}
+                          </span>
+                        )}
+                        <span className="text-sm text-gray-500 ml-1">/mo</span>
+                      </div>
+                      <div>
+                        {product.discount_first_year && product.discount_first_year > 0 ? (
+                          <div>
+                            <span className="text-sm line-through text-gray-400">
+                              ${product.price_yearly?.toFixed(2) || '0.00'}
+                            </span>
+                            <span className="text-lg font-semibold text-gray-700 ml-2">
+                              ${calculateDiscountedPrice(product.price_yearly || 0, product.discount_first_year).toFixed(2)}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 ml-2">
+                              -{product.discount_first_year}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-lg font-semibold text-gray-700">
+                            ${product.price_yearly?.toFixed(2) || '0.00'}
+                          </span>
+                        )}
+                        <span className="text-sm text-gray-500 ml-1">/yr</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-lg font-semibold text-gray-700">
-                        ${product.price_yearly?.toFixed(2) || '0.00'}
-                      </span>
-                      <span className="text-sm text-gray-500">/yr</span>
-                    </div>
+                    {/* Discount badges */}
+                    {(product.discount_first_day || product.discount_lifetime) && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {product.discount_first_day && product.discount_first_day > 0 && (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            First Day: -{product.discount_first_day}%
+                          </span>
+                        )}
+                        {product.discount_lifetime && product.discount_lifetime > 0 && (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                            Lifetime: -{product.discount_lifetime}%
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Stock Information */}
@@ -966,14 +1155,6 @@ export default function ProductsPage() {
                         }}
                         className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50 transition-colors"
                         title="View product page"
-                      >
-                        <LinkIcon className="h-3.5 w-3.5 mr-1" />
-                        Product Link
-                      </button>
-                      <button
-                        onClick={() => handleViewDetails(product)}
-                        className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                        title="View full details"
                       >
                         <EyeIcon className="h-3.5 w-3.5 mr-1" />
                         View
@@ -1099,11 +1280,43 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        <span className="font-semibold">${product.price_monthly?.toFixed(2) || '0.00'}</span>
-                        <span className="text-gray-500">/mo</span>
+                        {product.discount_first_month && product.discount_first_month > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs line-through text-gray-400">
+                              ${product.price_monthly?.toFixed(2) || '0.00'}
+                            </span>
+                            <span className="font-semibold">
+                              ${calculateDiscountedPrice(product.price_monthly || 0, product.discount_first_month).toFixed(2)}
+                            </span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              -{product.discount_first_month}%
+                            </span>
+                            <span className="text-gray-500">/mo</span>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-semibold">${product.price_monthly?.toFixed(2) || '0.00'}</span>
+                            <span className="text-gray-500">/mo</span>
+                          </>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        ${product.price_yearly?.toFixed(2) || '0.00'}/yr
+                      <div className="text-xs text-gray-500 mt-1">
+                        {product.discount_first_year && product.discount_first_year > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="line-through text-gray-400">
+                              ${product.price_yearly?.toFixed(2) || '0.00'}
+                            </span>
+                            <span>
+                              ${calculateDiscountedPrice(product.price_yearly || 0, product.discount_first_year).toFixed(2)}
+                            </span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              -{product.discount_first_year}%
+                            </span>
+                            <span>/yr</span>
+                          </div>
+                        ) : (
+                          <>${product.price_yearly?.toFixed(2) || '0.00'}/yr</>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -1152,16 +1365,6 @@ export default function ProductsPage() {
                           }}
                           className="text-blue-600 hover:text-blue-900"
                           title="View Product Page"
-                        >
-                          <LinkIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setShowDetailsModal(true);
-                          }}
-                          className="text-indigo-600 hover:text-indigo-900"
-                          title="View Details"
                         >
                           <EyeIcon className="h-5 w-5" />
                         </button>

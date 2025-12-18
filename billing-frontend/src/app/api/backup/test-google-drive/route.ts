@@ -82,17 +82,44 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create a new instance with the provided folder ID and credentials path for testing
-    const testService = new GoogleDriveService({
-      folderId: testFolderId,
-      credentialsPath: credentialsPath,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
+    // Create and initialize a new instance with the provided folder ID and credentials path for testing
+    // Using the factory method ensures initialization is complete before proceeding
+    let testService: GoogleDriveService;
+    try {
+      testService = await GoogleDriveService.create({
+        folderId: testFolderId,
+        credentialsPath: credentialsPath,
+        scopes: ['https://www.googleapis.com/auth/drive'],
+      });
+    } catch (initError) {
+      const errorMessage = initError instanceof Error ? initError.message : 'Unknown error';
+      console.error('Failed to initialize Google Drive service:', initError);
+      
+      // Provide specific error messages for initialization failures
+      if (errorMessage.includes('not found') || errorMessage.includes('ENOENT')) {
+        return NextResponse.json({ 
+          success: false, 
+          message: `Credentials file not found: ${credentialsPath}. Please verify the file path is correct.` 
+        }, { status: 400 });
+      } else if (errorMessage.includes('JSON') || errorMessage.includes('parse')) {
+        return NextResponse.json({ 
+          success: false, 
+          message: `Invalid credentials file format. Please ensure the file is valid JSON and contains service account credentials.` 
+        }, { status: 400 });
+      } else if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+        return NextResponse.json({ 
+          success: false, 
+          message: `Cannot access credentials file: ${credentialsPath}. Please check file permissions.` 
+        }, { status: 400 });
+      }
+      
+      return NextResponse.json({ 
+        success: false, 
+        message: `Google Drive service failed to initialize: ${errorMessage}. Please check: 1) Credentials file path is correct, 2) File has valid JSON format, 3) Service account has proper permissions.` 
+      }, { status: 400 });
+    }
     
-    // Wait a bit longer for initialization (it's async and needs to authenticate)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Check if service is initialized
+    // Check if service is initialized (should always be true after create(), but check for safety)
     if (!testService.isInitialized()) {
       return NextResponse.json({ 
         success: false, 

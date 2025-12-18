@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotification } from '@/contexts/NotificationContext';
 import { authenticator } from 'otplib';
 import { QRCodeSVG } from 'qrcode.react';
+import { securityAPI } from '@/lib/api';
 import {
   ShieldCheckIcon,
   LockClosedIcon,
@@ -122,7 +123,16 @@ export default function SecurityPage() {
   const [securityScore, setSecurityScore] = useState(0);
 
   useEffect(() => {
-    loadSecurityData();
+    // Load data, but don't block if backend is unavailable
+    // 2FA works completely offline, so this is optional
+    loadSecurityData().catch((error) => {
+      // Silently handle any errors during initial load
+      // Don't show errors to user - IP lists are optional
+      console.warn('Security data load failed (backend may be unavailable):', error);
+      // Ensure IP lists are empty arrays on error
+      setIpWhitelist([]);
+      setIpBlacklist([]);
+    });
     calculateSecurityScore();
   }, []);
 
@@ -209,6 +219,30 @@ export default function SecurityPage() {
       ]);
     } catch (error) {
       console.error('Failed to load security alerts:', error);
+    }
+
+    // Load IP whitelist and blacklist (fail silently if backend unavailable)
+    // This is optional functionality - don't block page if backend is down
+    // Note: 2FA works completely offline and doesn't need the backend
+    try {
+      const response = await securityAPI.getIpLists();
+      if (response?.data) {
+        setIpWhitelist(response.data.whitelist || []);
+        setIpBlacklist(response.data.blacklist || []);
+      }
+    } catch (error: any) {
+      // Silently fail - backend might not be available
+      // Only log to console, don't show error to user, don't throw, don't notify
+      // This is expected behavior when backend is offline
+      if (error.code !== 'ERR_NETWORK' && error.message !== 'Network Error') {
+        // Only log non-network errors (might be auth issues, etc.)
+        console.warn('IP lists unavailable:', error.message);
+      }
+      // If error, keep empty arrays - this is fine, IP lists are optional
+      setIpWhitelist([]);
+      setIpBlacklist([]);
+      // Don't rethrow - let the page continue loading normally
+      // Don't call showError() - we want this to fail silently
     }
   };
 
@@ -377,7 +411,7 @@ export default function SecurityPage() {
     }
   };
 
-  const handleAddIpAddress = () => {
+  const handleAddIpAddress = async () => {
     if (!newIpAddress.trim()) {
       showError('Please enter a valid IP address');
       return;
@@ -390,32 +424,51 @@ export default function SecurityPage() {
       return;
     }
 
-    if (ipType === 'whitelist') {
-      if (ipWhitelist.includes(newIpAddress)) {
-        showError('IP address already in whitelist');
-        return;
+    try {
+      let response;
+      if (ipType === 'whitelist') {
+        if (ipWhitelist.includes(newIpAddress)) {
+          showError('IP address already in whitelist');
+          return;
+        }
+        response = await securityAPI.addToWhitelist(newIpAddress);
+        setIpWhitelist(response.data.whitelist || []);
+        success('IP address added to whitelist');
+      } else {
+        if (ipBlacklist.includes(newIpAddress)) {
+          showError('IP address already in blacklist');
+          return;
+        }
+        response = await securityAPI.addToBlacklist(newIpAddress);
+        setIpBlacklist(response.data.blacklist || []);
+        success('IP address added to blacklist');
       }
-      setIpWhitelist([...ipWhitelist, newIpAddress]);
-      success('IP address added to whitelist');
-    } else {
-      if (ipBlacklist.includes(newIpAddress)) {
-        showError('IP address already in blacklist');
-        return;
-      }
-      setIpBlacklist([...ipBlacklist, newIpAddress]);
-      success('IP address added to blacklist');
+      setNewIpAddress('');
+      calculateSecurityScore();
+    } catch (error: any) {
+      console.error('Failed to add IP address:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to add IP address';
+      showError(errorMessage);
     }
-    setNewIpAddress('');
-    calculateSecurityScore();
   };
 
-  const handleRemoveIpAddress = (ip: string, type: 'whitelist' | 'blacklist') => {
-    if (type === 'whitelist') {
-      setIpWhitelist(ipWhitelist.filter(i => i !== ip));
-      success('IP address removed from whitelist');
-    } else {
-      setIpBlacklist(ipBlacklist.filter(i => i !== ip));
-      success('IP address removed from blacklist');
+  const handleRemoveIpAddress = async (ip: string, type: 'whitelist' | 'blacklist') => {
+    try {
+      let response;
+      if (type === 'whitelist') {
+        response = await securityAPI.removeFromWhitelist(ip);
+        setIpWhitelist(response.data.whitelist || []);
+        success('IP address removed from whitelist');
+      } else {
+        response = await securityAPI.removeFromBlacklist(ip);
+        setIpBlacklist(response.data.blacklist || []);
+        success('IP address removed from blacklist');
+      }
+      calculateSecurityScore();
+    } catch (error: any) {
+      console.error('Failed to remove IP address:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to remove IP address';
+      showError(errorMessage);
     }
   };
 

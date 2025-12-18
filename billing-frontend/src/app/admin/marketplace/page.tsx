@@ -68,8 +68,17 @@ export default function MarketplacePage() {
       setIsLoading(true);
       const response = await marketplaceAPI.listAddons();
       setAddons(response.data);
-    } catch (error) {
-      console.error('Failed to load addons:', error);
+    } catch (error: any) {
+      // Handle network errors gracefully - backend may be unavailable
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        console.warn('Marketplace unavailable (backend may be offline):', error.message);
+        // Set empty array so page still renders
+        setAddons([]);
+      } else {
+        console.error('Failed to load addons:', error);
+        // For other errors, also set empty array
+        setAddons([]);
+      }
     } finally {
       setIsLoading(false);
     }

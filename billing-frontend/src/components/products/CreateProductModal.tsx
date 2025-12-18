@@ -14,6 +14,10 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(1);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [attachedFile, setAttachedFile] = useState<{ filename: string; file_path: string; file_size: number } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   // Clear error when modal opens
   useEffect(() => {
@@ -61,6 +65,11 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
     stock_quantity: '',
     stock_low_threshold: '',
     allow_backorder: false,
+    // Discount fields for time-based pricing
+    discount_first_day: '0',
+    discount_first_month: '0',
+    discount_first_year: '0',
+    discount_lifetime: '0',
   });
 
   const billingCycleOptions = [
@@ -110,14 +119,41 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
   };
 
   const nextStep = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
+    // For software category, skip step 3 (Resources) and go directly to step 4 (Stock)
+    if (formData.category === 'software') {
+      if (currentStep === 2) {
+        // Skip from Pricing (step 2) to Stock (step 4)
+        setCurrentStep(4);
+      } else if (currentStep === 4) {
+        // After Stock, go to Review step (step 5) for software too
+        // This allows user to review before submitting
+        setCurrentStep(5);
+      } else if (currentStep < steps.length) {
+        setCurrentStep(currentStep + 1);
+      }
+    } else {
+      if (currentStep < steps.length) {
+        setCurrentStep(currentStep + 1);
+      }
     }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+    // For software category, handle step navigation correctly
+    if (formData.category === 'software') {
+      if (currentStep === 5) {
+        // Go back from Review (step 5) to Stock (step 4)
+        setCurrentStep(4);
+      } else if (currentStep === 4) {
+        // Go back from Stock (step 4) to Pricing (step 2), skipping Resources (step 3)
+        setCurrentStep(2);
+      } else if (currentStep > 1) {
+        setCurrentStep(currentStep - 1);
+      }
+    } else {
+      if (currentStep > 1) {
+        setCurrentStep(currentStep - 1);
+      }
     }
   };
 
@@ -309,19 +345,227 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
         stock_quantity: formData.stock_enabled ? parseInt(formData.stock_quantity) || 0 : null,
         stock_low_threshold: formData.stock_enabled ? parseInt(formData.stock_low_threshold) || 0 : null,
         allow_backorder: formData.stock_enabled ? formData.allow_backorder : false,
+        // Discount fields
+        discount_first_day: parseFloat(formData.discount_first_day) || 0.0,
+        discount_first_month: parseFloat(formData.discount_first_month) || 0.0,
+        discount_first_year: parseFloat(formData.discount_first_year) || 0.0,
+        discount_lifetime: parseFloat(formData.discount_lifetime) || 0.0,
       };
 
       console.log('Creating product with payload:', JSON.stringify(payload, null, 2));
-      const result = await plansAPI.create(payload);
-      console.log('Product created successfully:', result);
+      const response = await plansAPI.create(payload);
+      console.log('Product created successfully - full response:', JSON.stringify(response, null, 2));
+      
+      // Extract product ID from response (axios returns data in response.data)
+      // Try multiple possible response structures
+      const productId = response?.data?.id || response?.data?.data?.id || response?.id || (response?.data && typeof response.data === 'object' && 'id' in response.data ? response.data.id : null);
+      
+      if (!productId) {
+        console.error('Product creation response structure:', {
+          response,
+          'response.data': response?.data,
+          'response.data?.id': response?.data?.id,
+          'response.id': response?.id,
+          keys: response ? Object.keys(response) : 'response is null/undefined'
+        });
+        throw new Error('Product was created but ID was not returned. Response: ' + JSON.stringify(response));
+      }
+      
+      console.log('Extracted Product ID:', productId);
+      
+      // Wait a moment to ensure product is fully committed to database
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Upload file if attached (for software products) - MUST complete before calling onSuccess
+      if (formData.category === 'software' && selectedFile) {
+        try {
+          setUploadingFile(true);
+          setUploadProgress(0);
+          
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', selectedFile);
+          
+          const token = localStorage.getItem('access_token');
+          if (!token) {
+            throw new Error('Authentication token not found');
+          }
+          
+          // Get API URL dynamically
+          const apiUrl = typeof window !== 'undefined' 
+            ? `http://${window.location.hostname}:8001`
+            : 'http://localhost:8001';
+          
+          console.log(`Uploading file to: ${apiUrl}/api/v1/products/${productId}/upload-file`);
+          
+          // Use XMLHttpRequest for progress tracking
+          const uploadResult = await new Promise<any>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            let lastProgress = 0;
+            let progressInterval: NodeJS.Timeout | null = null;
+            
+            // Simulated progress fallback if real progress doesn't update
+            const startSimulatedProgress = () => {
+              if (progressInterval) return;
+              
+              progressInterval = setInterval(() => {
+                if (lastProgress < 90) {
+                  lastProgress = Math.min(90, lastProgress + 5);
+                  setUploadProgress(lastProgress);
+                }
+              }, 200);
+            };
+            
+            const stopSimulatedProgress = () => {
+              if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+              }
+            };
+            
+            // Set initial progress
+            setUploadProgress(5);
+            lastProgress = 5;
+            startSimulatedProgress();
+            
+            // Track upload progress - MUST be set before open()
+            xhr.upload.addEventListener('progress', (e) => {
+              stopSimulatedProgress(); // Stop simulated progress when real progress starts
+              
+              console.log('Progress event:', {
+                loaded: e.loaded,
+                total: e.total,
+                lengthComputable: e.lengthComputable
+              });
+              
+              if (e.lengthComputable && e.total > 0) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                const rounded = Math.max(5, Math.min(99, Math.round(percentComplete)));
+                lastProgress = rounded;
+                setUploadProgress(rounded);
+                console.log(`Upload progress: ${rounded}% (${e.loaded}/${e.total} bytes)`);
+              } else if (e.loaded > 0) {
+                // If total is unknown, show progress based on bytes loaded
+                const fileSize = selectedFile?.size || 1;
+                const estimated = Math.max(5, Math.min(95, Math.round((e.loaded / fileSize) * 100)));
+                lastProgress = estimated;
+                setUploadProgress(estimated);
+                console.log(`Upload progress (estimated): ${estimated}% (${e.loaded}/${fileSize} bytes)`);
+              }
+            });
+            
+            // Track loadstart
+            xhr.upload.addEventListener('loadstart', () => {
+              console.log('Upload started');
+              setUploadProgress(5);
+              lastProgress = 5;
+            });
+            
+            // Handle completion
+            xhr.addEventListener('load', () => {
+              stopSimulatedProgress();
+              console.log('Upload completed, status:', xhr.status);
+              setUploadProgress(100);
+              
+              if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                  const response = JSON.parse(xhr.responseText);
+                  resolve(response);
+                } catch (e) {
+                  reject(new Error('Failed to parse response'));
+                }
+              } else {
+                try {
+                  const errorData = JSON.parse(xhr.responseText);
+                  reject(new Error(errorData.detail || `HTTP ${xhr.status}: ${xhr.statusText}`));
+                } catch (e) {
+                  reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+                }
+              }
+            });
+            
+            // Handle errors
+            xhr.addEventListener('error', (e) => {
+              stopSimulatedProgress();
+              console.error('Upload error:', e);
+              setUploadProgress(0);
+              reject(new Error('Network error during upload'));
+            });
+            
+            xhr.addEventListener('abort', () => {
+              stopSimulatedProgress();
+              console.log('Upload aborted');
+              setUploadProgress(0);
+              reject(new Error('Upload aborted'));
+            });
+            
+            // Open and send - MUST be after event listeners
+            xhr.open('POST', `${apiUrl}/api/v1/products/${productId}/upload-file`);
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            
+            console.log('Starting upload...', {
+              url: `${apiUrl}/api/v1/products/${productId}/upload-file`,
+              fileSize: selectedFile.size,
+              fileName: selectedFile.name,
+              productId: productId
+            });
+            
+            xhr.send(uploadFormData);
+          });
+          
+          console.log('File uploaded successfully:', uploadResult);
+          setUploadProgress(100);
+          
+          // Update attached file info with the actual file path
+          if (uploadResult.file_info) {
+            setAttachedFile(uploadResult.file_info);
+          }
+        } catch (err: any) {
+          console.error('Failed to upload file:', err);
+          setUploadProgress(0);
+          setUploadingFile(false);
+          
+          // Show error but allow user to proceed - product is already created
+          const errorMsg = err.message || 'Unknown error';
+          setError(`Product created successfully, but file upload failed: ${errorMsg}. You can upload the file later by editing the product.`);
+          
+          // Don't throw - allow the modal to close and product to be saved
+          // User can edit the product later to upload the file
+          console.warn('File upload failed, but product was created:', productId);
+        } finally {
+          setUploadingFile(false);
+        }
+      }
+      
+      // Call onSuccess AFTER file upload completes (or fails)
+      // This ensures the product list is refreshed with the product data
       onSuccess();
+      onClose(); // Close modal only on success
     } catch (err: any) {
       console.error('Failed to create product:', err);
       console.error('Error response data:', err.response?.data);
       console.error('Error type:', typeof err.response?.data);
+      console.error('Error status:', err.response?.status);
       
       // Handle different error response formats
       let errorMessage = 'Failed to create product';
+      
+      // Check if it's an authentication error
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        const errorData = err.response?.data;
+        const errorDetail = errorData?.detail || errorData?.message || '';
+        
+        if (errorDetail.includes('Could not validate') || 
+            errorDetail.includes('credentials') ||
+            errorDetail.includes('Not authenticated') ||
+            errorDetail.includes('Not enough permissions')) {
+          errorMessage = 'Authentication failed. Please login again.';
+          // Don't close modal immediately - show error first
+          // The axios interceptor will handle the logout/redirect
+          setError(errorMessage);
+          setIsSubmitting(false);
+          return; // Exit early to prevent modal from closing
+        }
+      }
       
       if (err.response?.data) {
         const errorData = err.response.data;
@@ -366,6 +610,8 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
         : JSON.stringify(errorMessage);
       
       setError(safeErrorMessage);
+      // DO NOT close modal on error - let user see the error and fix it
+      // DO NOT call onSuccess() on error
     } finally {
       setIsSubmitting(false);
     }
@@ -469,22 +715,24 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Domain (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="domain"
-                    value={formData.domain}
-                    onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="e.g., example.com"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Optional domain associated with this product
-                  </p>
-                </div>
+                {formData.category !== 'software' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Domain (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      name="domain"
+                      value={formData.domain}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="e.g., example.com"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Optional domain associated with this product
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -533,11 +781,115 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                   </div>
                 ))}
               </div>
+
+              {/* Discount Settings */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <h4 className="text-lg font-medium text-gray-900 mb-2">Time-Based Discounts</h4>
+                <p className="text-sm text-gray-600 mb-4">Set discount percentages for different time periods. Discounts apply to the base price.</p>
+                
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Day Discount (%)
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        name="discount_first_day"
+                        value={formData.discount_first_day}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="0.0"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Discount for first day purchases</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Month Discount (%)
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        name="discount_first_month"
+                        value={formData.discount_first_month}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="0.0"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Discount for first month subscriptions</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Year Discount (%)
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        name="discount_first_year"
+                        value={formData.discount_first_year}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="0.0"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Discount for first year subscriptions</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Lifetime Discount (%)
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        name="discount_lifetime"
+                        value={formData.discount_lifetime}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="0.0"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Discount for lifetime purchases</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
 
       case 3:
+        // Skip Resources step for software category
+        if (formData.category === 'software') {
+          // This step should not be shown for software, but if we're here, go to next step
+          return (
+            <div className="space-y-6">
+              <div className="text-center py-8">
+                <p className="text-gray-500">This step is not applicable for software products.</p>
+              </div>
+            </div>
+          );
+        }
+        
         // Show server-specific fields if category is server
         if (formData.category === 'server') {
           return (
@@ -836,6 +1188,104 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
       case 4:
         return (
           <div className="space-y-6">
+            {/* File Upload for Software Products */}
+            {formData.category === 'software' && (
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-4">File Attachment</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Attach a downloadable file for this software product. Customers who purchase this product will be able to download this file.
+                </p>
+                
+                {uploadingFile ? (
+                  <div className="border border-blue-300 rounded-lg p-4 bg-blue-50">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Uploading file...</p>
+                            <p className="text-xs text-gray-500">
+                              {selectedFile?.name} ({(selectedFile?.size ? (selectedFile.size / 1024 / 1024).toFixed(2) : '0')} MB)
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-sm font-semibold text-blue-600">{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div 
+                          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                ) : attachedFile ? (
+                  <div className="border border-green-300 rounded-lg p-4 bg-green-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{attachedFile.filename}</p>
+                          <p className="text-xs text-gray-500">
+                            {(attachedFile.file_size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAttachedFile(null);
+                          setSelectedFile(null);
+                        }}
+                        className="text-sm text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                    <input
+                      type="file"
+                      id="product-file-upload"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        // Store the actual file object for later upload
+                        setSelectedFile(file);
+                        setAttachedFile({
+                          filename: file.name,
+                          file_path: '', // Will be set after upload
+                          file_size: file.size
+                        });
+                      }}
+                      disabled={uploadingFile}
+                    />
+                    <label
+                      htmlFor="product-file-upload"
+                      className={`cursor-pointer flex flex-col items-center justify-center ${
+                        uploadingFile ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <svg className="h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-4h4m-4-4v4m0 4v-4m0 0l-3.172-3.172" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className="mt-2 text-sm text-gray-600">
+                        {uploadingFile ? 'Preparing...' : 'Click to select a file'}
+                      </span>
+                      <span className="mt-1 text-xs text-gray-500">
+                        Max file size: 500MB
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div>
               <h4 className="text-lg font-medium text-gray-900 mb-4">Stock Management</h4>
               <p className="text-sm text-gray-600 mb-6">
@@ -953,15 +1403,27 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                   </div>
                 </div>
 
-                <div>
-                  <h6 className="font-medium text-gray-700">Resource Limits</h6>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>Accounts: {formData.max_accounts}</div>
-                    <div>Domains: {formData.max_domains}</div>
-                    <div>Databases: {formData.max_databases}</div>
-                    <div>Emails: {formData.max_emails}</div>
+                {formData.category !== 'software' && (
+                  <div>
+                    <h6 className="font-medium text-gray-700">Resource Limits</h6>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>Accounts: {formData.max_accounts}</div>
+                      <div>Domains: {formData.max_domains}</div>
+                      <div>Databases: {formData.max_databases}</div>
+                      <div>Emails: {formData.max_emails}</div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {formData.category === 'software' && attachedFile && (
+                  <div>
+                    <h6 className="font-medium text-gray-700">Attached File</h6>
+                    <div className="text-sm text-gray-600">
+                      <p>{attachedFile.filename}</p>
+                      <p className="text-xs text-gray-500">{(attachedFile.file_size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                )}
 
                 {formData.stock_enabled && (
                   <div>
@@ -1014,7 +1476,22 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
                   Create New Product
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Step {currentStep} of {steps.length}: {steps[currentStep - 1].description}
+                  {(() => {
+                    const totalSteps = formData.category === 'software' ? 4 : steps.length; // Software: Basic Info, Pricing, Stock, Review
+                    let stepDescription = steps[currentStep - 1]?.description || 'Review';
+                    // For software, map step numbers correctly
+                    let displayStep = currentStep;
+                    if (formData.category === 'software') {
+                      if (currentStep === 4) {
+                        displayStep = 3; // Stock is step 3 for software
+                        stepDescription = steps[3]?.description || 'Stock';
+                      } else if (currentStep === 5) {
+                        displayStep = 4; // Review is step 4 for software
+                        stepDescription = steps[4]?.description || 'Review';
+                      }
+                    }
+                    return `Step ${displayStep} of ${totalSteps}: ${stepDescription}`;
+                  })()}
                 </p>
               </div>
               <button
@@ -1029,42 +1506,63 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
             <div className="mt-6">
               <nav aria-label="Progress">
                 <ol className="flex items-center">
-                  {steps.map((step, stepIdx) => (
-                    <li key={step.name} className={`${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : ''} relative`}>
-                      {step.id < currentStep ? (
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                          <div className="h-0.5 w-full bg-indigo-600" />
-                        </div>
-                      ) : step.id === currentStep ? (
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                          <div className="h-0.5 w-full bg-gray-200" />
-                        </div>
-                      ) : (
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                          <div className="h-0.5 w-full bg-gray-200" />
-                        </div>
-                      )}
-                      <div className={`relative flex items-center justify-center w-8 h-8 rounded-full ${
-                        step.id < currentStep 
-                          ? 'bg-indigo-600' 
-                          : step.id === currentStep 
-                          ? 'bg-indigo-600' 
-                          : 'bg-gray-200'
-                      }`}>
-                        {step.id < currentStep ? (
-                          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <span className={`text-sm font-medium ${
-                            step.id === currentStep ? 'text-white' : 'text-gray-500'
+                  {(() => {
+                    // For software, show steps 1, 2, 4, and 5 (displayed as 1, 2, 3, 4)
+                    // For others, show all steps
+                    const visibleSteps = formData.category === 'software' 
+                      ? steps.filter(step => step.id !== 3) // Remove Resources (3), keep Review (5)
+                      : steps;
+                    
+                    return visibleSteps.map((step, stepIdx) => {
+                      // For software, map step numbers: 4->3, 5->4
+                      let displayStepNumber = step.id;
+                      if (formData.category === 'software') {
+                        if (step.id === 4) displayStepNumber = 3; // Stock
+                        else if (step.id === 5) displayStepNumber = 4; // Review
+                      }
+                      
+                      // Determine if this step is current or completed
+                      const isCurrentStep = step.id === currentStep;
+                      const isCompletedStep = step.id < currentStep;
+                      
+                      return (
+                        <li key={step.name} className={`${stepIdx !== visibleSteps.length - 1 ? 'pr-8 sm:pr-20' : ''} relative`}>
+                          {isCompletedStep ? (
+                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                              <div className="h-0.5 w-full bg-indigo-600" />
+                            </div>
+                          ) : isCurrentStep ? (
+                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                              <div className="h-0.5 w-full bg-gray-200" />
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                              <div className="h-0.5 w-full bg-gray-200" />
+                            </div>
+                          )}
+                          <div className={`relative flex items-center justify-center w-8 h-8 rounded-full ${
+                            isCompletedStep 
+                              ? 'bg-indigo-600' 
+                              : isCurrentStep 
+                              ? 'bg-indigo-600' 
+                              : 'bg-gray-200'
                           }`}>
-                            {step.id}
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                            {isCompletedStep ? (
+                              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <span className={`text-sm font-medium ${
+                                isCurrentStep ? 'text-white' : 'text-gray-500'
+                              }`}>
+                                {displayStepNumber}
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    });
+                  })()}
                 </ol>
               </nav>
             </div>

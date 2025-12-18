@@ -2,7 +2,8 @@
 Comprehensive Invoice Management API endpoints
 Supports: manual & automated invoicing, recurring billing, partial payments, bulk operations
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Query
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
+from fastapi import status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func
 from typing import List, Optional
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 
-@router.post("/", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=InvoiceResponse, status_code=http_status.HTTP_201_CREATED)
 async def create_invoice(
     request: InvoiceCreateRequest,
     user_id: str = Depends(get_current_user_id),
@@ -109,11 +110,16 @@ async def create_invoice(
     return invoice
 
 
+@router.get("/test")
+async def test_invoices_endpoint():
+    """Test endpoint to verify invoices API is working"""
+    return {"status": "ok", "message": "Invoices endpoint is accessible"}
+
 @router.get("/", response_model=List[InvoiceResponse])
 async def list_invoices(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
-    status: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     min_amount: Optional[float] = None,
@@ -129,36 +135,178 @@ async def list_invoices(
     - Filter by amount range
     - Filter recurring vs one-time
     - Pagination support
+    - If user is admin, returns all invoices
     """
-    query = select(Invoice).where(Invoice.user_id == user_id)
-    
-    # Apply filters
-    if status:
-        query = query.where(Invoice.status == status)
-    
-    if start_date:
-        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        query = query.where(Invoice.created_at >= start_dt)
-    
-    if end_date:
-        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-        query = query.where(Invoice.created_at <= end_dt)
-    
-    if min_amount is not None:
-        query = query.where(Invoice.total >= min_amount)
-    
-    if max_amount is not None:
-        query = query.where(Invoice.total <= max_amount)
-    
-    if is_recurring is not None:
-        query = query.where(Invoice.is_recurring == is_recurring)
-    
-    query = query.order_by(Invoice.created_at.desc()).limit(limit).offset(offset)
-    
-    result = await db.execute(query)
-    invoices = result.scalars().all()
-    
-    return invoices
+    try:
+        # TEMPORARY: Return empty list to test if endpoint works
+        # Uncomment below to test basic functionality
+        # return []
+        
+        logger.info(f"Listing invoices for user {user_id}")
+        
+        # Get user to check if admin
+        try:
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalars().first()
+            
+            if not user:
+                logger.error(f"User {user_id} not found")
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            logger.info(f"User {user_id} is admin: {user.is_admin}")
+        except Exception as user_err:
+            logger.error(f"Error fetching user: {user_err}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error fetching user: {str(user_err)}")
+        
+        # Build query - if admin, show all invoices; otherwise, filter by user_id
+        try:
+            if user.is_admin:
+                query = select(Invoice)
+                logger.info("Admin user - fetching all invoices")
+            else:
+                query = select(Invoice).where(Invoice.user_id == user_id)
+                logger.info(f"Regular user - fetching invoices for user {user_id}")
+        except Exception as query_err:
+            logger.error(f"Error building query: {query_err}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error building query: {str(query_err)}")
+        
+        # Apply filters
+        if status_filter:
+            # Convert status string to InvoiceStatus enum
+            try:
+                status_enum = InvoiceStatus(status_filter.lower())
+                query = query.where(Invoice.status == status_enum)
+            except (ValueError, KeyError):
+                # If invalid status, skip the filter (don't raise error)
+                logger.warning(f"Invalid status filter: {status_filter}")
+                pass
+        
+        if start_date:
+            try:
+                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                query = query.where(Invoice.created_at >= start_dt)
+            except ValueError:
+                logger.warning(f"Invalid start_date format: {start_date}")
+        
+        if end_date:
+            try:
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                query = query.where(Invoice.created_at <= end_dt)
+            except ValueError:
+                logger.warning(f"Invalid end_date format: {end_date}")
+        
+        if min_amount is not None:
+            query = query.where(Invoice.total >= min_amount)
+        
+        if max_amount is not None:
+            query = query.where(Invoice.total <= max_amount)
+        
+        if is_recurring is not None:
+            query = query.where(Invoice.is_recurring == is_recurring)
+        
+        query = query.order_by(Invoice.created_at.desc()).limit(limit).offset(offset)
+        
+        try:
+            logger.info("Executing invoice query...")
+            result = await db.execute(query)
+            invoices = result.scalars().all()
+            logger.info(f"Query executed successfully, found {len(invoices)} invoices")
+        except Exception as query_exec_err:
+            logger.error(f"Error executing query: {query_exec_err}", exc_info=True)
+            import traceback
+            logger.error(f"Query execution traceback: {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "error": "Database query failed",
+                    "message": str(query_exec_err),
+                    "type": type(query_exec_err).__name__
+                }
+            )
+        
+        logger.info(f"Found {len(invoices)} invoices for user {user_id} (admin: {user.is_admin})")
+        
+        # If no invoices, return empty list
+        if not invoices:
+            logger.info("No invoices found, returning empty list")
+            return []
+        
+        # Manually serialize invoices to avoid FastAPI serialization issues with enums
+        invoice_list = []
+        for invoice in invoices:
+            try:
+                # Convert enum values to strings for JSON serialization
+                status_value = invoice.status.value if hasattr(invoice.status, 'value') else str(invoice.status)
+                recurring_interval_value = None
+                if invoice.recurring_interval:
+                    if hasattr(invoice.recurring_interval, 'value'):
+                        recurring_interval_value = invoice.recurring_interval.value
+                    else:
+                        recurring_interval_value = str(invoice.recurring_interval)
+                
+                invoice_dict = {
+                    "id": invoice.id,
+                    "invoice_number": invoice.invoice_number,
+                    "status": status_value,
+                    "subtotal": float(invoice.subtotal) if invoice.subtotal is not None else 0.0,
+                    "discount_amount": float(invoice.discount_amount) if invoice.discount_amount is not None else 0.0,
+                    "discount_percent": float(invoice.discount_percent) if invoice.discount_percent is not None else 0.0,
+                    "tax": float(invoice.tax) if invoice.tax is not None else 0.0,
+                    "tax_rate": float(invoice.tax_rate) if invoice.tax_rate is not None else 0.0,
+                    "total": float(invoice.total) if invoice.total is not None else 0.0,
+                    "amount_paid": float(invoice.amount_paid) if invoice.amount_paid is not None else 0.0,
+                    "amount_due": float(invoice.amount_due) if invoice.amount_due is not None else 0.0,
+                    "currency": invoice.currency or "USD",
+                    "invoice_date": invoice.invoice_date,
+                    "due_date": invoice.due_date,
+                    "paid_at": invoice.paid_at,
+                    "items": invoice.items if invoice.items is not None else [],
+                    "notes": invoice.notes,
+                    "terms": invoice.terms,
+                    "is_recurring": bool(invoice.is_recurring) if invoice.is_recurring is not None else False,
+                    "recurring_interval": recurring_interval_value,
+                    "sent_to_customer": bool(invoice.sent_to_customer) if invoice.sent_to_customer is not None else False,
+                    "reminder_count": int(invoice.reminder_count) if invoice.reminder_count is not None else 0,
+                    "created_at": invoice.created_at,
+                }
+                # Create InvoiceResponse object - FastAPI will handle validation
+                try:
+                    invoice_response = InvoiceResponse(**invoice_dict)
+                    invoice_list.append(invoice_response)
+                except Exception as validation_err:
+                    logger.error(f"Validation error for invoice {invoice.id}: {validation_err}")
+                    logger.error(f"Problematic invoice dict keys: {list(invoice_dict.keys())}")
+                    logger.error(f"Problematic invoice dict values: {invoice_dict}")
+                    # Skip this invoice if validation fails
+                    continue
+            except Exception as inv_err:
+                logger.error(f"Error serializing invoice {invoice.id}: {inv_err}", exc_info=True)
+                continue
+        
+        return invoice_list
+        
+    except HTTPException as http_err:
+        # Re-raise HTTP exceptions as-is
+        logger.error(f"HTTP Exception: {http_err.status_code} - {http_err.detail}")
+        raise
+    except Exception as e:
+        # Log the full error with traceback
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"Error listing invoices: {e}", exc_info=True)
+        logger.error(f"Full traceback: {error_traceback}")
+        
+        # Return error as string to avoid serialization issues
+        error_message = str(e)
+        error_type = type(e).__name__
+        
+        logger.error(f"Error type: {error_type}, Message: {error_message}")
+        
+        # Return detailed error in response for debugging
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list invoices: {error_type} - {error_message}"
+        )
 
 
 @router.get("/overdue", response_model=List[InvoiceResponse])
@@ -230,7 +378,7 @@ async def update_invoice(
     # Only allow updates to draft and open invoices
     if invoice.status not in [InvoiceStatus.DRAFT, InvoiceStatus.OPEN]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Cannot update paid, void, or partially paid invoices"
         )
     
@@ -272,7 +420,7 @@ async def update_invoice(
     return invoice
 
 
-@router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{invoice_id}", status_code=http_status.HTTP_204_NO_CONTENT)
 async def delete_invoice(
     invoice_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -295,7 +443,7 @@ async def delete_invoice(
     # Only allow deletion of draft invoices
     if invoice.status != InvoiceStatus.DRAFT:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Can only delete draft invoices"
         )
     
@@ -363,19 +511,19 @@ async def add_partial_payment(
     
     if invoice.status == InvoiceStatus.PAID:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Invoice is already fully paid"
         )
     
     if request.amount <= 0:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Payment amount must be greater than 0"
         )
     
     if request.amount > invoice.amount_due:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"Payment amount cannot exceed amount due ({invoice.amount_due})"
         )
     
@@ -448,7 +596,7 @@ async def void_invoice(
     
     if invoice.status == InvoiceStatus.PAID:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Cannot void a paid invoice. Create a credit memo instead."
         )
     
@@ -513,7 +661,7 @@ async def download_invoice_pdf(
     )
 
 
-@router.post("/{invoice_id}/send", status_code=status.HTTP_200_OK)
+@router.post("/{invoice_id}/send", status_code=http_status.HTTP_200_OK)
 async def send_invoice_email(
     invoice_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -543,7 +691,7 @@ async def send_invoice_email(
     
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send invoice email"
         )
     
@@ -551,7 +699,7 @@ async def send_invoice_email(
     return {"status": "success", "message": "Invoice sent via email"}
 
 
-@router.post("/{invoice_id}/send-reminder", status_code=status.HTTP_200_OK)
+@router.post("/{invoice_id}/send-reminder", status_code=http_status.HTTP_200_OK)
 async def send_payment_reminder(
     invoice_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -573,7 +721,7 @@ async def send_payment_reminder(
     
     if invoice.status == InvoiceStatus.PAID:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Cannot send reminder for paid invoice"
         )
     
@@ -587,7 +735,7 @@ async def send_payment_reminder(
     
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send payment reminder"
         )
     
@@ -714,7 +862,7 @@ async def get_aging_report(
 
 
 # Invoice Templates
-@router.post("/templates", response_model=InvoiceTemplateResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/templates", response_model=InvoiceTemplateResponse, status_code=http_status.HTTP_201_CREATED)
 async def create_invoice_template(
     request: InvoiceTemplateRequest,
     user_id: str = Depends(get_current_user_id),
@@ -792,7 +940,7 @@ async def generate_invoice_from_template(
 
 
 # Bulk Operations
-@router.post("/bulk/send-reminders", status_code=status.HTTP_200_OK)
+@router.post("/bulk/send-reminders", status_code=http_status.HTTP_200_OK)
 async def bulk_send_reminders(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
@@ -843,7 +991,7 @@ async def bulk_send_reminders(
     }
 
 
-@router.post("/bulk/mark-overdue", status_code=status.HTTP_200_OK)
+@router.post("/bulk/mark-overdue", status_code=http_status.HTTP_200_OK)
 async def bulk_mark_overdue(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)

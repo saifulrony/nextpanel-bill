@@ -318,9 +318,10 @@ export default function Home() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
       
-      // Load all active products (regular + server products)
+      // Load ALL active products dynamically (not filtered by is_featured)
+      // This ensures all products from /admin/products appear on the frontpage
       const [productsResponse, serverProductsRes] = await Promise.all([
-        plansAPI.list({ is_active: true }), // Load all active regular products
+        plansAPI.list({ is_active: true }), // Load ALL active regular products (no is_featured filter)
         // Fetch all active server products (public endpoint, no auth required)
         fetch(`${apiUrl}/api/v1/dedicated-servers/products`, {
           headers: {
@@ -1110,14 +1111,14 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Featured Products - Only show if there are featured products or loading */}
+      {/* All Products - Dynamic display of all active products */}
         {(loadingProducts || featuredProducts.length > 0) && (
         <div id="pricing" className="mt-24">
           <h3 className="text-3xl font-bold text-center text-gray-900 mb-4">
-            Featured Products
+            Our Products
           </h3>
           <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-            Choose from our carefully selected products. Manage featured products from your dashboard.
+            Browse all our available products. All products are displayed dynamically.
           </p>
           
           {loadingProducts ? (
@@ -1126,13 +1127,16 @@ export default function Home() {
               <p className="mt-4 text-gray-600">Loading products...</p>
             </div>
           ) : (
-            <div className={`grid grid-cols-1 gap-8 ${
+            <div className={`grid grid-cols-1 gap-8 max-w-7xl mx-auto px-4 ${
               featuredProducts.length === 1 ? 'md:grid-cols-1 max-w-md mx-auto' :
               featuredProducts.length === 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' :
-              'md:grid-cols-3'
+              featuredProducts.length === 3 ? 'md:grid-cols-3' :
+              featuredProducts.length === 4 ? 'md:grid-cols-2 lg:grid-cols-4' :
+              'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
             }`}>
               {featuredProducts.map((product, index) => {
-                const isPopular = index === 1 && featuredProducts.length === 3; // Middle product in 3-column layout
+                // Only highlight middle product if exactly 3 products, otherwise no special highlighting
+                const isPopular = false; // Removed special highlighting for dynamic display
                 
                 return (
                   <div

@@ -540,7 +540,6 @@ function SortableDashboardElement({
             <span className="font-medium text-gray-900 truncate">{element.name}</span>
           )}
           
-          <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-700 rounded flex-shrink-0">{element.type}</span>
           <select
             value={element.width || 'full'}
             onChange={(e) => onUpdateWidth(element.id, e.target.value as DashboardElement['width'])}

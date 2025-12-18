@@ -110,6 +110,11 @@ class Plan(Base):
     is_active = Column(Boolean, default=True)
     is_featured = Column(Boolean, default=False)  # Show on homepage
     sort_order = Column(Integer, default=0)  # Display order on homepage
+    # Discount fields for time-based pricing
+    discount_first_day = Column(Float, default=0.0)  # Discount percentage for first day (0-100)
+    discount_first_month = Column(Float, default=0.0)  # Discount percentage for first month (0-100)
+    discount_first_year = Column(Float, default=0.0)  # Discount percentage for first year (0-100)
+    discount_lifetime = Column(Float, default=0.0)  # Discount percentage for lifetime purchases (0-100)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -297,6 +302,7 @@ class Invoice(Base):
     
     id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    order_id = Column(String(36), ForeignKey("orders.id"))  # Links to order for initial purchases
     payment_id = Column(String(36), ForeignKey("payments.id"))
     subscription_id = Column(String(36), ForeignKey("subscriptions.id"))
     license_id = Column(String(36), ForeignKey("licenses.id"))
@@ -344,6 +350,7 @@ class Invoice(Base):
     
     # Relationships
     user = relationship("User")
+    order = relationship("Order", back_populates="invoices")  # Link to order
     payment = relationship("Payment")
     subscription = relationship("Subscription")
     license = relationship("License")
@@ -422,6 +429,7 @@ class Order(Base):
     
     # Relationships
     customer = relationship("User", back_populates="orders")
+    invoices = relationship("Invoice", back_populates="order")  # Link to invoices
     payments = relationship("Payment", back_populates="order")
     automation_rules = relationship("OrderAutomationRule", back_populates="order", cascade="all, delete-orphan")
 

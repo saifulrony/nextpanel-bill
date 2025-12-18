@@ -10,7 +10,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
-from app.models import Order, OrderStatus, User, Domain, DomainStatus, License, Plan
+from app.models import Order, OrderStatus, User, Domain, DomainStatus, License, Plan, Invoice, InvoiceStatus
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -265,7 +265,11 @@ class OrderCreateRequest(BaseModel):
     payment_method: str
     billing_info: dict
     billing_period: Optional[str] = "monthly"  # monthly, yearly, one-time
+    billing_periods: Optional[int] = 1  # Number of billing periods ordered at once
     due_date: Optional[str] = None  # ISO format date string
+    discount_amount: Optional[float] = 0.0
+    discount_percent: Optional[float] = 0.0
+    coupon_code: Optional[str] = None
 
 
 class CustomerInfo(BaseModel):
@@ -410,6 +414,13 @@ async def create_order(
         
         # Create order
         try:
+            # Store coupon info in billing_info if coupon was applied
+            billing_info = order_data.billing_info.copy() if order_data.billing_info else {}
+            if order_data.coupon_code:
+                billing_info['coupon_code'] = order_data.coupon_code
+                billing_info['discount_amount'] = order_data.discount_amount or 0.0
+                billing_info['discount_percent'] = order_data.discount_percent or 0.0
+            
             new_order = Order(
                 customer_id=order_data.customer_id,
                 status=OrderStatus.COMPLETED,
@@ -420,7 +431,7 @@ async def create_order(
                 tax=order_data.tax,
                 total=order_data.total,
                 payment_method=order_data.payment_method,
-                billing_info=order_data.billing_info,
+                billing_info=billing_info,
                 billing_period=order_data.billing_period,
                 due_date=due_date
             )
@@ -432,6 +443,31 @@ async def create_order(
             logger.error(f"Error creating order: {e}")
             await db.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
+        
+        # Create linked Invoice record for this order
+        try:
+            invoice = Invoice(
+                user_id=order_data.customer_id,
+                order_id=new_order.id,  # Link invoice to order
+                invoice_number=invoice_number,  # Use same invoice number
+                status=InvoiceStatus.OPEN if new_order.status == OrderStatus.PENDING else InvoiceStatus.PAID,
+                subtotal=order_data.subtotal,
+                discount_amount=order_data.discount_amount or 0.0,
+                discount_percent=order_data.discount_percent or 0.0,
+                tax=order_data.tax,
+                total=order_data.total,
+                amount_due=order_data.total if new_order.status == OrderStatus.PENDING else 0.0,
+                items=[item.dict() for item in order_data.items],
+                due_date=due_date,
+                is_recurring=(order_data.billing_period and order_data.billing_period != 'one-time')
+            )
+            db.add(invoice)
+            await db.commit()
+            logger.info(f"Created invoice {invoice_number} linked to order {new_order.id}")
+        except Exception as e:
+            logger.warning(f"Failed to create invoice for order {new_order.id}: {e}")
+            # Don't fail order creation if invoice creation fails
+            # Invoice can be created manually later if needed
         
         # Provision services based on order items (don't fail order creation if this fails)
         try:

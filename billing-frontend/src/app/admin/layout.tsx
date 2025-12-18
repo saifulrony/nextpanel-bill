@@ -52,6 +52,8 @@ const getBaseNavigation = () => [
   { name: 'Customers', href: '/admin/customers', icon: UserGroupIcon },
   { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
+  { name: 'Invoices', href: '/admin/invoices', icon: DocumentTextIcon },
+  { name: 'Subscriptions', href: '/admin/subscriptions', icon: CubeIcon },
   { name: 'Licenses', href: '/admin/licenses', icon: KeyIcon },
   { 
     name: 'Domains', 
@@ -63,7 +65,6 @@ const getBaseNavigation = () => [
       { name: 'Domain Pricing', href: '/admin/domain-pricing', icon: BanknotesIcon },
     ]
   },
-  { name: 'Subscriptions', href: '/admin/subscriptions', icon: CubeIcon },
   { 
     name: 'Payments', 
     href: '/admin/payments', 
@@ -143,6 +144,7 @@ const navigationPermissions: Record<string, string> = {
   '/admin/customers': 'access_customers_page',
   '/admin/products': 'access_products_page',
   '/admin/orders': 'access_orders_page',
+  '/admin/invoices': 'access_invoices_page',
   '/admin/licenses': 'access_licenses_page',
   '/admin/domains': 'access_domains_search_page',
   '/admin/domain-providers': 'access_domains_providers_page',
@@ -685,7 +687,7 @@ export default function DashboardLayout({
                   
                   {/* Search Results Dropdown */}
                   {searchDropdownOpen && searchResults.length > 0 && (
-                    <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-y-auto">
+                    <div className="absolute z-50 mt-2 left-0 sm:left-auto w-[calc(100vw-2rem)] sm:w-full max-w-md sm:max-w-none bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-y-auto">
                       <div className="py-2">
                         {searchResults.map((result, index) => {
                           const Icon = result.icon || HomeIcon;
@@ -726,7 +728,7 @@ export default function DashboardLayout({
                   
                   {/* No results message */}
                   {searchDropdownOpen && searchResults.length === 0 && searchQuery.trim() && (
-                    <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-lg border border-gray-200">
+                    <div className="absolute z-50 mt-2 left-0 sm:left-auto w-[calc(100vw-2rem)] sm:w-full max-w-md sm:max-w-none bg-white rounded-lg shadow-lg border border-gray-200">
                       <div className="px-4 py-8 text-center">
                         <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
                         <p className="mt-2 text-sm text-gray-900">No results found</p>
@@ -754,14 +756,14 @@ export default function DashboardLayout({
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center space-x-3 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 bg-white border border-gray-300 px-4 py-2 hover:bg-gray-50"
+                  className="flex items-center space-x-3 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 bg-white border border-gray-300 px-2 sm:px-4 py-2 hover:bg-gray-50"
                 >
-                  <UserCircleIcon className="h-8 w-8 text-gray-400" />
-                  <div className="text-left">
+                  <UserCircleIcon className="h-8 w-8 text-gray-400 flex-shrink-0" />
+                  <div className="text-left hidden sm:block">
                     <div className="font-medium text-gray-900">{user?.full_name}</div>
                     <div className="text-xs text-gray-500">{user?.email}</div>
                   </div>
-                  <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform hidden sm:block ${userDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Dropdown Menu */}

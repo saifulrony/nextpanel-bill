@@ -7,6 +7,7 @@ interface OrderFiltersProps {
     end_date: string;
     min_amount: string;
     max_amount: string;
+    order_type?: string;
   };
   setFilters: (filters: any) => void;
 }
@@ -26,10 +27,17 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
       end_date: '',
       min_amount: '',
       max_amount: '',
+      order_type: 'all', // Reset order_type too when clearing all
     });
   };
 
-  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+  const hasActiveFilters = Object.entries(filters)
+    .some(([key, value]) => {
+      if (key === 'order_type') {
+        return value !== '' && value !== 'all';
+      }
+      return value !== '';
+    });
 
   return (
     <div className="bg-white shadow sm:rounded-lg p-6">
@@ -45,7 +53,22 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <div>
+          <label htmlFor="order_type" className="block text-sm font-medium text-gray-700 mb-1">
+            Order Type
+          </label>
+          <select
+            id="order_type"
+            value={filters.order_type || 'all'}
+            onChange={(e) => handleChange('order_type', e.target.value)}
+            className="block w-full px-3 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="all">All Orders</option>
+            <option value="single">Single / One-time</option>
+            <option value="subscription">Subscription</option>
+          </select>
+        </div>
         <div>
           <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
             Status
@@ -126,6 +149,17 @@ export default function OrderFilters({ filters, setFilters }: OrderFiltersProps)
 
       {hasActiveFilters && (
         <div className="mt-4 flex flex-wrap gap-2">
+          {filters.order_type && filters.order_type !== 'all' && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+              Type: {filters.order_type === 'single' ? 'Single' : 'Subscription'}
+              <button
+                onClick={() => handleChange('order_type', 'all')}
+                className="ml-2 inline-flex items-center text-indigo-600 hover:text-indigo-900"
+              >
+                ×
+              </button>
+            </span>
+          )}
           {filters.status && (
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
               Status: {filters.status}

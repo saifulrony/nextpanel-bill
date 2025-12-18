@@ -1021,16 +1021,51 @@ export const ProductsGridComponent = React.memo(function ProductsGridComponent({
         const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
           (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
 
-        const response = await fetch(`${apiUrl}/api/v1/products/`);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Fetch ALL active products (regular + server products) to show all products dynamically
+        const [regularProductsRes, serverProductsRes] = await Promise.all([
+          fetch(`${apiUrl}/api/v1/products/?is_active=true`),
+          fetch(`${apiUrl}/api/v1/dedicated-servers/products`, {
+            headers: { 'Content-Type': 'application/json' },
+          }).then(res => res.ok ? res.json() : []).catch(() => []),
+        ]);
+
+        if (!regularProductsRes.ok) {
+          throw new Error(`HTTP ${regularProductsRes.status}: ${regularProductsRes.statusText}`);
         }
-        const data = await response.json();
+        const regularProducts = await regularProductsRes.json();
+
+        // Filter and transform server products
+        const activeServerProducts = Array.isArray(serverProductsRes) 
+          ? serverProductsRes.filter((sp: any) => sp.is_active !== false).map((sp: any) => ({
+              id: `server-${sp.id}`,
+              name: sp.name,
+              description: sp.description || '',
+              price_monthly: sp.price_monthly,
+              price_yearly: sp.price_yearly || sp.price_monthly * 12,
+              price: sp.price_monthly,
+              billing_cycle: 'monthly',
+              category: 'server',
+              features: {
+                category: 'server',
+                server_type: sp.server_type,
+                cpu_cores: sp.cpu_cores,
+                ram_gb: sp.ram_gb,
+                storage_gb: sp.storage_gb,
+                storage_type: sp.storage_type,
+                bandwidth_tb: sp.bandwidth_tb,
+                provisioning_type: sp.provisioning_type,
+              },
+            }))
+          : [];
+
+        // Combine regular and server products
+        const allProducts = [...(Array.isArray(regularProducts) ? regularProducts : []), ...activeServerProducts];
 
         // Cache the results
-        productsCache = data;
+        productsCache = allProducts;
         productsCacheTimestamp = now;
-        setProducts(data);
+        setProducts(allProducts);
+        console.log(`✅ ProductsGridComponent loaded ${allProducts.length} active products (${regularProducts.length} regular + ${activeServerProducts.length} server)`);
       } catch (error) {
         console.warn('Products API not available, using fallback data:', error);
         // Fallback to mock data if API fails

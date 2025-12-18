@@ -175,6 +175,12 @@ start_frontend() {
         }
     fi
     
+    # Clear cache if there are HMR issues (optional - can be enabled via env var)
+    if [ "${CLEAR_CACHE_ON_START:-0}" = "1" ]; then
+        print_status "Clearing Next.js cache..."
+        rm -rf .next node_modules/.cache 2>/dev/null || true
+    fi
+    
     # Rotate log
     [ -f "../frontend.log" ] && mv -f ../frontend.log ../frontend.log.old 2>/dev/null || true
     
@@ -367,8 +373,9 @@ main() {
             echo ""
             echo "💡 Tips:"
             echo "   - Run './dev.sh status' to check service status"
-            echo "   - Run './dev.sh restart' to restart services"
+            echo "   - Run './dev.sh restart' to restart services (clears Next.js cache)"
             echo "   - Run './dev.sh stop' to stop services"
+            echo "   - Run './dev.sh clear-cache' to clear Next.js cache only"
             echo "   - View logs: tail -f backend.log frontend.log"
             echo ""
             ;;
@@ -386,6 +393,11 @@ main() {
             rm -f "$BACKEND_PID_FILE" "$FRONTEND_PID_FILE"
             sleep 2
             echo ""
+            print_status "Clearing Next.js cache..."
+            rm -rf "$PROJECT_ROOT/billing-frontend/.next" 2>/dev/null || true
+            rm -rf "$PROJECT_ROOT/billing-frontend/node_modules/.cache" 2>/dev/null || true
+            print_success "Cache cleared"
+            echo ""
             ensure_backend_running
             ensure_frontend_running
             show_status
@@ -399,14 +411,21 @@ main() {
             rm -f "$BACKEND_PID_FILE" "$FRONTEND_PID_FILE"
             print_success "Services stopped"
             ;;
+        clear-cache)
+            print_header "🧹 Clearing Next.js cache..."
+            rm -rf "$PROJECT_ROOT/billing-frontend/.next" 2>/dev/null || true
+            rm -rf "$PROJECT_ROOT/billing-frontend/node_modules/.cache" 2>/dev/null || true
+            print_success "Cache cleared! Restart frontend with './dev.sh restart' or './dev.sh start'"
+            ;;
         *)
-            echo "Usage: $0 [start|status|restart|stop]"
+            echo "Usage: $0 [start|status|restart|stop|clear-cache]"
             echo ""
             echo "Commands:"
-            echo "  start   - Start services (default, only starts if not running)"
-            echo "  status  - Show current service status"
-            echo "  restart - Restart all services"
-            echo "  stop    - Stop all services"
+            echo "  start       - Start services (default, only starts if not running)"
+            echo "  status      - Show current service status"
+            echo "  restart     - Restart all services (clears Next.js cache)"
+            echo "  stop        - Stop all services"
+            echo "  clear-cache - Clear Next.js build cache only"
             exit 1
             ;;
     esac

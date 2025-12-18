@@ -261,19 +261,17 @@ export default function ServerPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">NextPanel Servers</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage your NextPanel server connections and monitor their status
-          </p>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
         >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Add Server
+          <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span className="hidden sm:inline">Add Server</span>
+          <span className="sm:hidden">Add</span>
         </button>
       </div>
 

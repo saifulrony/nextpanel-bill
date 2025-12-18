@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { plansAPI } from '@/lib/api';
+import { plansAPI, ordersAPI } from '@/lib/api';
 import {
   KeyIcon,
   CheckCircleIcon,
@@ -58,38 +58,76 @@ export default function MyLicensesPage() {
         setLoading(true);
         setError(null);
         
-        // Fetch user's purchased license services
-        const response = await plansAPI.list({ 
-          is_active: true,
-          category: 'licenses'
-        });
+        // Fetch user's purchased licenses from orders
+        const ordersResponse = await ordersAPI.list({ status: 'completed' });
+        const orders = Array.isArray(ordersResponse.data) ? ordersResponse.data : [];
         
-        // Transform products to license services with mock data for demonstration
-        const services = (response.data || []).map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          price_monthly: product.price_monthly,
-          price_yearly: product.price_yearly,
-          category: product.category,
-          subcategory: product.subcategory,
+        // Filter orders for license products
+        const licenseOrders = orders.filter((order: any) => {
+          const items = order.items || [];
+          return items.some((item: any) => 
+            item.type === 'license' || 
+            item.category === 'licenses' ||
+            item.category === 'license'
+          );
+        });
+
+        if (licenseOrders.length === 0) {
+          setLicenseServices([]);
+          setLoading(false);
+          return;
+        }
+
+        // Transform orders into license services
+        const services: LicenseService[] = [];
+        for (const order of licenseOrders) {
+          const items = order.items || [];
+          for (const item of items) {
+            if (item.type === 'license' || item.category === 'licenses' || item.category === 'license') {
+              // Try to fetch product details for more info
+              let productDetails = null;
+              if (item.product_id) {
+                try {
+                  const productResponse = await plansAPI.get(item.product_id);
+                  productDetails = productResponse.data;
+                } catch (e) {
+                  console.warn(`Could not fetch product details for ${item.product_id}:`, e);
+                }
+              }
+
+              const product = productDetails || item;
+              const purchaseDate = new Date(order.created_at || Date.now());
+              const expiryDate = new Date(purchaseDate);
+              expiryDate.setFullYear(expiryDate.getFullYear() + 1); // Default 1 year expiry
+
+              services.push({
+                id: item.product_id || order.id + '-' + Math.random(),
+                name: product.name || item.name || 'License Service',
+                description: product.description || item.description || '',
+                price_monthly: product.price_monthly || item.price || 0,
+                price_yearly: product.price_yearly || (product.price_monthly || item.price) * 12,
+                category: product.category || item.category || 'licenses',
+                subcategory: product.subcategory || item.subcategory,
           status: 'active' as const,
-          license_key: `LIC-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          license_type: product.features?.license_type || 'Professional',
-          max_accounts: product.max_accounts || 1,
-          max_domains: product.max_domains || 1,
-          max_databases: product.max_databases || 1,
-          max_emails: product.max_emails || 1,
-          current_accounts: Math.floor(Math.random() * (product.max_accounts || 1)),
-          current_domains: Math.floor(Math.random() * (product.max_domains || 1)),
-          current_databases: Math.floor(Math.random() * (product.max_databases || 1)),
-          current_emails: Math.floor(Math.random() * (product.max_emails || 1)),
-          activation_date: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          auto_renew: true,
+                license_key: item.license_key || `LIC-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+                license_type: product.features?.license_type || item.license_type || 'Professional',
+                max_accounts: product.max_accounts || item.max_accounts || 1,
+                max_domains: product.max_domains || item.max_domains || 1,
+                max_databases: product.max_databases || item.max_databases || 1,
+                max_emails: product.max_emails || item.max_emails || 1,
+                current_accounts: item.current_accounts || 0,
+                current_domains: item.current_domains || 0,
+                current_databases: item.current_databases || 0,
+                current_emails: item.current_emails || 0,
+                activation_date: purchaseDate.toISOString().split('T')[0],
+                expiry_date: expiryDate.toISOString().split('T')[0],
+                auto_renew: order.billing_period && order.billing_period !== 'one-time',
           nextpanel_user_id: user?.email?.split('@')[0] || 'user',
-          features: product.features || {},
-        }));
+                features: product.features || item.features || {},
+              });
+            }
+          }
+        }
         
         setLicenseServices(services);
         

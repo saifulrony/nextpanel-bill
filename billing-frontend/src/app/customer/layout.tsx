@@ -23,11 +23,12 @@ import {
   ServerIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline';
 
 const customerNavigation = [
   { name: 'Dashboard', href: '/customer/dashboard', icon: HomeIcon },
-  { name: 'Services', href: '/customer/services', icon: ShoppingCartIcon },
+  { name: 'All Services', href: '/customer/services', icon: ShoppingCartIcon },
   { 
     name: 'My Services', 
     href: '/customer/my-services', 
@@ -37,6 +38,7 @@ const customerNavigation = [
       { name: 'Hosting', href: '/customer/my-services/hosting', icon: ServerIcon },
       { name: 'Servers', href: '/customer/my-services/servers', icon: ServerIcon },
       { name: 'Licenses', href: '/customer/my-services/licenses', icon: KeyIcon },
+      { name: 'Softwares', href: '/customer/my-services/softwares', icon: ComputerDesktopIcon },
       { name: 'Others', href: '/customer/my-services/others', icon: CubeIcon },
     ]
   },
@@ -207,6 +209,8 @@ export default function CustomerLayout({
         return serviceCounts.servers;
       case 'licenses':
         return serviceCounts.licenses;
+      case 'softwares':
+        return serviceCounts.softwares || 0;
       case 'others':
         return serviceCounts.others;
       default:

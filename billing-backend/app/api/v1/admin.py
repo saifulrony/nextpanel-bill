@@ -202,6 +202,10 @@ async def create_plan(
         max_emails=request.max_emails,
         stripe_price_id_monthly=request.stripe_price_id_monthly,
         stripe_price_id_yearly=request.stripe_price_id_yearly,
+        discount_first_day=request.discount_first_day or 0.0,
+        discount_first_month=request.discount_first_month or 0.0,
+        discount_first_year=request.discount_first_year or 0.0,
+        discount_lifetime=request.discount_lifetime or 0.0,
         is_active=True
     )
     
@@ -248,6 +252,14 @@ async def update_plan(
         plan.max_emails = request.max_emails
     if request.is_active is not None:
         plan.is_active = request.is_active
+    if request.discount_first_day is not None:
+        plan.discount_first_day = request.discount_first_day
+    if request.discount_first_month is not None:
+        plan.discount_first_month = request.discount_first_month
+    if request.discount_first_year is not None:
+        plan.discount_first_year = request.discount_first_year
+    if request.discount_lifetime is not None:
+        plan.discount_lifetime = request.discount_lifetime
     
     await db.commit()
     await db.refresh(plan)

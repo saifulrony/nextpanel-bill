@@ -93,16 +93,20 @@ api.interceptors.response.use(
           errorDetail.includes('Not authenticated')) {
         // Token is invalid or expired
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          // Redirect to appropriate login based on current path
-          if (!window.location.pathname.includes('/login')) {
-            if (window.location.pathname.startsWith('/customer')) {
-              window.location.href = '/customer/login';
-            } else {
-              window.location.href = '/login';
+          // Add a small delay to allow error messages to be displayed first
+          // This gives modals/forms a chance to show the error before redirecting
+          setTimeout(() => {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            // Redirect to appropriate login based on current path
+            if (!window.location.pathname.includes('/login')) {
+              if (window.location.pathname.startsWith('/customer')) {
+                window.location.href = '/customer/login';
+              } else {
+                window.location.href = '/login';
+              }
             }
-          }
+          }, 2000); // 2 second delay to show error
         }
       }
     }
@@ -977,6 +981,15 @@ export const reportsAPI = {
   exportOrders: (params: any) => api.get('/reports/orders/export', { params, responseType: 'blob' }),
   exportInvoices: (params: any) => api.get('/reports/invoices/export', { params, responseType: 'blob' }),
   getRevenueSummary: (params: any) => api.get('/reports/revenue-summary', { params }),
+};
+
+// Security API
+export const securityAPI = {
+  getIpLists: () => api.get('/security/ip-lists'),
+  addToWhitelist: (ipAddress: string) => api.post('/security/ip-lists/whitelist', { ip_address: ipAddress }),
+  addToBlacklist: (ipAddress: string) => api.post('/security/ip-lists/blacklist', { ip_address: ipAddress }),
+  removeFromWhitelist: (ipAddress: string) => api.delete(`/security/ip-lists/whitelist/${ipAddress}`),
+  removeFromBlacklist: (ipAddress: string) => api.delete(`/security/ip-lists/blacklist/${ipAddress}`),
 };
 
 export default api;

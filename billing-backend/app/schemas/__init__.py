@@ -95,6 +95,10 @@ class PlanCreateRequest(PlanBase):
     features: Optional[Dict[str, Any]] = None
     stripe_price_id_monthly: Optional[str] = None
     stripe_price_id_yearly: Optional[str] = None
+    discount_first_day: Optional[float] = Field(default=0.0, ge=0.0, le=100.0)
+    discount_first_month: Optional[float] = Field(default=0.0, ge=0.0, le=100.0)
+    discount_first_year: Optional[float] = Field(default=0.0, ge=0.0, le=100.0)
+    discount_lifetime: Optional[float] = Field(default=0.0, ge=0.0, le=100.0)
 
 
 class PlanUpdateRequest(BaseModel):
@@ -110,6 +114,10 @@ class PlanUpdateRequest(BaseModel):
     is_active: Optional[bool] = None
     is_featured: Optional[bool] = None
     sort_order: Optional[int] = None
+    discount_first_day: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+    discount_first_month: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+    discount_first_year: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+    discount_lifetime: Optional[float] = Field(default=None, ge=0.0, le=100.0)
 
 
 class PlanResponse(PlanBase):
@@ -118,6 +126,10 @@ class PlanResponse(PlanBase):
     is_active: bool
     is_featured: bool = False
     sort_order: int = 0
+    discount_first_day: float = 0.0
+    discount_first_month: float = 0.0
+    discount_first_year: float = 0.0
+    discount_lifetime: float = 0.0
     created_at: datetime
     
     class Config:

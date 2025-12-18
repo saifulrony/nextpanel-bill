@@ -12,7 +12,7 @@ import os
 
 from app.core.config import settings as config_settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages, customer_domains, customer_subscriptions, customer_invoices, customer_profile, order_automation, staff, coupons, credit_notes, email_templates, currencies, tax_rules, affiliates, recurring_billing, reports, dedicated_servers
+from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages, customer_domains, customer_subscriptions, customer_invoices, customer_profile, order_automation, staff, coupons, credit_notes, email_templates, currencies, tax_rules, affiliates, recurring_billing, reports, dedicated_servers, security
 from app.api.v1 import settings as settings_api
 from app.schemas import HealthResponse
 
@@ -311,6 +311,7 @@ app.include_router(affiliates.router, prefix="/api/v1")
 app.include_router(recurring_billing.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(dedicated_servers.router, prefix="/api/v1")
+app.include_router(security.router, prefix="/api/v1")
 
 # Load and register installed addon routes dynamically
 from app.core.addon_loader import AddonLoader

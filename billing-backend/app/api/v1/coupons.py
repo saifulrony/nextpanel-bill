@@ -33,6 +33,7 @@ class CouponCreateRequest(BaseModel):
     applicable_to_products: Optional[str] = None
     applicable_to_categories: Optional[str] = None
     first_time_customers_only: bool = False
+    first_billing_period_only: bool = False
 
 
 class CouponUpdateRequest(BaseModel):
@@ -49,6 +50,7 @@ class CouponUpdateRequest(BaseModel):
     applicable_to_products: Optional[str] = None
     applicable_to_categories: Optional[str] = None
     first_time_customers_only: Optional[bool] = None
+    first_billing_period_only: Optional[bool] = None
 
 
 class CouponResponse(BaseModel):
@@ -69,6 +71,7 @@ class CouponResponse(BaseModel):
     applicable_to_products: Optional[str]
     applicable_to_categories: Optional[str]
     first_time_customers_only: bool
+    first_billing_period_only: bool
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -115,6 +118,7 @@ async def create_coupon(
         applicable_to_products=request.applicable_to_products,
         applicable_to_categories=request.applicable_to_categories,
         first_time_customers_only=request.first_time_customers_only,
+        first_billing_period_only=request.first_billing_period_only,
         created_by=user_id,
         status=CouponStatus.ACTIVE
     )
@@ -212,6 +216,8 @@ async def update_coupon(
         coupon.applicable_to_categories = request.applicable_to_categories
     if request.first_time_customers_only is not None:
         coupon.first_time_customers_only = request.first_time_customers_only
+    if request.first_billing_period_only is not None:
+        coupon.first_billing_period_only = request.first_billing_period_only
     
     await db.commit()
     await db.refresh(coupon)
@@ -353,6 +359,7 @@ async def validate_coupon(
         applicable_to_products=coupon.applicable_to_products,
         applicable_to_categories=coupon.applicable_to_categories,
         first_time_customers_only=coupon.first_time_customers_only,
+        first_billing_period_only=coupon.first_billing_period_only,
         created_at=coupon.created_at,
         updated_at=coupon.updated_at
     )

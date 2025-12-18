@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { dedicatedServersAPI } from '@/lib/api';
+import { dedicatedServersAPI, ordersAPI } from '@/lib/api';
 import {
   ServerIcon,
   CheckCircleIcon,
@@ -83,13 +83,16 @@ export default function MyServersPage() {
       const token = localStorage.getItem('access_token');
       if (!token) {
         setError('Please login to view your servers');
+        setLoading(false);
         return;
       }
 
-      // Fetch customer's server instances using centralized API client
-      // The endpoint automatically filters by the authenticated user's ID from the JWT token
+      // First, try to fetch from dedicated servers API (provisioned instances)
+      try {
       const serverData = await dedicatedServersAPI.listInstances();
       const serversList = Array.isArray(serverData.data) ? serverData.data : [];
+        
+        if (serversList.length > 0) {
       setServers(serversList);
 
       // Load product details for each server
@@ -107,6 +110,88 @@ export default function MyServersPage() {
       const productResults = await Promise.all(productPromises);
       const productsMap = Object.assign({}, ...productResults);
       setProducts(productsMap);
+          setLoading(false);
+          return;
+        }
+      } catch (serverApiError) {
+        console.warn('Dedicated servers API not available, trying orders API:', serverApiError);
+      }
+
+      // Fallback: Fetch from orders API to show purchased servers
+      const { ordersAPI } = await import('@/lib/api');
+      const ordersResponse = await ordersAPI.list({ status: 'completed' });
+      const orders = Array.isArray(ordersResponse.data) ? ordersResponse.data : [];
+      
+      // Filter orders for server products
+      const serverOrders = orders.filter((order: any) => {
+        const items = order.items || [];
+        return items.some((item: any) => 
+          item.type === 'server' || 
+          item.category === 'server' ||
+          item.product_id?.toString().startsWith('server-')
+        );
+      });
+
+      if (serverOrders.length === 0) {
+        setServers([]);
+        setLoading(false);
+        return;
+      }
+
+      // Transform orders into server instances format
+      const serversFromOrders: ServerInstance[] = [];
+      for (const order of serverOrders) {
+        const items = order.items || [];
+        for (const item of items) {
+          if (item.type === 'server' || item.category === 'server' || item.product_id?.toString().startsWith('server-')) {
+            const productId = item.product_id?.toString().replace('server-', '') || item.product_id;
+            serversFromOrders.push({
+              id: parseInt(productId) || Math.random(),
+              customer_id: order.customer_id,
+              order_id: parseInt(order.id) || null,
+              product_id: parseInt(productId) || 0,
+              hostname: null,
+              ip_address: null,
+              status: 'pending_provisioning' as const,
+              cpu_cores: item.features?.cpu_cores || 0,
+              ram_gb: item.features?.ram_gb || 0,
+              storage_gb: item.features?.storage_gb || 0,
+              storage_type: item.features?.storage_type || null,
+              bandwidth_tb: item.features?.bandwidth_tb || 0,
+              operating_system: null,
+              datacenter_location: null,
+              created_at: order.created_at || new Date().toISOString(),
+              provisioned_at: null,
+              root_password: null,
+              ssh_port: 22,
+              control_panel_url: null,
+              control_panel_type: null,
+              provider: null,
+              meta_data: item.features || {},
+            });
+          }
+        }
+      }
+
+      setServers(serversFromOrders);
+
+      // Load product details if we have servers
+      if (serversFromOrders.length > 0) {
+        const productIds = [...new Set(serversFromOrders.map((s: ServerInstance) => s.product_id))];
+        const productPromises = productIds.map(async (productId: number) => {
+          try {
+            const productResponse = await dedicatedServersAPI.getProduct(productId);
+            return { [productId]: productResponse.data };
+          } catch (e) {
+            console.error(`Failed to load product ${productId}:`, e);
+            return {};
+          }
+        });
+
+        const productResults = await Promise.all(productPromises);
+        const productsMap = Object.assign({}, ...productResults);
+        setProducts(productsMap);
+      }
 
     } catch (err: any) {
       console.error('Failed to load servers:', err);

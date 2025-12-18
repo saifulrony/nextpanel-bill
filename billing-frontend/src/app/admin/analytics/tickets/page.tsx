@@ -221,30 +221,27 @@ export default function SupportTicketsPage() {
 
       {/* Page Header */}
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Support Tickets</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Support performance metrics and ticket analytics
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Support Tickets</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 border-r-0 sm:border-r border-gray-300 pr-0 sm:pr-2">
               <button
                 onClick={handleExport}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 title="Export to Excel"
               >
-                <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-                Export
+                <ArrowDownTrayIcon className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Export</span>
               </button>
               <button
                 onClick={handleImportClick}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 title="Import from Excel/CSV"
               >
-                <ArrowUpTrayIcon className="h-4 w-4 mr-1" />
-                Import
+                <ArrowUpTrayIcon className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Import</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -254,7 +251,7 @@ export default function SupportTicketsPage() {
                 className="hidden"
               />
             </div>
-            <div className="flex items-center text-xs text-gray-500">
+            <div className="hidden sm:flex items-center text-xs text-gray-500">
               <ClockIcon className="h-4 w-4 mr-1" />
               Updated: {lastUpdate.toLocaleTimeString()}
             </div>
@@ -290,9 +287,31 @@ export default function SupportTicketsPage() {
         
         {/* Time Period Selector */}
         <div className="bg-white shadow rounded-lg p-4">
-          <div className="flex items-center space-x-4">
-            <label className="text-sm font-medium text-gray-700">Time Period:</label>
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Time Period:</label>
+            
+            {/* Mobile: Dropdown */}
+            <div className="w-full sm:hidden">
+              <select
+                value={timePeriod}
+                onChange={(e) => {
+                  const period = e.target.value;
+                  setTimePeriod(period);
+                  setShowCustomDate(period === 'custom');
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="week">Last 7 Days</option>
+                <option value="month">Last 30 Days</option>
+                <option value="year">Last 12 Months</option>
+                <option value="custom">Custom Period</option>
+              </select>
+            </div>
+            
+            {/* Desktop: Buttons */}
+            <div className="hidden sm:flex items-center space-x-2 flex-wrap">
               {['today', 'yesterday', 'week', 'month', 'year', 'custom'].map((period) => (
                 <button
                   key={period}
@@ -312,19 +331,19 @@ export default function SupportTicketsPage() {
             </div>
             
             {showCustomDate && (
-              <div className="flex items-center space-x-2 ml-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto sm:ml-4 mt-2 sm:mt-0">
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
                 <span className="text-gray-500">to</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
                 <button
                   onClick={loadSupportData}

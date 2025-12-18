@@ -24,6 +24,7 @@ export default function CouponsPage() {
     applicable_to_products: '',
     applicable_to_categories: '',
     first_time_customers_only: false,
+    first_billing_period_only: false,
   });
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export default function CouponsPage() {
       applicable_to_products: '',
       applicable_to_categories: '',
       first_time_customers_only: false,
+      first_billing_period_only: false,
     });
   };
 
@@ -130,6 +132,7 @@ export default function CouponsPage() {
       applicable_to_products: coupon.applicable_to_products || '',
       applicable_to_categories: coupon.applicable_to_categories || '',
       first_time_customers_only: coupon.first_time_customers_only || false,
+      first_billing_period_only: coupon.first_billing_period_only || false,
     });
   };
 
@@ -180,10 +183,17 @@ export default function CouponsPage() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{coupon.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">{coupon.coupon_type}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {coupon.coupon_type === 'percentage' 
-                    ? `${coupon.discount_value}%`
-                    : `$${coupon.discount_value}`
-                  }
+                  <div>
+                    {coupon.coupon_type === 'percentage' 
+                      ? `${coupon.discount_value}%`
+                      : `$${coupon.discount_value}`
+                    }
+                    {coupon.first_billing_period_only && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        First Year Only
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {coupon.usage_count} / {coupon.usage_limit || '∞'}
@@ -297,6 +307,33 @@ export default function CouponsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700">Usage Limit (Total)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.usage_limit || ''}
+                    onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value ? parseInt(e.target.value) : null })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    placeholder="Leave empty for unlimited"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Maximum number of times this coupon can be used in total. Leave empty for unlimited.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Usage Limit Per User</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.usage_limit_per_user}
+                    onChange={(e) => setFormData({ ...formData, usage_limit_per_user: parseInt(e.target.value) || 1 })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Maximum number of times each customer can use this coupon.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700">Valid From *</label>
                   <input
                     type="date"
@@ -317,14 +354,34 @@ export default function CouponsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.first_time_customers_only}
-                  onChange={(e) => setFormData({ ...formData, first_time_customers_only: e.target.checked })}
-                  className="mr-2"
-                />
-                <label className="text-sm font-medium text-gray-700">First-time customers only</label>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.first_time_customers_only}
+                    onChange={(e) => setFormData({ ...formData, first_time_customers_only: e.target.checked })}
+                    className="mr-2"
+                  />
+                  <label className="text-sm font-medium text-gray-700">First-time customers only</label>
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.first_billing_period_only}
+                    onChange={(e) => setFormData({ ...formData, first_billing_period_only: e.target.checked })}
+                    className="mr-2"
+                  />
+                  <label className="text-sm font-medium text-gray-700">
+                    First billing period only (e.g., first year discount, then regular price)
+                  </label>
+                </div>
+                {formData.first_billing_period_only && (
+                  <p className="text-xs text-gray-500 ml-6">
+                    When enabled, the discount will apply only to the first billing period (e.g., first year). 
+                    Subsequent renewals will be charged at the regular price.
+                  </p>
+                )}
               </div>
             </div>
 

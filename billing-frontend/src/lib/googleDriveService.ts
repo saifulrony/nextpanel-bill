@@ -20,13 +20,35 @@ export class GoogleDriveService {
   private drive: any;
   private folderId: string;
   private initialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor(config: GoogleDriveConfig) {
     this.folderId = config.folderId;
-    this.initializeDrive(config);
+    // Start initialization but don't await in constructor
+    this.initializationPromise = this.initializeDrive(config);
   }
 
-  private async initializeDrive(config: GoogleDriveConfig) {
+  /**
+   * Wait for initialization to complete.
+   * This should be called before using any methods that require initialization.
+   */
+  public async waitForInitialization(): Promise<void> {
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    }
+  }
+
+  /**
+   * Static factory method to create and initialize a GoogleDriveService instance.
+   * This is the recommended way to create an instance when you need to ensure initialization is complete.
+   */
+  public static async create(config: GoogleDriveConfig): Promise<GoogleDriveService> {
+    const service = new GoogleDriveService(config);
+    await service.waitForInitialization();
+    return service;
+  }
+
+  private async initializeDrive(config: GoogleDriveConfig): Promise<void> {
     if (!google) {
       console.warn('Google APIs not available - Google Drive service disabled');
       this.initialized = false;
@@ -75,6 +97,8 @@ export class GoogleDriveService {
     fileName: string, 
     mimeType?: string
   ): Promise<string | null> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -105,6 +129,8 @@ export class GoogleDriveService {
   }
 
   public async downloadFile(fileId: string, downloadPath: string): Promise<void> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -131,6 +157,8 @@ export class GoogleDriveService {
   }
 
   public async deleteFile(fileId: string): Promise<void> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -148,6 +176,8 @@ export class GoogleDriveService {
   }
 
   public async listFiles(): Promise<any[]> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -167,6 +197,8 @@ export class GoogleDriveService {
   }
 
   public async getFileInfo(fileId: string): Promise<any> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -185,6 +217,8 @@ export class GoogleDriveService {
   }
 
   public async createFolder(folderName: string, parentId?: string): Promise<string> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -210,6 +244,8 @@ export class GoogleDriveService {
   }
 
   public async getStorageQuota(): Promise<any> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -227,6 +263,8 @@ export class GoogleDriveService {
   }
 
   public async searchFiles(query: string): Promise<any[]> {
+    await this.waitForInitialization();
+    
     if (!this.initialized) {
       throw new Error('Google Drive service not initialized');
     }
@@ -323,6 +361,9 @@ export class GoogleDriveService {
 
   public async testConnection(): Promise<boolean> {
     try {
+      // Ensure initialization is complete before testing
+      await this.waitForInitialization();
+      
       if (!this.initialized) {
         console.error('Google Drive service not initialized');
         return false;
@@ -367,7 +408,8 @@ export class GoogleDriveService {
   }
 }
 
-// Create singleton instance
+// Create singleton instance (lazy initialization - will be initialized when first used)
+// Note: For proper initialization, use GoogleDriveService.create() instead
 export const googleDriveService = new GoogleDriveService({
   folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || 'your-folder-id',
   scopes: ['https://www.googleapis.com/auth/drive'],

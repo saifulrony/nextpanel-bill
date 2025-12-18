@@ -990,6 +990,9 @@ function CustomizationPageContent() {
     { path: '/admin/settings', name: 'Settings', type: 'page', category: 'Admin' },
     { path: '/admin/customization', name: 'Customization', type: 'page', category: 'Admin' },
     
+    // Public Pages
+    { path: '/products/[id]', name: 'Product Page', type: 'page', category: 'Public Pages' },
+    
     // Layouts
     { path: '/admin/layout', name: 'Admin Layout', type: 'layout', category: 'Layouts' },
     

@@ -441,54 +441,97 @@ export default function DashboardPage() {
 
       {/* Page Header */}
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Welcome back, {user?.full_name}! Here's your system overview.
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
           </div>
-          <div className="flex items-center space-x-4">
-          <div className="flex items-center text-xs text-gray-500">
-            <ClockIcon className="h-4 w-4 mr-1" />
-            Updated: {lastUpdate.toLocaleTimeString()}
-          </div>
-          
-          {/* Real-time Status */}
-          <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${
-            isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
-            <SignalIcon className={`h-4 w-4 ${isConnected ? 'animate-pulse' : ''}`} />
-            <span className="text-xs font-medium">
-              {isConnected ? 'Live' : 'Disconnected'}
-            </span>
-          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+            {/* Mobile: Show only essential items */}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {/* Real-time Status - Always visible */}
+              <div className={`flex items-center space-x-2 px-2 sm:px-3 py-1 rounded-full ${
+                isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                <SignalIcon className={`h-4 w-4 ${isConnected ? 'animate-pulse' : ''}`} />
+                <span className="text-xs font-medium hidden min-[375px]:inline">
+                  {isConnected ? 'Live' : 'Disconnected'}
+                </span>
+              </div>
 
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={realtimeEnabled}
-              onChange={(e) => setRealtimeEnabled(e.target.checked)}
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span className="text-sm text-gray-700">Real-time</span>
-          </label>
+              {/* Refresh Button - Always visible */}
+              <button
+                onClick={loadDashboardData}
+                className="inline-flex items-center px-2 sm:px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex-1 sm:flex-initial"
+              >
+                <ArrowPathIcon className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            </div>
 
-            <button
-              onClick={loadDashboardData}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <ArrowPathIcon className="h-4 w-4 mr-2" />
-              Refresh
-            </button>
+            {/* Desktop: Show additional info */}
+            <div className="hidden sm:flex items-center space-x-4">
+              <div className="flex items-center text-xs text-gray-500">
+                <ClockIcon className="h-4 w-4 mr-1" />
+                Updated: {lastUpdate.toLocaleTimeString()}
+              </div>
+
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={realtimeEnabled}
+                  onChange={(e) => setRealtimeEnabled(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700">Real-time</span>
+              </label>
+            </div>
+
+            {/* Mobile: Show timestamp and real-time toggle in a row below */}
+            <div className="flex items-center justify-between w-full sm:hidden text-xs text-gray-500">
+              <div className="flex items-center">
+                <ClockIcon className="h-3 w-3 mr-1" />
+                {lastUpdate.toLocaleTimeString()}
+              </div>
+              <label className="flex items-center space-x-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={realtimeEnabled}
+                  onChange={(e) => setRealtimeEnabled(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3 w-3"
+                />
+                <span className="text-xs text-gray-700">Real-time</span>
+              </label>
+            </div>
           </div>
         </div>
         
         {/* Time Period Selector */}
         <div className="bg-white shadow rounded-lg p-4">
-          <div className="flex items-center space-x-4">
-            <label className="text-sm font-medium text-gray-700">Time Period:</label>
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Time Period:</label>
+            
+            {/* Mobile: Dropdown */}
+            <div className="w-full sm:hidden">
+              <select
+                value={timePeriod}
+                onChange={(e) => {
+                  const period = e.target.value;
+                  setTimePeriod(period);
+                  setShowCustomDate(period === 'custom');
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="week">Last 7 Days</option>
+                <option value="month">Last 30 Days</option>
+                <option value="year">Last 12 Months</option>
+                <option value="custom">Custom Period</option>
+              </select>
+            </div>
+            
+            {/* Desktop: Buttons */}
+            <div className="hidden sm:flex items-center space-x-2 flex-wrap">
               {['today', 'yesterday', 'week', 'month', 'year', 'custom'].map((period) => (
                 <button
                   key={period}
@@ -510,19 +553,19 @@ export default function DashboardPage() {
             </div>
             
             {showCustomDate && (
-              <div className="flex items-center space-x-2 ml-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto sm:ml-4 mt-2 sm:mt-0">
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
                 <span className="text-gray-500">to</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
                 <button
                   onClick={loadDashboardData}

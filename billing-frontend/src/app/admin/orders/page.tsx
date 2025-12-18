@@ -7,7 +7,6 @@ import { getDemoData } from '@/lib/demoData';
 import CreateOrderModal from '@/components/orders/CreateOrderModal';
 import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
 import OrderFilters from '@/components/orders/OrderFilters';
-import ChargingControls from '@/components/orders/ChargingControls';
 import PaymentHistoryModal from '@/components/orders/PaymentHistoryModal';
 import EmailAutomationModal from '@/components/orders/EmailAutomationModal';
 import PaymentAutomationModal from '@/components/orders/PaymentAutomationModal';
@@ -101,12 +100,28 @@ export default function OrdersPage() {
     end_date: '',
     min_amount: '',
     max_amount: '',
+    order_type: 'all', // 'all', 'single', 'subscription'
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+
   useEffect(() => {
     loadData();
-  }, [filters]);
+  }, [filters.status, filters.start_date, filters.end_date, filters.min_amount, filters.max_amount]);
+
+  useEffect(() => {
+    // Filter orders by order_type
+    let filtered = [...orders];
+    
+    if (filters.order_type === 'single') {
+      filtered = filtered.filter(o => !o.is_recurring && (!o.billing_period || o.billing_period === 'one-time'));
+    } else if (filters.order_type === 'subscription') {
+      filtered = filtered.filter(o => o.is_recurring || (o.billing_period && o.billing_period !== 'one-time'));
+    }
+    
+    setFilteredOrders(filtered);
+  }, [orders, filters.order_type]);
 
   const loadData = async () => {
     try {
@@ -599,38 +614,37 @@ export default function OrdersPage() {
       )}
 
       {/* Page Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Manage customer orders and payments
-          </p>
+          <h1 className="text-2xl sm:text-2xl font-semibold text-gray-900">Orders</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {selectedOrders.length > 0 && (
             <button
               onClick={() => setShowBulkActionsModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              Bulk Actions ({selectedOrders.length})
+              <span className="hidden sm:inline">Bulk Actions</span>
+              <span className="sm:hidden">Bulk</span>
+              <span className="px-1.5 py-0.5 bg-blue-500 rounded text-xs">({selectedOrders.length})</span>
             </button>
           )}
-          <div className="flex items-center gap-2 border-r border-gray-300 pr-2">
+          <div className="flex items-center gap-2 border-r-0 sm:border-r border-gray-300 pr-0 sm:pr-2">
             <button
               onClick={handleExport}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               title="Export to Excel"
             >
-              <ArrowDownTrayIcon className="h-5 w-5 mr-1" />
-              Export
+              <ArrowDownTrayIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="hidden sm:inline">Export</span>
             </button>
             <button
               onClick={handleImportClick}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               title="Import from Excel/CSV"
             >
-              <ArrowUpTrayIcon className="h-5 w-5 mr-1" />
-              Import
+              <ArrowUpTrayIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="hidden sm:inline">Import</span>
             </button>
             <input
               ref={fileInputRef}
@@ -642,12 +656,13 @@ export default function OrdersPage() {
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
           >
-            <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Create Order
+            <span className="hidden sm:inline">Create Order</span>
+            <span className="sm:hidden">Create</span>
           </button>
         </div>
       </div>
@@ -737,6 +752,53 @@ export default function OrdersPage() {
         </div>
       )}
 
+      {/* Order Type Tabs */}
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+        <div className="border-b border-gray-200">
+          <nav className="flex -mb-px" aria-label="Tabs">
+            <button
+              onClick={() => setFilters({ ...filters, order_type: 'all' })}
+              className={`${
+                filters.order_type === 'all'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+            >
+              All Orders
+              <span className="ml-2 text-xs text-gray-400">
+                ({orders.length})
+              </span>
+            </button>
+            <button
+              onClick={() => setFilters({ ...filters, order_type: 'single' })}
+              className={`${
+                filters.order_type === 'single'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+            >
+              Single Orders
+              <span className="ml-2 text-xs text-gray-400">
+                ({orders.filter(o => !o.is_recurring && (!o.billing_period || o.billing_period === 'one-time')).length})
+              </span>
+            </button>
+            <button
+              onClick={() => setFilters({ ...filters, order_type: 'subscription' })}
+              className={`${
+                filters.order_type === 'subscription'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
+            >
+              Subscription Orders
+              <span className="ml-2 text-xs text-gray-400">
+                ({orders.filter(o => o.is_recurring || (o.billing_period && o.billing_period !== 'one-time' && o.billing_period !== 'onetime')).length})
+              </span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
       {/* Filters */}
       <OrderFilters filters={filters} setFilters={setFilters} />
 
@@ -744,7 +806,9 @@ export default function OrdersPage() {
       <div className="bg-white shadow-sm rounded-lg border border-gray-200">
         <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900">
-            All Orders
+            {filters.order_type === 'all' ? 'All Orders' : 
+             filters.order_type === 'single' ? 'Single Orders' : 
+             'Subscription Orders'}
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -753,7 +817,7 @@ export default function OrdersPage() {
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
               <p className="mt-2 text-sm text-gray-500">Loading orders...</p>
             </div>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div className="text-center py-12">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -783,10 +847,10 @@ export default function OrdersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <input
                       type="checkbox"
-                      checked={selectedOrders.length === orders.length && orders.length > 0}
+                      checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedOrders(orders.map(o => o.id));
+                          setSelectedOrders(filteredOrders.map(o => o.id));
                         } else {
                           setSelectedOrders([]);
                         }
@@ -796,6 +860,9 @@ export default function OrdersPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Order #
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
@@ -812,16 +879,13 @@ export default function OrdersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Charging
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
@@ -839,6 +903,20 @@ export default function OrdersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {order.invoice_number || order.order_number || order.id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {order.is_recurring || (order.billing_period && order.billing_period !== 'one-time') ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" />
+                          </svg>
+                          Subscription
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          Single
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(order.created_at)}
@@ -882,15 +960,6 @@ export default function OrdersPage() {
                         {order.status.replace('_', ' ')}
                       </span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <ChargingControls
-                        order={order}
-                        onCharge={handleManualCharge}
-                        onConfigureAutoCharge={handleConfigureAutoCharge}
-                        onViewPaymentHistory={handleViewPaymentHistory}
-                        isLoading={isCharging}
-                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
