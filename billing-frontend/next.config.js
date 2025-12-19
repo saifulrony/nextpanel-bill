@@ -8,7 +8,7 @@ const nextConfig = {
     // Only set it here if you want to override the dynamic detection
     // NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
-  // Enable hot reloading and fast refresh
+  // Enable hot reloading and fast refresh 
   experimental: {
     // Enable faster builds
     turbo: {

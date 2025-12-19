@@ -165,8 +165,7 @@ export default function CouponsPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code & Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usage</th>
@@ -177,17 +176,17 @@ export default function CouponsPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {coupons.map((coupon) => (
               <tr key={coupon.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <code className="text-sm font-mono bg-gray-100 text-gray-900 px-2 py-1 rounded">{coupon.code}</code>
+                  <span className="text-gray-500 ml-2">- {coupon.name}</span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{coupon.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">{coupon.coupon_type}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <div>
-                    {coupon.coupon_type === 'percentage' 
-                      ? `${coupon.discount_value}%`
-                      : `$${coupon.discount_value}`
-                    }
+                  {coupon.coupon_type === 'percentage' 
+                    ? `${coupon.discount_value}%`
+                    : `$${coupon.discount_value}`
+                  }
                     {coupon.first_billing_period_only && (
                       <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                         First Year Only
@@ -355,14 +354,14 @@ export default function CouponsPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.first_time_customers_only}
-                    onChange={(e) => setFormData({ ...formData, first_time_customers_only: e.target.checked })}
-                    className="mr-2"
-                  />
-                  <label className="text-sm font-medium text-gray-700">First-time customers only</label>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.first_time_customers_only}
+                  onChange={(e) => setFormData({ ...formData, first_time_customers_only: e.target.checked })}
+                  className="mr-2"
+                />
+                <label className="text-sm font-medium text-gray-700">First-time customers only</label>
                 </div>
                 
                 <div className="flex items-center">

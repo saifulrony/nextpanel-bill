@@ -1029,7 +1029,7 @@ export default function ProductsPage() {
                   {/* Pricing */}
                   <div className="mt-4 space-y-2">
                     <div className="flex items-baseline space-x-4">
-                      <div>
+                    <div>
                         {product.discount_first_month && product.discount_first_month > 0 ? (
                           <div>
                             <span className="text-lg line-through text-gray-400">
@@ -1043,13 +1043,13 @@ export default function ProductsPage() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-2xl font-bold text-gray-900">
-                            ${product.price_monthly?.toFixed(2) || '0.00'}
-                          </span>
+                      <span className="text-2xl font-bold text-gray-900">
+                        ${product.price_monthly?.toFixed(2) || '0.00'}
+                      </span>
                         )}
                         <span className="text-sm text-gray-500 ml-1">/mo</span>
-                      </div>
-                      <div>
+                    </div>
+                    <div>
                         {product.discount_first_year && product.discount_first_year > 0 ? (
                           <div>
                             <span className="text-sm line-through text-gray-400">
@@ -1063,12 +1063,12 @@ export default function ProductsPage() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-lg font-semibold text-gray-700">
-                            ${product.price_yearly?.toFixed(2) || '0.00'}
-                          </span>
+                      <span className="text-lg font-semibold text-gray-700">
+                        ${product.price_yearly?.toFixed(2) || '0.00'}
+                      </span>
                         )}
                         <span className="text-sm text-gray-500 ml-1">/yr</span>
-                      </div>
+                    </div>
                     </div>
                     {/* Discount badges */}
                     {(product.discount_first_day || product.discount_lifetime) && (
@@ -1295,8 +1295,8 @@ export default function ProductsPage() {
                           </div>
                         ) : (
                           <>
-                            <span className="font-semibold">${product.price_monthly?.toFixed(2) || '0.00'}</span>
-                            <span className="text-gray-500">/mo</span>
+                        <span className="font-semibold">${product.price_monthly?.toFixed(2) || '0.00'}</span>
+                        <span className="text-gray-500">/mo</span>
                           </>
                         )}
                       </div>

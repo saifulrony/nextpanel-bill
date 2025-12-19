@@ -555,9 +555,9 @@ export default function DashboardLayout({
               <>
                 <span className="flex-1 text-left">{item.name}</span>
                 {isExpanded ? (
-                  <ChevronUpIcon className="h-4 w-4" />
-                ) : (
                   <ChevronDownIcon className="h-4 w-4" />
+                ) : (
+                  <ChevronRightIcon className="h-4 w-4" />
                 )}
               </>
             )}

@@ -3,14 +3,15 @@ Orders API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, cast, Date, text
+from sqlalchemy import select, func, cast, Date, text, and_
 from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
-from app.models import Order, OrderStatus, User, Domain, DomainStatus, License, Plan, Invoice, InvoiceStatus
+from app.models import Order, OrderStatus, User, Domain, DomainStatus, License, Plan, Invoice, InvoiceStatus, Payment, PaymentStatus
+from app.services.payment_service import PaymentService
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -446,17 +447,24 @@ async def create_order(
         
         # Create linked Invoice record for this order
         try:
+            # Determine invoice status and payment amounts based on order status
+            is_paid = new_order.status == OrderStatus.COMPLETED
+            invoice_status = InvoiceStatus.PAID if is_paid else InvoiceStatus.OPEN
+            amount_paid = order_data.total if is_paid else 0.0
+            amount_due = 0.0 if is_paid else order_data.total
+            
             invoice = Invoice(
                 user_id=order_data.customer_id,
                 order_id=new_order.id,  # Link invoice to order
                 invoice_number=invoice_number,  # Use same invoice number
-                status=InvoiceStatus.OPEN if new_order.status == OrderStatus.PENDING else InvoiceStatus.PAID,
+                status=invoice_status,
                 subtotal=order_data.subtotal,
                 discount_amount=order_data.discount_amount or 0.0,
                 discount_percent=order_data.discount_percent or 0.0,
                 tax=order_data.tax,
                 total=order_data.total,
-                amount_due=order_data.total if new_order.status == OrderStatus.PENDING else 0.0,
+                amount_paid=amount_paid,
+                amount_due=amount_due,
                 items=[item.dict() for item in order_data.items],
                 due_date=due_date,
                 is_recurring=(order_data.billing_period and order_data.billing_period != 'one-time')
@@ -1170,4 +1178,199 @@ NextPanel Team
             status_code=500,
             detail=f"Failed to send email: {str(e)}"
         )
+
+
+class RefundRequest(BaseModel):
+    amount: Optional[float] = None  # If None, full refund
+    reason: Optional[str] = None
+    refund_method: Optional[str] = "same_as_payment"  # "same_as_payment", "manual", "bank_transfer", "check", etc.
+
+
+@router.post("/{order_id}/refund")
+async def refund_order(
+    order_id: str,
+    request: RefundRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Refund an order (partial or full) - admin only"""
+    # Get user to check if admin
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get order
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalars().first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Check if order is paid
+    if order.status != OrderStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Can only refund completed orders")
+    
+    # Get payments for this order
+    result = await db.execute(
+        select(Payment).where(
+            and_(
+                Payment.order_id == order_id,
+                Payment.status == PaymentStatus.SUCCEEDED
+            )
+        )
+    )
+    payments = result.scalars().all()
+    
+    # Calculate total paid from payments, or use order total as fallback
+    if payments:
+        total_paid = sum(p.amount for p in payments)
+        original_payment_method = payments[0].payment_method if payments else None
+        original_gateway_type = payments[0].gateway_type if payments else None
+    else:
+        # No payment records found - use order total as fallback
+        # This handles cases where orders were marked as paid without creating payment records
+        total_paid = order.total
+        original_payment_method = order.payment_method or "unknown"
+        original_gateway_type = None
+        logger.warning(f"No payment records found for order {order_id}, using order total ${total_paid} as refund amount")
+    
+    # Determine refund amount
+    if request.amount is None:
+        # Full refund
+        refund_amount = total_paid
+    else:
+        # Partial refund
+        if request.amount <= 0:
+            raise HTTPException(status_code=400, detail="Refund amount must be greater than 0")
+        if request.amount > total_paid:
+            raise HTTPException(status_code=400, detail=f"Refund amount cannot exceed total paid (${total_paid})")
+        refund_amount = request.amount
+    
+    # Determine refund method
+    refund_method = request.refund_method or "same_as_payment"
+    if refund_method == "same_as_payment" and payments and payments[0].gateway_transaction_id:
+        # Try to use same payment gateway
+        use_gateway = True
+        gateway_transaction_id = payments[0].gateway_transaction_id
+    else:
+        # Manual or other refund method
+        use_gateway = False
+        gateway_transaction_id = None
+    
+    # Process refund
+    refunded_payments = []
+    remaining_refund = refund_amount
+    
+    if payments:
+        # Process refund from existing payments
+        for payment in payments:
+            if remaining_refund <= 0:
+                break
+            
+            # Determine how much to refund from this payment
+            payment_refund_amount = min(remaining_refund, payment.amount)
+            
+            try:
+                # Process refund through payment gateway if requested and available
+                if use_gateway and payment.gateway_transaction_id:
+                    payment_service = PaymentService()
+                    refund_result = await payment_service.refund_payment(
+                        payment_intent_id=payment.gateway_transaction_id,
+                        amount=payment_refund_amount,
+                        reason=request.reason or "Order refund"
+                    )
+                    
+                    # Create refund payment record (negative amount)
+                    refund_payment = Payment(
+                        user_id=order.customer_id,
+                        order_id=order_id,
+                        amount=-payment_refund_amount,  # Negative for refund
+                        currency=payment.currency,
+                        status=PaymentStatus.SUCCEEDED,
+                        payment_method=payment.payment_method,
+                        gateway_type=payment.gateway_type,
+                        gateway_transaction_id=refund_result.get("id"),
+                        gateway_response=refund_result,
+                        description=f"Refund for order {order.order_number or order.invoice_number}: {request.reason or 'Order refund'}"
+                    )
+                    db.add(refund_payment)
+                    refunded_payments.append(refund_payment)
+                    
+                    logger.info(f"Refunded ${payment_refund_amount} from payment {payment.id} for order {order_id}")
+                else:
+                    # Manual refund or no gateway transaction
+                    refund_payment = Payment(
+                        user_id=order.customer_id,
+                        order_id=order_id,
+                        amount=-payment_refund_amount,
+                        currency=payment.currency or "USD",
+                        status=PaymentStatus.SUCCEEDED,
+                        payment_method=refund_method if refund_method != "same_as_payment" else "manual_refund",
+                        description=f"Refund ({refund_method}) for order {order.order_number or order.invoice_number}: {request.reason or 'Order refund'}"
+                    )
+                    db.add(refund_payment)
+                    refunded_payments.append(refund_payment)
+                    
+                    logger.info(f"Created {refund_method} refund record for ${payment_refund_amount} for order {order_id}")
+                
+                remaining_refund -= payment_refund_amount
+                
+            except Exception as e:
+                logger.error(f"Error processing refund for payment {payment.id}: {e}")
+                await db.rollback()
+                raise HTTPException(status_code=500, detail=f"Failed to process refund: {str(e)}")
+    else:
+        # No payment records - create manual refund
+        try:
+            refund_payment = Payment(
+                user_id=order.customer_id,
+                order_id=order_id,
+                amount=-refund_amount,
+                currency="USD",
+                status=PaymentStatus.SUCCEEDED,
+                payment_method=refund_method if refund_method != "same_as_payment" else "manual_refund",
+                description=f"Refund ({refund_method}) for order {order.order_number or order.invoice_number}: {request.reason or 'Order refund'}"
+            )
+            db.add(refund_payment)
+            refunded_payments.append(refund_payment)
+            
+            logger.info(f"Created {refund_method} refund record for ${refund_amount} for order {order_id} (no payment records found)")
+        except Exception as e:
+            logger.error(f"Error creating refund record: {e}")
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to create refund record: {str(e)}")
+    
+    # Update order status if full refund
+    if refund_amount >= total_paid:
+        order.status = OrderStatus.CANCELLED  # Use CANCELLED for fully refunded orders
+    # Partial refund - keep order as completed
+    
+    # Update related invoice if exists
+    result = await db.execute(
+        select(Invoice).where(Invoice.order_id == order_id)
+    )
+    invoice = result.scalars().first()
+    if invoice:
+        # Adjust invoice amounts
+        invoice.amount_paid = max(0, invoice.amount_paid - refund_amount)
+        invoice.amount_due = invoice.total - invoice.amount_paid
+        
+        if invoice.amount_paid == 0:
+            invoice.status = InvoiceStatus.VOID
+        elif invoice.amount_paid < invoice.total:
+            invoice.status = InvoiceStatus.PARTIALLY_PAID
+    
+    await db.commit()
+    
+    logger.info(f"Refunded ${refund_amount} for order {order_id}")
+    
+    return {
+        "message": f"Refund of ${refund_amount} processed successfully",
+        "order_id": order_id,
+        "refund_amount": refund_amount,
+        "refund_type": "full" if refund_amount >= total_paid else "partial",
+        "refunded_payments": [p.id for p in refunded_payments]
+    }
 

@@ -24,10 +24,11 @@ import {
   Ticket,
   Globe,
   Star,
-  Settings
+  Settings,
+  Mail
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, plansAPI, adminAPI, ordersAPI, invoicesAPI, supportAPI, chatAPI } from '@/lib/api';
+import { api, plansAPI, adminAPI, ordersAPI, invoicesAPI, supportAPI, chatAPI, emailTemplatesAPI } from '@/lib/api';
 import { EditLicenseModal, EditSubscriptionModal } from '@/components/customers/EditModals';
 import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
 
@@ -92,6 +93,16 @@ export default function CustomersPage() {
   const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<'activate' | 'deactivate' | 'delete'>('activate');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showSendEmailModal, setShowSendEmailModal] = useState(false);
+  const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBodyText, setEmailBodyText] = useState('');
+  const [emailBodyHtml, setEmailBodyHtml] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [showProductsModal, setShowProductsModal] = useState(false);
+  const [customerProducts, setCustomerProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -255,6 +266,207 @@ export default function CustomersPage() {
     });
   };
 
+  const getCustomerProductsCount = (customer: Customer) => {
+    // Count unique products from licenses and subscriptions
+    // For now, we'll use a simple count based on licenses and subscriptions
+    // In the modal, we'll show actual products from orders
+    return (customer.total_licenses || 0) + (customer.total_subscriptions || 0);
+  };
+
+  const fetchCustomerProducts = async (customerId: string) => {
+    setLoadingProducts(true);
+    try {
+      // Fetch all orders and products in parallel
+      const [ordersResponse, productsResponse] = await Promise.all([
+        ordersAPI.list({ customer_id: customerId }),
+        plansAPI.list({ is_active: true }).catch(() => ({ data: [] })) // Fetch products, but don't fail if it errors
+      ]);
+      
+      const orders = ordersResponse.data || [];
+      const allProducts = productsResponse.data || [];
+      
+      // Create a map of product_id to product name for quick lookup
+      const productNameMap = new Map<string, string>();
+      allProducts.forEach((product: any) => {
+        if (product.id) {
+          productNameMap.set(product.id, product.name || product.title || '');
+        }
+      });
+      
+      // Extract all products from orders
+      const productsMap = new Map<string, any>();
+      
+      orders.forEach((order: any) => {
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const productKey = item.product_id || item.name || item.description;
+            if (productKey) {
+              // Try to get product name from the fetched products
+              let productName = item.name || item.description;
+              if (!productName && item.product_id && productNameMap.has(item.product_id)) {
+                productName = productNameMap.get(item.product_id);
+              }
+              // Fallback to a more descriptive name if still empty
+              if (!productName) {
+                productName = item.product_id ? `Product ${item.product_id.substring(0, 8)}` : 'Custom Item';
+              }
+              
+              if (!productsMap.has(productKey)) {
+                productsMap.set(productKey, {
+                  id: item.product_id || productKey,
+                  name: productName,
+                  description: item.description || '',
+                  quantity: 0,
+                  total_amount: 0,
+                  orders: [],
+                  category: item.category || 'other',
+                  billing_cycle: item.billing_cycle || 'one-time',
+                  price: item.price || 0,
+                });
+              }
+              
+              const product = productsMap.get(productKey)!;
+              product.quantity += item.quantity || 1;
+              product.total_amount += (item.price || 0) * (item.quantity || 1);
+              product.orders.push({
+                order_id: order.id,
+                order_number: order.order_number || order.invoice_number || order.id,
+                order_date: order.created_at || order.order_date,
+                status: order.status,
+                quantity: item.quantity || 1,
+                price: item.price || 0,
+                total: (item.price || 0) * (item.quantity || 1),
+              });
+            }
+          });
+        }
+      });
+      
+      // Also fetch licenses and subscriptions as products
+      try {
+        const licensesResponse = await api.get(`/customers/${customerId}/licenses`);
+        const licenses = licensesResponse.data || [];
+        
+        licenses.forEach((license: any) => {
+          const productKey = `license-${license.id}`;
+          if (!productsMap.has(productKey)) {
+            productsMap.set(productKey, {
+              id: license.id,
+              name: license.plan_name || 'License',
+              description: `License Key: ${license.license_key}`,
+              quantity: 1,
+              total_amount: 0,
+              orders: [],
+              category: 'license',
+              billing_cycle: license.billing_cycle || 'monthly',
+              price: 0,
+              license_key: license.license_key,
+              status: license.status,
+              expiry_date: license.expiry_date,
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Failed to fetch licenses:', error);
+      }
+      
+      try {
+        const subscriptionsResponse = await api.get(`/customers/${customerId}/subscriptions`);
+        const subscriptions = subscriptionsResponse.data || [];
+        
+        subscriptions.forEach((subscription: any) => {
+          const productKey = `subscription-${subscription.id}`;
+          if (!productsMap.has(productKey)) {
+            productsMap.set(productKey, {
+              id: subscription.id,
+              name: subscription.plan_name || 'Subscription',
+              description: `Subscription Service`,
+              quantity: 1,
+              total_amount: 0,
+              orders: [],
+              category: 'subscription',
+              billing_cycle: subscription.billing_cycle || 'monthly',
+              price: 0,
+              status: subscription.status,
+              current_period_end: subscription.current_period_end,
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Failed to fetch subscriptions:', error);
+      }
+      
+      setCustomerProducts(Array.from(productsMap.values()));
+    } catch (error) {
+      console.error('Failed to fetch customer products:', error);
+      setCustomerProducts([]);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const loadEmailTemplates = async () => {
+    try {
+      const response = await emailTemplatesAPI.list();
+      setEmailTemplates(response.data || []);
+    } catch (error) {
+      console.error('Failed to load email templates:', error);
+    }
+  };
+
+  const handleTemplateSelect = async (templateId: string) => {
+    setSelectedTemplate(templateId);
+    try {
+      const template = emailTemplates.find(t => t.id === templateId);
+      if (template) {
+        setEmailSubject(template.subject || '');
+        setEmailBodyText(template.body_text || '');
+        setEmailBodyHtml(template.body_html || '');
+      }
+    } catch (error) {
+      console.error('Failed to load template:', error);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!selectedCustomer) return;
+    if (!emailSubject.trim()) {
+      alert('Please enter an email subject');
+      return;
+    }
+    if (!emailBodyText.trim() && !emailBodyHtml.trim()) {
+      alert('Please enter email content');
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      await api.post('/email-templates/send', {
+        customer_id: selectedCustomer.id,
+        template_id: selectedTemplate || null,
+        subject: emailSubject,
+        body_text: emailBodyText,
+        body_html: emailBodyHtml,
+        variables: {
+          customer_name: selectedCustomer.full_name,
+          customer_email: selectedCustomer.email,
+          company_name: selectedCustomer.company_name || '',
+        }
+      });
+      alert(`Email sent successfully to ${selectedCustomer.email}`);
+      setShowSendEmailModal(false);
+      setSelectedTemplate('');
+      setEmailSubject('');
+      setEmailBodyText('');
+      setEmailBodyHtml('');
+    } catch (error: any) {
+      console.error('Failed to send email:', error);
+      alert(`Failed to send email: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   // Export/Import handlers
   const handleExport = () => {
     if (customers.length === 0) {
@@ -269,10 +481,7 @@ export default function CustomersPage() {
       'Company Name': customer.company_name || '',
       'Is Active': customer.is_active ? 'Yes' : 'No',
       'Is Admin': customer.is_admin ? 'Yes' : 'No',
-      'Total Licenses': customer.total_licenses || 0,
-      'Active Licenses': customer.active_licenses || 0,
-      'Total Subscriptions': customer.total_subscriptions || 0,
-      'Active Subscriptions': customer.active_subscriptions || 0,
+      'Total Products': (customer.total_licenses || 0) + (customer.total_subscriptions || 0),
       'Total Domains': customer.total_domains || 0,
       'Total Payments': customer.total_payments || 0,
       'Total Invoices': customer.total_invoices || 0,
@@ -397,14 +606,14 @@ export default function CustomersPage() {
               className="hidden"
             />
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
+        <button
+          onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
-          >
+        >
             <Plus className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
             <span className="hidden sm:inline">Add Customer</span>
             <span className="sm:hidden">Add</span>
-          </button>
+        </button>
         </div>
       </div>
 
@@ -465,12 +674,12 @@ export default function CustomersPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">With Subscriptions</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">With Products</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                  {stats.customers_with_subscriptions}
+                  {stats.customers_with_licenses + stats.customers_with_subscriptions}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {stats.customers_with_licenses} with licenses
+                  Active customers with products
                 </p>
               </div>
               <div className="bg-orange-100 dark:bg-orange-900 p-3 rounded-lg">
@@ -567,10 +776,7 @@ export default function CustomersPage() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Licenses
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Subscriptions
+                    Products
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Revenue
@@ -605,9 +811,14 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        <a
+                          href={`/admin/customers/${customer.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer"
+                        >
                           {customer.full_name}
-                        </div>
+                        </a>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           {customer.email}
                         </div>
@@ -630,16 +841,16 @@ export default function CustomersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">
-                        {customer.active_licenses}/{customer.total_licenses}
-                      </div>
-                      <div className="text-xs text-gray-500">active/total</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">
-                        {customer.active_subscriptions}/{customer.total_subscriptions}
-                      </div>
-                      <div className="text-xs text-gray-500">active/total</div>
+                      <button
+                        onClick={async () => {
+                          setSelectedCustomer(customer);
+                          setShowProductsModal(true);
+                          await fetchCustomerProducts(customer.id);
+                        }}
+                        className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer"
+                      >
+                        {getCustomerProductsCount(customer)} product{getCustomerProductsCount(customer) !== 1 ? 's' : ''}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -683,6 +894,17 @@ export default function CustomersPage() {
                           title="Delete Customer"
                         >
                           <Trash2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedCustomer(customer);
+                            setShowSendEmailModal(true);
+                            loadEmailTemplates();
+                          }}
+                          className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                          title="Send Email"
+                        >
+                          <Mail className="w-5 h-5" />
                         </button>
                       </div>
                     </td>
@@ -824,6 +1046,282 @@ export default function CustomersPage() {
             fetchStats();
           }}
         />
+      )}
+
+      {/* Send Email Modal */}
+      {showSendEmailModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Send Email to {selectedCustomer.full_name}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowSendEmailModal(false);
+                    setSelectedTemplate('');
+                    setEmailSubject('');
+                    setEmailBodyText('');
+                    setEmailBodyHtml('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {selectedCustomer.email}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Template Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Choose Email Template (Optional)
+                </label>
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => handleTemplateSelect(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">-- Select Template or Write Custom Email --</option>
+                  {emailTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="Email subject"
+                />
+              </div>
+
+              {/* Body Text */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email Body (Text) *
+                </label>
+                <textarea
+                  value={emailBodyText}
+                  onChange={(e) => setEmailBodyText(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                  placeholder="Enter email content (plain text)"
+                />
+              </div>
+
+              {/* Body HTML */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email Body (HTML) - Optional
+                </label>
+                <textarea
+                  value={emailBodyHtml}
+                  onChange={(e) => setEmailBodyHtml(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                  placeholder="Enter email content (HTML)"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  If provided, HTML version will be used. Otherwise, text version will be sent.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowSendEmailModal(false);
+                  setSelectedTemplate('');
+                  setEmailSubject('');
+                  setEmailBodyText('');
+                  setEmailBodyHtml('');
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendEmail}
+                disabled={sendingEmail || !emailSubject.trim() || (!emailBodyText.trim() && !emailBodyHtml.trim())}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Mail className="w-4 h-4" />
+                {sendingEmail ? 'Sending...' : 'Send Email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Products Modal */}
+      {showProductsModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Products & Services - {selectedCustomer.full_name}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowProductsModal(false);
+                    setCustomerProducts([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingProducts ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : customerProducts.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No products or services found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {customerProducts.map((product, index) => (
+                    <div
+                      key={product.id || index}
+                      className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {product.name}
+                          </h3>
+                          {product.description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {product.description}
+                            </p>
+                          )}
+                          <div className="flex gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span>Category: <span className="font-medium">{product.category || 'other'}</span></span>
+                            <span>Billing: <span className="font-medium">{product.billing_cycle || 'one-time'}</span></span>
+                            {product.quantity > 0 && (
+                              <span>Quantity: <span className="font-medium">{product.quantity}</span></span>
+                            )}
+                            {product.status && (
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                product.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                product.status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
+                              }`}>
+                                {product.status}
+                              </span>
+                            )}
+                          </div>
+                          {product.license_key && (
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">License Key:</p>
+                              <p className="font-mono text-sm text-gray-900 dark:text-white">{product.license_key}</p>
+                            </div>
+                          )}
+                          {product.expiry_date && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Expires: {formatDate(product.expiry_date)}
+                            </p>
+                          )}
+                          {product.current_period_end && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Period End: {formatDate(product.current_period_end)}
+                            </p>
+                          )}
+                        </div>
+                        {product.total_amount > 0 && (
+                          <div className="text-right">
+                            <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {formatCurrency(product.total_amount)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {product.orders && product.orders.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Orders ({product.orders.length}):
+                          </p>
+                          <div className="space-y-2">
+                            {product.orders.map((order: any, orderIndex: number) => (
+                              <div
+                                key={orderIndex}
+                                className="flex justify-between items-center text-sm bg-white dark:bg-gray-800 p-2 rounded"
+                              >
+                                <div>
+                                  <a
+                                    href={`/admin/orders/${order.order_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                                  >
+                                    Order #{order.order_number}
+                                  </a>
+                                  <span className="text-gray-500 dark:text-gray-400 ml-2">
+                                    {formatDate(order.order_date)}
+                                  </span>
+                                  <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                    order.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
+                                  }`}>
+                                    {order.status}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-gray-900 dark:text-white">
+                                    {formatCurrency(order.total)}
+                                  </div>
+                                  {order.quantity > 1 && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      Qty: {order.quantity}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowProductsModal(false);
+                  setCustomerProducts([]);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

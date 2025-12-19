@@ -57,9 +57,10 @@ interface OrderDetailsModalProps {
   order: Order;
   onClose: () => void;
   onUpdate: () => void;
+  asPage?: boolean; // If true, renders as a page instead of a modal
 }
 
-export default function OrderDetailsModal({ order, onClose, onUpdate }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ order, onClose, onUpdate, asPage = false }: OrderDetailsModalProps) {
   const { user } = useAuth();
   const isAdmin = (user as any)?.is_admin === true;
   
@@ -394,19 +395,21 @@ NextPanel Team
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white mb-10">
+    <div className={asPage ? "relative bg-white rounded-lg shadow-lg p-6" : "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"}>
+      <div className={asPage ? "relative" : "relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white mb-10"}>
         <div className="flex justify-between items-start mb-6">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">Order Details</h3>
             <p className="mt-1 text-sm text-gray-500">Order {order.order_number || order.invoice_number || order.id}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <span className="text-2xl">&times;</span>
-          </button>
+          {!asPage && (
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500"
+            >
+              <span className="text-2xl">&times;</span>
+            </button>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -814,15 +817,17 @@ NextPanel Team
             <AutomationRules orderId={order.id} />
           </div>
 
-          {/* Close Button */}
-          <div className="flex justify-end pt-4 border-t">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-            >
-              Close
-            </button>
-          </div>
+          {/* Close Button - Only show in modal mode */}
+          {!asPage && (
+            <div className="flex justify-end pt-4 border-t">
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

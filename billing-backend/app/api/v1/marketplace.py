@@ -139,8 +139,8 @@ async def install_addon(
         version = addon.version or "1.0.0"
         logger.info(f"Installing plugin: {addon.name} v{version}")
         
-        # Install synchronously (not async)
-        install_result = installer.install(addon.name, version)
+        # Install asynchronously
+        install_result = await installer.install(addon.name, version)
         
         # Create installation record in database
         installation = AddonInstallation(

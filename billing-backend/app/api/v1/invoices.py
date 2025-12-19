@@ -110,11 +110,6 @@ async def create_invoice(
     return invoice
 
 
-@router.get("/test")
-async def test_invoices_endpoint():
-    """Test endpoint to verify invoices API is working"""
-    return {"status": "ok", "message": "Invoices endpoint is accessible"}
-
 @router.get("/", response_model=List[InvoiceResponse])
 async def list_invoices(
     user_id: str = Depends(get_current_user_id),
@@ -138,10 +133,6 @@ async def list_invoices(
     - If user is admin, returns all invoices
     """
     try:
-        # TEMPORARY: Return empty list to test if endpoint works
-        # Uncomment below to test basic functionality
-        # return []
-        
         logger.info(f"Listing invoices for user {user_id}")
         
         # Get user to check if admin

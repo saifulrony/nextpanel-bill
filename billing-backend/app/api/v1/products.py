@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/products", tags=["products"])
 
 # Directory to store uploaded product files
-# Get the project root directory (go up 5 levels from app/api/v1/products.py)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+# Get the project root directory (go up 4 levels from app/api/v1/products.py)
+# products.py → v1 → api → app → project_root
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PRODUCT_FILES_DIR = os.path.join(BASE_DIR, "uploads", "products")
 
 # Try to create directory, fallback to /tmp if permission denied

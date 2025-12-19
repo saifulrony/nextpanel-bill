@@ -845,12 +845,12 @@ export default function CheckoutPage() {
                   return (
                     <div key={item.id} className="py-2 border-b border-gray-100">
                       <div className="flex justify-between items-center mb-2">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{item.name}</h4>
+                    <div>
+                      <h4 className="font-medium text-gray-900">{item.name}</h4>
                           <p className="text-sm text-gray-500">Qty: {item.quantity} × {billingPeriods} {billingPeriods === 1 ? 'period' : 'periods'}</p>
-                        </div>
-                        <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
-                      </div>
+                    </div>
+                    <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+                  </div>
                       
                       {/* Show breakdown if first_billing_period_only coupon and multiple periods */}
                       {breakdown && billingPeriods > 1 && (() => {

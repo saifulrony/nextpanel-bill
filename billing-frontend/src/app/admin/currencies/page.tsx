@@ -142,8 +142,7 @@ export default function CurrenciesPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code & Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate to USD</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Base</th>
@@ -154,8 +153,10 @@ export default function CurrenciesPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {currencies.map((currency) => (
               <tr key={currency.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">{currency.code}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currency.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <span className="font-mono font-semibold">{currency.code}</span>
+                  <span className="text-gray-500 ml-2">- {currency.name}</span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currency.symbol}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currency.exchange_rate_to_usd.toFixed(4)}</td>
                 <td className="px-6 py-4 whitespace-nowrap">

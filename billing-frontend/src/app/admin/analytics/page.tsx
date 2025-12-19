@@ -284,34 +284,34 @@ export default function AnalyticsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2 border-r-0 sm:border-r border-gray-300 pr-0 sm:pr-2">
-              <button
-                onClick={handleExport}
+            <button
+              onClick={handleExport}
                 className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                title="Export to Excel"
-              >
+              title="Export to Excel"
+            >
                 <ArrowDownTrayIcon className="h-4 w-4 flex-shrink-0" />
                 <span className="hidden sm:inline">Export</span>
-              </button>
-              <button
-                onClick={handleImportClick}
+            </button>
+            <button
+              onClick={handleImportClick}
                 className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                title="Import from Excel/CSV"
-              >
+              title="Import from Excel/CSV"
+            >
                 <ArrowUpTrayIcon className="h-4 w-4 flex-shrink-0" />
                 <span className="hidden sm:inline">Import</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </div>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
             <div className="hidden sm:flex items-center text-xs text-gray-500">
-              <ClockIcon className="h-4 w-4 mr-1" />
-              Updated: {lastUpdate.toLocaleTimeString()}
-            </div>
+            <ClockIcon className="h-4 w-4 mr-1" />
+            Updated: {lastUpdate.toLocaleTimeString()}
+          </div>
           
           {/* Real-time Status */}
           <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${

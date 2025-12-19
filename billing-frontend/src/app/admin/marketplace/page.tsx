@@ -75,7 +75,7 @@ export default function MarketplacePage() {
         // Set empty array so page still renders
         setAddons([]);
       } else {
-        console.error('Failed to load addons:', error);
+      console.error('Failed to load addons:', error);
         // For other errors, also set empty array
         setAddons([]);
       }

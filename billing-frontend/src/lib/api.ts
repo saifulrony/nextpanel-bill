@@ -307,6 +307,8 @@ export const ordersAPI = {
   
   void: (id: string) =>
     api.post(`/orders/${id}/void`),
+  refund: (id: string, data: { amount?: number; reason?: string }) =>
+    api.post(`/orders/${id}/refund`, data),
 };
 
 // Order Automation API

@@ -426,25 +426,25 @@ export default function SecurityPage() {
 
     try {
       let response;
-      if (ipType === 'whitelist') {
-        if (ipWhitelist.includes(newIpAddress)) {
-          showError('IP address already in whitelist');
-          return;
-        }
+    if (ipType === 'whitelist') {
+      if (ipWhitelist.includes(newIpAddress)) {
+        showError('IP address already in whitelist');
+        return;
+      }
         response = await securityAPI.addToWhitelist(newIpAddress);
         setIpWhitelist(response.data.whitelist || []);
-        success('IP address added to whitelist');
-      } else {
-        if (ipBlacklist.includes(newIpAddress)) {
-          showError('IP address already in blacklist');
-          return;
-        }
+      success('IP address added to whitelist');
+    } else {
+      if (ipBlacklist.includes(newIpAddress)) {
+        showError('IP address already in blacklist');
+        return;
+      }
         response = await securityAPI.addToBlacklist(newIpAddress);
         setIpBlacklist(response.data.blacklist || []);
-        success('IP address added to blacklist');
-      }
-      setNewIpAddress('');
-      calculateSecurityScore();
+      success('IP address added to blacklist');
+    }
+    setNewIpAddress('');
+    calculateSecurityScore();
     } catch (error: any) {
       console.error('Failed to add IP address:', error);
       const errorMessage = error.response?.data?.detail || error.message || 'Failed to add IP address';
@@ -455,14 +455,14 @@ export default function SecurityPage() {
   const handleRemoveIpAddress = async (ip: string, type: 'whitelist' | 'blacklist') => {
     try {
       let response;
-      if (type === 'whitelist') {
+    if (type === 'whitelist') {
         response = await securityAPI.removeFromWhitelist(ip);
         setIpWhitelist(response.data.whitelist || []);
-        success('IP address removed from whitelist');
-      } else {
+      success('IP address removed from whitelist');
+    } else {
         response = await securityAPI.removeFromBlacklist(ip);
         setIpBlacklist(response.data.blacklist || []);
-        success('IP address removed from blacklist');
+      success('IP address removed from blacklist');
       }
       calculateSecurityScore();
     } catch (error: any) {

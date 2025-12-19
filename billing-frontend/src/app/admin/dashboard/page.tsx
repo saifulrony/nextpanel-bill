@@ -450,13 +450,13 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3 w-full sm:w-auto">
               {/* Real-time Status - Always visible */}
               <div className={`flex items-center space-x-2 px-2 sm:px-3 py-1 rounded-full ${
-                isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-              }`}>
-                <SignalIcon className={`h-4 w-4 ${isConnected ? 'animate-pulse' : ''}`} />
+            isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          }`}>
+            <SignalIcon className={`h-4 w-4 ${isConnected ? 'animate-pulse' : ''}`} />
                 <span className="text-xs font-medium hidden min-[375px]:inline">
-                  {isConnected ? 'Live' : 'Disconnected'}
-                </span>
-              </div>
+              {isConnected ? 'Live' : 'Disconnected'}
+            </span>
+          </div>
 
               {/* Refresh Button - Always visible */}
               <button
@@ -475,15 +475,15 @@ export default function DashboardPage() {
                 Updated: {lastUpdate.toLocaleTimeString()}
               </div>
 
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={realtimeEnabled}
-                  onChange={(e) => setRealtimeEnabled(e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-sm text-gray-700">Real-time</span>
-              </label>
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={realtimeEnabled}
+              onChange={(e) => setRealtimeEnabled(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-700">Real-time</span>
+          </label>
             </div>
 
             {/* Mobile: Show timestamp and real-time toggle in a row below */}

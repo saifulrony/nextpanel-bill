@@ -8,9 +8,11 @@ from typing import List, Optional
 from datetime import datetime
 from app.core.database import get_db
 from app.core.security import get_current_user_id, verify_admin
-from app.models import EmailTemplate, EmailTemplateType
+from app.models import EmailTemplate, EmailTemplateType, User
 from app.schemas import BaseModel
-from pydantic import Field
+from app.services.email_service import EmailService
+from pydantic import Field, EmailStr
+from typing import Dict, Any
 import logging
 import re
 
@@ -236,5 +238,90 @@ async def render_email_template(
         "subject": rendered_subject,
         "body_text": rendered_body_text,
         "body_html": rendered_body_html
+    }
+
+
+class SendEmailRequest(BaseModel):
+    customer_id: str
+    template_id: Optional[str] = None
+    subject: Optional[str] = None  # Optional: required if template_id is not provided, can override template subject if provided
+    body_text: Optional[str] = None
+    body_html: Optional[str] = None
+    variables: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
+@router.post("/send", status_code=status.HTTP_200_OK)
+async def send_email_to_customer(
+    request: SendEmailRequest,
+    user_id: str = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Send email to a customer using a template or custom content (admin only)"""
+    # Validate: either template_id or subject must be provided
+    if not request.template_id and not request.subject:
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'template_id' or 'subject' must be provided"
+        )
+    
+    # Get customer
+    result = await db.execute(select(User).where(User.id == request.customer_id))
+    customer = result.scalars().first()
+    
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    subject = request.subject
+    body_text = request.body_text or ""
+    body_html = request.body_html
+    
+    # If template_id is provided, render the template
+    if request.template_id:
+        result = await db.execute(select(EmailTemplate).where(EmailTemplate.id == request.template_id))
+        template = result.scalars().first()
+        
+        if not template:
+            raise HTTPException(status_code=404, detail="Email template not found")
+        
+        # Prepare variables with customer data
+        variables = {
+            "customer_name": customer.full_name or "Customer",
+            "customer_email": customer.email,
+            "company_name": customer.company_name or "",
+            **request.variables
+        }
+        
+        # Render template
+        def render_text(text: str, vars: dict) -> str:
+            if not text:
+                return ""
+            result_text = text
+            for key, value in vars.items():
+                result_text = result_text.replace(f"{{{{{key}}}}}", str(value))
+            return result_text
+        
+        # Use template subject, but allow request subject to override if provided
+        template_subject = render_text(template.subject, variables)
+        subject = request.subject if request.subject else template_subject
+        body_text = render_text(template.body_text or "", variables)
+        body_html = render_text(template.body_html or "", variables) if template.body_html else None
+    
+    # Send email
+    email_service = EmailService()
+    success = await email_service.send_email(
+        to_email=customer.email,
+        subject=subject,
+        body=body_text,
+        html_body=body_html
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send email")
+    
+    logger.info(f"Email sent to customer {customer.email} by admin {user_id}")
+    return {
+        "status": "success",
+        "message": f"Email sent successfully to {customer.email}",
+        "customer_email": customer.email
     }
 
