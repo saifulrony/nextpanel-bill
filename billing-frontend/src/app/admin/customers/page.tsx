@@ -99,7 +99,168 @@ export default function CustomersPage() {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBodyText, setEmailBodyText] = useState('');
   const [emailBodyHtml, setEmailBodyHtml] = useState('');
+  const [emailCss, setEmailCss] = useState('');
+  const [emailJs, setEmailJs] = useState('');
+  const [emailEditMode, setEmailEditMode] = useState<'rich' | 'html' | 'css' | 'js'>('rich');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  
+  // Predefined beautiful email templates
+  const predefinedTemplates = [
+    {
+      id: 'modern-blue',
+      name: 'Modern Blue',
+      category: 'Professional',
+      color: '#4f46e5',
+      subject: 'Important Update',
+      preview: 'Modern professional design with blue accents',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">{{subject}}</h1>
+          </div>
+          <div style="padding: 40px 30px; background: #ffffff;">
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">Dear {{customer_name}},</p>
+            <p style="color: #6b7280; font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">{{content}}</p>
+            <div style="margin: 30px 0; padding: 20px; background: #f3f4f6; border-left: 4px solid #4f46e5; border-radius: 4px;">
+              <p style="color: #374151; font-size: 14px; margin: 0; line-height: 1.6;">{{highlight}}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 15px; line-height: 1.7; margin: 20px 0 0 0;">Best regards,<br><strong style="color: #374151;">NextPanel Team</strong></p>
+          </div>
+          <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="color: #9ca3af; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} NextPanel. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: 'elegant-minimal',
+      name: 'Elegant Minimal',
+      category: 'Minimal',
+      color: '#111827',
+      subject: 'Update from NextPanel',
+      preview: 'Clean and elegant minimal design',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb;">
+          <div style="padding: 50px 40px 30px; text-align: center; border-bottom: 2px solid #111827;">
+            <h1 style="color: #111827; margin: 0; font-size: 32px; font-weight: 300; letter-spacing: 2px;">{{subject}}</h1>
+          </div>
+          <div style="padding: 50px 40px;">
+            <p style="color: #374151; font-size: 16px; line-height: 1.8; margin: 0 0 25px 0;">Dear {{customer_name}},</p>
+            <p style="color: #4b5563; font-size: 15px; line-height: 1.8; margin: 0 0 25px 0;">{{content}}</p>
+            <p style="color: #4b5563; font-size: 15px; line-height: 1.8; margin: 25px 0 0 0;">Sincerely,<br><span style="color: #111827; font-weight: 500;">NextPanel</span></p>
+          </div>
+          <div style="padding: 30px 40px; background: #f9fafb; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 12px; margin: 0; text-align: center;">© ${new Date().getFullYear()} NextPanel</p>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: 'vibrant-gradient',
+      name: 'Vibrant Gradient',
+      category: 'Modern',
+      color: '#ec4899',
+      subject: 'Exciting News!',
+      preview: 'Vibrant gradient design with modern colors',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); padding: 50px 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">{{subject}}</h1>
+          </div>
+          <div style="padding: 40px 30px; background: #ffffff;">
+            <p style="color: #374151; font-size: 16px; line-height: 1.7; margin: 0 0 20px 0;">Hi {{customer_name}},</p>
+            <p style="color: #6b7280; font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">{{content}}</p>
+            <div style="margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); border-radius: 8px;">
+              <p style="color: #374151; font-size: 15px; margin: 0; line-height: 1.7; font-weight: 500;">{{highlight}}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 15px; line-height: 1.7; margin: 20px 0 0 0;">Best regards,<br><strong style="color: #667eea;">NextPanel Team</strong></p>
+          </div>
+          <div style="background: #f9fafb; padding: 25px; text-align: center;">
+            <p style="color: #9ca3af; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} NextPanel</p>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: 'corporate-classic',
+      name: 'Corporate Classic',
+      category: 'Business',
+      color: '#1e40af',
+      subject: 'Business Update',
+      preview: 'Professional corporate design',
+      html: `
+        <div style="font-family: 'Georgia', 'Times New Roman', serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid #1e40af;">
+          <div style="background: #1e40af; padding: 35px 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 600; letter-spacing: 1px;">{{subject}}</h1>
+          </div>
+          <div style="padding: 45px 35px; background: #ffffff;">
+            <p style="color: #1f2937; font-size: 16px; line-height: 1.8; margin: 0 0 25px 0;">Dear {{customer_name}},</p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.8; margin: 0 0 25px 0;">{{content}}</p>
+            <div style="margin: 30px 0; padding: 20px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px;">
+              <p style="color: #1e40af; font-size: 14px; margin: 0; line-height: 1.7; font-weight: 500;">{{highlight}}</p>
+            </div>
+            <p style="color: #374151; font-size: 15px; line-height: 1.8; margin: 25px 0 0 0;">Yours sincerely,<br><strong style="color: #1e40af;">NextPanel</strong></p>
+          </div>
+          <div style="background: #1e3a8a; padding: 20px; text-align: center;">
+            <p style="color: #dbeafe; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} NextPanel. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: 'warm-friendly',
+      name: 'Warm & Friendly',
+      category: 'Casual',
+      color: '#f59e0b',
+      subject: 'Hello from NextPanel',
+      preview: 'Warm and friendly design',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 45px 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 30px; font-weight: 600;">{{subject}}</h1>
+          </div>
+          <div style="padding: 40px 30px; background: #ffffff;">
+            <p style="color: #374151; font-size: 16px; line-height: 1.7; margin: 0 0 20px 0;">Hi {{customer_name}}! 👋</p>
+            <p style="color: #6b7280; font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">{{content}}</p>
+            <div style="margin: 30px 0; padding: 20px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px;">
+              <p style="color: #92400e; font-size: 14px; margin: 0; line-height: 1.7;">{{highlight}}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 15px; line-height: 1.7; margin: 20px 0 0 0;">Warm regards,<br><strong style="color: #f59e0b;">The NextPanel Team</strong></p>
+          </div>
+          <div style="background: #fef3c7; padding: 25px; text-align: center; border-top: 1px solid #fde68a;">
+            <p style="color: #92400e; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} NextPanel</p>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: 'tech-modern',
+      name: 'Tech Modern',
+      category: 'Modern',
+      color: '#10b981',
+      subject: 'Tech Update',
+      preview: 'Modern tech-inspired design',
+      html: `
+        <div style="font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; max-width: 600px; margin: 0 auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: 1px;">{{subject}}</h1>
+          </div>
+          <div style="padding: 40px 30px; background: #0f172a;">
+            <p style="color: #cbd5e1; font-size: 15px; line-height: 1.8; margin: 0 0 20px 0;">Hello {{customer_name}},</p>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.8; margin: 0 0 20px 0;">{{content}}</p>
+            <div style="margin: 30px 0; padding: 20px; background: #1e293b; border: 1px solid #10b981; border-radius: 6px; border-left-width: 4px;">
+              <p style="color: #10b981; font-size: 14px; margin: 0; line-height: 1.7; font-family: monospace;">{{highlight}}</p>
+            </div>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.8; margin: 20px 0 0 0;">Best,<br><span style="color: #10b981; font-weight: 600;">NextPanel</span></p>
+          </div>
+          <div style="background: #1e293b; padding: 20px; text-align: center; border-top: 1px solid #334155;">
+            <p style="color: #64748b; font-size: 11px; margin: 0; font-family: monospace;">© ${new Date().getFullYear()} NextPanel</p>
+          </div>
+        </div>
+      `
+    }
+  ];
   const [showProductsModal, setShowProductsModal] = useState(false);
   const [customerProducts, setCustomerProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -417,15 +578,87 @@ export default function CustomersPage() {
   const handleTemplateSelect = async (templateId: string) => {
     setSelectedTemplate(templateId);
     try {
+      // Check predefined templates first
+      const predefinedTemplate = predefinedTemplates.find(t => t.id === templateId);
+      if (predefinedTemplate) {
+        // Keep existing subject and content if user has already entered something
+        const subject = emailSubject || predefinedTemplate.subject || 'Update from NextPanel';
+        const customerName = selectedCustomer?.full_name || 'Customer';
+        const content = emailBodyText || 'We wanted to reach out with an important update regarding your account.';
+        const highlight = content.split('\n')[0] || 'This is an important message that requires your attention.';
+        
+        // Replace placeholders in HTML template
+        let html = predefinedTemplate.html
+          .replace(/\{\{subject\}\}/g, subject)
+          .replace(/\{\{customer_name\}\}/g, customerName)
+          .replace(/\{\{content\}\}/g, content.replace(/\n/g, '<br>'))
+          .replace(/\{\{highlight\}\}/g, highlight);
+        
+        // Only update if fields are empty
+        if (!emailSubject) setEmailSubject(subject);
+        if (!emailBodyText) setEmailBodyText(content);
+        setEmailBodyHtml(html);
+        
+        // Update editor content
+        if (editorRef.current) {
+          editorRef.current.innerHTML = content;
+        }
+        return;
+      }
+      
+      // Fallback to API templates
       const template = emailTemplates.find(t => t.id === templateId);
       if (template) {
-        setEmailSubject(template.subject || '');
-        setEmailBodyText(template.body_text || '');
-        setEmailBodyHtml(template.body_html || '');
+        const bodyText = template.body_text || emailBodyText || '';
+        const bodyHtml = template.body_html || '';
+        setEmailSubject(template.subject || emailSubject || '');
+        setEmailBodyText(bodyText);
+        setEmailBodyHtml(bodyHtml);
+        
+        // Update editor content
+        if (editorRef.current) {
+          editorRef.current.innerHTML = bodyHtml || bodyText;
+        }
       }
     } catch (error) {
       console.error('Failed to load template:', error);
     }
+  };
+  
+  // Sync editor when emailBodyHtml changes externally
+  useEffect(() => {
+    if (editorRef.current && emailBodyHtml && !editorRef.current.textContent) {
+      editorRef.current.innerHTML = emailBodyHtml;
+    }
+  }, [emailBodyHtml]);
+  
+  const getRenderedEmailHtml = () => {
+    if (!emailBodyHtml) return emailBodyText || '';
+    
+    // Replace placeholders with actual values
+    const customerName = selectedCustomer?.full_name || 'Customer';
+    const subject = emailSubject || 'Update from NextPanel';
+    // Use emailBodyText if available, otherwise use a default message
+    const content = emailBodyText || 'We wanted to reach out with an important update regarding your account.';
+    const highlight = emailBodyText ? emailBodyText.split('\n')[0] : 'This is an important message that requires your attention.';
+    
+    let html = emailBodyHtml
+      .replace(/\{\{subject\}\}/g, subject)
+      .replace(/\{\{customer_name\}\}/g, customerName)
+      .replace(/\{\{content\}\}/g, content.replace(/\n/g, '<br>'))
+      .replace(/\{\{highlight\}\}/g, highlight);
+    
+    // Wrap with CSS if provided
+    if (emailCss && emailCss.trim().length > 0) {
+      html = `<style>${emailCss}</style>${html}`;
+    }
+    
+    // Add JS if provided (though most email clients won't execute it)
+    if (emailJs && emailJs.trim().length > 0) {
+      html = `${html}<script>${emailJs}</script>`;
+    }
+    
+    return html;
   };
 
   const handleSendEmail = async () => {
@@ -441,12 +674,21 @@ export default function CustomersPage() {
 
     setSendingEmail(true);
     try {
+      // Combine HTML with CSS and JS
+      let finalHtml = emailBodyHtml;
+      if (emailCss && emailCss.trim().length > 0) {
+        finalHtml = `<style>${emailCss}</style>${finalHtml}`;
+      }
+      if (emailJs && emailJs.trim().length > 0) {
+        finalHtml = `${finalHtml}<script>${emailJs}</script>`;
+      }
+
       await api.post('/email-templates/send', {
         customer_id: selectedCustomer.id,
         template_id: selectedTemplate || null,
         subject: emailSubject,
         body_text: emailBodyText,
-        body_html: emailBodyHtml,
+        body_html: finalHtml,
         variables: {
           customer_name: selectedCustomer.full_name,
           customer_email: selectedCustomer.email,
@@ -1051,7 +1293,7 @@ export default function CustomersPage() {
       {/* Send Email Modal */}
       {showSendEmailModal && selectedCustomer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -1064,6 +1306,9 @@ export default function CustomersPage() {
                     setEmailSubject('');
                     setEmailBodyText('');
                     setEmailBodyHtml('');
+                    setEmailCss('');
+                    setEmailJs('');
+                    setEmailEditMode('rich');
                   }}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
@@ -1075,69 +1320,449 @@ export default function CustomersPage() {
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Template Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Choose Email Template (Optional)
-                </label>
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => handleTemplateSelect(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">-- Select Template or Write Custom Email --</option>
-                  {emailTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
+            <div className="flex-1 overflow-hidden flex">
+              {/* Left Side - Form Fields */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 border-r border-gray-200 dark:border-gray-700">
+                {/* Template Selection - Visual Grid */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Choose Email Template
+                  </label>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {predefinedTemplates.map((template) => (
+                      <button
+                        key={template.id}
+                        onClick={() => handleTemplateSelect(template.id)}
+                        className={`relative p-4 rounded-lg border-2 transition-all ${
+                          selectedTemplate === template.id
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div 
+                            className="w-12 h-12 rounded-lg flex-shrink-0"
+                            style={{ backgroundColor: template.color }}
+                          />
+                          <div className="flex-1 min-w-0 text-left">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                              {template.name}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              {template.category}
+                            </div>
+                            <div className="text-xs text-gray-400 dark:text-gray-500 line-clamp-2">
+                              {template.preview}
+                            </div>
+                          </div>
+                        </div>
+                        {selectedTemplate === template.id && (
+                          <div className="absolute top-2 right-2">
+                            <div className="w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {emailTemplates.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                        Custom Templates
+                      </label>
+                      <select
+                        value={selectedTemplate}
+                        onChange={(e) => handleTemplateSelect(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      >
+                        <option value="">-- Select Custom Template --</option>
+                        {emailTemplates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {selectedTemplate && (
+                    <button
+                      onClick={() => {
+                        setSelectedTemplate('');
+                        setEmailBodyHtml('');
+                        setEmailBodyText('');
+                        setEmailCss('');
+                        setEmailJs('');
+                        if (editorRef.current) {
+                          editorRef.current.innerHTML = '';
+                        }
+                      }}
+                      className="mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+                    >
+                      Clear template
+                    </button>
+                  )}
+                </div>
+
+                {/* Subject */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Email subject"
+                  />
+                </div>
+
+                {/* Email Body Editors */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Email Body *
+                    </label>
+                    {/* Edit Mode Tabs */}
+                    <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                      <button
+                        type="button"
+                        onClick={() => setEmailEditMode('rich')}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                          emailEditMode === 'rich'
+                            ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        Rich
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEmailEditMode('html')}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                          emailEditMode === 'html'
+                            ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        HTML
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEmailEditMode('css')}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                          emailEditMode === 'css'
+                            ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        CSS
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEmailEditMode('js')}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                          emailEditMode === 'js'
+                            ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        JS
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Rich Text Editor */}
+                  {emailEditMode === 'rich' && (
+                    <>
+                  {/* Toolbar */}
+                  <div className="border border-gray-300 dark:border-gray-600 rounded-t-lg bg-gray-50 dark:bg-gray-700 p-2 flex flex-wrap items-center gap-2">
+                    {/* Text Formatting */}
+                    <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('bold', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Bold"
+                      >
+                        <strong>B</strong>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('italic', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Italic"
+                      >
+                        <em>I</em>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('underline', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 underline"
+                        title="Underline"
+                      >
+                        U
+                      </button>
+                    </div>
+
+                    {/* Font Size */}
+                    <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+                      <select
+                        defaultValue="3"
+                        onChange={(e) => document.execCommand('fontSize', false, e.target.value)}
+                        className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                        title="Font Size"
+                      >
+                        <option value="1">Small</option>
+                        <option value="3">Normal</option>
+                        <option value="4">Large</option>
+                        <option value="5">X-Large</option>
+                        <option value="6">XX-Large</option>
+                      </select>
+                    </div>
+
+                    {/* Text Color */}
+                    <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+                      <input
+                        type="color"
+                        onChange={(e) => document.execCommand('foreColor', false, e.target.value)}
+                        className="h-7 w-10 border border-gray-300 dark:border-gray-600 rounded cursor-pointer"
+                        title="Text Color"
+                        defaultValue="#000000"
+                      />
+                    </div>
+
+                    {/* Alignment */}
+                    <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('justifyLeft', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Align Left"
+                      >
+                        ⬅
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('justifyCenter', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Align Center"
+                      >
+                        ⬌
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('justifyRight', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Align Right"
+                      >
+                        ➡
+                      </button>
+                    </div>
+
+                    {/* Lists */}
+                    <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('insertUnorderedList', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Bullet List"
+                      >
+                        •
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => document.execCommand('insertOrderedList', false)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Numbered List"
+                      >
+                        1.
+                      </button>
+                    </div>
+
+                    {/* Links */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = prompt('Enter URL:');
+                          if (url) document.execCommand('createLink', false, url);
+                        }}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300"
+                        title="Insert Link"
+                      >
+                        🔗
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Editor */}
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    onInput={(e) => {
+                      const html = e.currentTarget.innerHTML;
+                      const text = e.currentTarget.innerText;
+                      setEmailBodyHtml(html);
+                      setEmailBodyText(text);
+                      // Update template if selected
+                      if (selectedTemplate) {
+                        const predefinedTemplate = predefinedTemplates.find(t => t.id === selectedTemplate);
+                        if (predefinedTemplate) {
+                          const customerName = selectedCustomer?.full_name || 'Customer';
+                          const subject = emailSubject || predefinedTemplate.subject || 'Update from NextPanel';
+                          const content = html || 'We wanted to reach out with an important update.';
+                          const highlight = text.split('\n')[0] || 'Important information';
+                          
+                          let templateHtml = predefinedTemplate.html
+                            .replace(/\{\{subject\}\}/g, subject)
+                            .replace(/\{\{customer_name\}\}/g, customerName)
+                            .replace(/\{\{content\}\}/g, content)
+                            .replace(/\{\{highlight\}\}/g, highlight);
+                          setEmailBodyHtml(templateHtml);
+                        }
+                      }
+                    }}
+                    className="w-full min-h-[200px] px-3 py-2 border-x border-b border-gray-300 dark:border-gray-600 rounded-b-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    style={{ 
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      fontSize: '14px',
+                      lineHeight: '1.6'
+                    }}
+                    data-placeholder="Start typing your email content here..."
+                  />
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    [contenteditable][data-placeholder]:empty:before {
+                      content: attr(data-placeholder);
+                      color: #9ca3af;
+                      pointer-events: none;
+                    }
+                  `}} />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {selectedTemplate ? 'Template selected. Format your text using the toolbar above.' : 'Format your email using the toolbar above. HTML will be generated automatically.'}
+                  </p>
+                    </>
+                  )}
+
+                  {/* HTML Editor */}
+                  {emailEditMode === 'html' && (
+                    <div>
+                      <textarea
+                        value={emailBodyHtml}
+                        onChange={(e) => {
+                          setEmailBodyHtml(e.target.value);
+                          // Extract text from HTML
+                          const tempDiv = document.createElement('div');
+                          tempDiv.innerHTML = e.target.value;
+                          setEmailBodyText(tempDiv.textContent || tempDiv.innerText || '');
+                        }}
+                        rows={12}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                        placeholder="<!-- Enter your HTML email content here -->"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Edit the raw HTML content of your email
+                      </p>
+                    </div>
+                  )}
+
+                  {/* CSS Editor */}
+                  {emailEditMode === 'css' && (
+                    <div>
+                      <textarea
+                        value={emailCss}
+                        onChange={(e) => setEmailCss(e.target.value)}
+                        rows={12}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                        placeholder="/* Add your custom CSS styles here */&#10;.email-container {&#10;  font-family: Arial, sans-serif;&#10;  color: #333;&#10;}"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Add custom CSS styles that will be applied to your email
+                      </p>
+                    </div>
+                  )}
+
+                  {/* JavaScript Editor */}
+                  {emailEditMode === 'js' && (
+                    <div>
+                      <textarea
+                        value={emailJs}
+                        onChange={(e) => setEmailJs(e.target.value)}
+                        rows={12}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                        placeholder="// Add your custom JavaScript here&#10;// Note: Email clients have limited JavaScript support"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Add custom JavaScript (Note: Most email clients don't support JavaScript)
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Subject */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Subject *
-                </label>
-                <input
-                  type="text"
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Email subject"
-                />
-              </div>
-
-              {/* Body Text */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email Body (Text) *
-                </label>
-                <textarea
-                  value={emailBodyText}
-                  onChange={(e) => setEmailBodyText(e.target.value)}
-                  rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
-                  placeholder="Enter email content (plain text)"
-                />
-              </div>
-
-              {/* Body HTML */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email Body (HTML) - Optional
-                </label>
-                <textarea
-                  value={emailBodyHtml}
-                  onChange={(e) => setEmailBodyHtml(e.target.value)}
-                  rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
-                  placeholder="Enter email content (HTML)"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  If provided, HTML version will be used. Otherwise, text version will be sent.
-                </p>
+              {/* Right Side - Email Preview */}
+              <div className="w-1/2 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email Preview
+                  </label>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {emailBodyHtml ? 'HTML' : 'Text'} version
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                  {/* Email Client Header */}
+                  <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
+                        <Mail className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {selectedCustomer?.full_name || 'Customer'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {selectedCustomer?.email || 'customer@example.com'}
+                        </div>
+                      </div>
+                    </div>
+                    {emailSubject && (
+                      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Subject:</div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {emailSubject}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Email Body Preview */}
+                  <div className="bg-white dark:bg-gray-800 min-h-[400px] overflow-y-auto" style={{ backgroundColor: '#f3f4f6' }}>
+                    {emailBodyHtml ? (
+                      <div 
+                        className="email-preview-html"
+                        style={{
+                          fontFamily: 'system-ui, -apple-system, sans-serif',
+                          padding: '20px',
+                          minHeight: '400px',
+                        }}
+                        dangerouslySetInnerHTML={{ __html: getRenderedEmailHtml() }}
+                      />
+                    ) : emailBodyText ? (
+                      <div className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-sans p-6">
+                        {emailBodyText}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 dark:text-gray-500 italic text-center py-8">
+                        <Mail className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>Select a template or start typing to see preview</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 

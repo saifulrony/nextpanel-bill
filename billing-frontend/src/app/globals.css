@@ -91,5 +91,130 @@ textarea::placeholder {
   animation: slide-in 0.3s ease-out;
 }
 
+/* Email Preview Styles */
+.email-preview-html {
+  line-height: 1.6;
+}
+
+.email-preview-html h1,
+.email-preview-html h2,
+.email-preview-html h3,
+.email-preview-html h4,
+.email-preview-html h5,
+.email-preview-html h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.email-preview-html h1 { font-size: 1.875rem; }
+.email-preview-html h2 { font-size: 1.5rem; }
+.email-preview-html h3 { font-size: 1.25rem; }
+.email-preview-html h4 { font-size: 1.125rem; }
+.email-preview-html h5 { font-size: 1rem; }
+.email-preview-html h6 { font-size: 0.875rem; }
+
+.email-preview-html p {
+  margin-bottom: 1em;
+}
+
+.email-preview-html ul,
+.email-preview-html ol {
+  margin-bottom: 1em;
+  padding-left: 1.5em;
+}
+
+.email-preview-html li {
+  margin-bottom: 0.5em;
+}
+
+.email-preview-html a {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+.email-preview-html a:hover {
+  color: #4338ca;
+}
+
+.email-preview-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}
+
+.email-preview-html table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1em;
+}
+
+.email-preview-html table th,
+.email-preview-html table td {
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.email-preview-html table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
+.email-preview-html blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1em;
+  margin: 1em 0;
+  font-style: italic;
+}
+
+.email-preview-html code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: 'Courier New', monospace;
+}
+
+.email-preview-html pre {
+  background-color: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+
+.email-preview-html pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Dark mode email preview */
+.dark .email-preview-html {
+  color: #e5e7eb;
+}
+
+.dark .email-preview-html table th,
+.dark .email-preview-html table td {
+  border-color: #374151;
+}
+
+.dark .email-preview-html table th {
+  background-color: #1f2937;
+}
+
+.dark .email-preview-html blockquote {
+  border-left-color: #4b5563;
+}
+
+.dark .email-preview-html code {
+  background-color: #1f2937;
+}
+
+.dark .email-preview-html pre {
+  background-color: #1f2937;
+}
+
 
 

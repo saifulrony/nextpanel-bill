@@ -778,7 +778,7 @@ export default function DashboardLayout({
                         <div className="text-sm text-gray-500">{user?.email}</div>
                       </div>
                       <Link
-                        href="/profile"
+                        href="/admin/settings"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                         onClick={() => setUserDropdownOpen(false)}
                       >
@@ -788,7 +788,7 @@ export default function DashboardLayout({
                         </div>
                       </Link>
                       <Link
-                        href="/settings"
+                        href="/admin/settings"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                         onClick={() => setUserDropdownOpen(false)}
                       >

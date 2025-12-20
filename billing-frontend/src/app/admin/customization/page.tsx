@@ -1693,67 +1693,121 @@ export default function ${page.name}Page() {
               {/* Colors Tab */}
               {activeTab === 'colors' && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Color Scheme</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Color Customization</h2>
                   <div className="space-y-6">
-                    {[
-                      { label: 'Primary Color', key: 'primaryColor' as keyof CustomizationSettings },
-                      { label: 'Secondary Color', key: 'secondaryColor' as keyof CustomizationSettings },
-                      { label: 'Background Color', key: 'backgroundColor' as keyof CustomizationSettings },
-                      { label: 'Text Color', key: 'textColor' as keyof CustomizationSettings },
-                    ].map((color) => (
-                      <div key={color.key}>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {color.label}
+                    {/* Toggle between Color Picker and CSS */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Customization Method
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Choose between simple color picker or advanced CSS
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSettings({ ...settings, customCSS: '' })}
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                            !settings.customCSS || settings.customCSS.trim().length === 0
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          Color Picker
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!settings.customCSS || settings.customCSS.trim().length === 0) {
+                              setSettings({ 
+                                ...settings, 
+                                customCSS: '/* Add your custom CSS here */\n:root {\n  --primary-color: ' + settings.primaryColor + ';\n}'
+                              });
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                            settings.customCSS && settings.customCSS.trim().length > 0
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          Use CSS
+                        </button>
+                      </div>
+                    </div>
+
+                    {settings.customCSS && settings.customCSS.trim().length > 0 ? (
+                      /* CSS Editor Mode */
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Custom CSS
+                        </label>
+                        <textarea
+                          value={settings.customCSS}
+                          onChange={(e) => setSettings({ ...settings, customCSS: e.target.value })}
+                          rows={12}
+                          className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono text-xs"
+                          placeholder="/* Add your custom CSS here */&#10;/* Example: */&#10;:root {&#10;  --primary-color: #4f46e5;&#10;  --secondary-color: #7c3aed;&#10;  --background-color: #ffffff;&#10;  --text-color: #1f2937;&#10;}&#10;&#10;.btn-primary {&#10;  background-color: var(--primary-color);&#10;  color: white;&#10;}"
+                        />
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          Use CSS variables or direct selectors to customize colors throughout the system
+                        </p>
+                      </div>
+                    ) : (
+                      /* Simple Color Picker Mode */
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Custom Color
                         </label>
                         <div className="flex items-center space-x-3">
                           <input
                             type="color"
-                            value={settings[color.key] as string}
-                            onChange={(e) => setSettings({ ...settings, [color.key]: e.target.value })}
-                            className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            value={settings.primaryColor}
+                            onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                            className="h-12 w-24 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
                           />
                           <input
                             type="text"
-                            value={settings[color.key] as string}
-                            onChange={(e) => setSettings({ ...settings, [color.key]: e.target.value })}
-                            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            value={settings.primaryColor}
+                            onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                            placeholder="#4f46e5"
+                            className="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono"
                           />
                         </div>
-                      </div>
-                    ))}
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">Color Preview</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div
-                          className="p-3 rounded text-white text-sm"
-                          style={{ backgroundColor: settings.primaryColor }}
-                        >
-                          Primary
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          This color will be applied as the primary accent color throughout the system
+                        </p>
+                        
+                        {/* Color Preview */}
+                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Preview</h3>
+                          <div className="space-y-2">
+                            <div
+                              className="p-3 rounded text-white text-sm font-medium"
+                              style={{ backgroundColor: settings.primaryColor }}
+                            >
+                              Primary Color: {settings.primaryColor}
+                            </div>
+                            <div className="p-3 rounded text-sm border-2" style={{ 
+                              borderColor: settings.primaryColor,
+                              color: settings.primaryColor,
+                              backgroundColor: 'transparent'
+                            }}>
+                              Border & Text Preview
+                            </div>
+                          </div>
                         </div>
-                        <div
-                          className="p-3 rounded text-white text-sm"
-                          style={{ backgroundColor: settings.secondaryColor }}
-                        >
-                          Secondary
-                        </div>
-                        <div
-                          className="p-3 rounded text-sm"
-                          style={{
-                            backgroundColor: settings.backgroundColor,
-                            color: settings.textColor,
-                            border: '1px solid #e5e7eb',
-                          }}
-                        >
-                          Background
-                        </div>
-                        <div
-                          className="p-3 rounded text-sm"
-                          style={{ color: settings.textColor, backgroundColor: settings.backgroundColor }}
-                        >
-                          Text
+
+                        {/* Option to switch to CSS */}
+                        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                            Need more control? Switch to CSS mode above for advanced color customization.
+                          </p>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
