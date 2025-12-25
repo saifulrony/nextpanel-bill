@@ -17,6 +17,8 @@ import {
   DocumentTextIcon,
   CalendarIcon,
   UserGroupIcon,
+  TrashIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 interface LicenseService {
@@ -51,6 +53,8 @@ export default function MyLicensesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [licenseToCancel, setLicenseToCancel] = useState<LicenseService | null>(null);
 
   useEffect(() => {
     const loadLicenseServices = async () => {
@@ -442,6 +446,18 @@ export default function MyLicensesPage() {
                       <Cog6ToothIcon className="h-4 w-4 mr-2" />
                       Settings
                     </button>
+                    {(service.status === 'active' || service.status === 'expiring') && (
+                      <button
+                        onClick={() => {
+                          setLicenseToCancel(service);
+                          setShowCancelModal(true);
+                        }}
+                        className="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
+                        <TrashIcon className="h-4 w-4 mr-2" />
+                        Cancel Service
+                      </button>
+                    )}
                     {service.status === 'expired' && (
                       <button className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         <PencilIcon className="h-4 w-4 mr-2" />
@@ -498,6 +514,58 @@ export default function MyLicensesPage() {
                 >
                   Browse Services
                 </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && licenseToCancel && (
+        <div className="fixed z-50 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowCancelModal(false)}></div>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Cancel License Service
+                  </h3>
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to cancel <strong>{licenseToCancel.name}</strong>? To proceed with cancellation, please contact our support team.
+                  </p>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> License cancellation requires manual processing. Please contact support to cancel your license service. Your license will remain active until the end of the current billing period.
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Close
+                  </button>
+                  <a
+                    href="/customer/support"
+                    className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Contact Support
+                  </a>
+                </div>
               </div>
             </div>
           </div>

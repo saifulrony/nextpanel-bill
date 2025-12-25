@@ -283,10 +283,10 @@ export default function SecurityPage() {
       const otpAuthUrl = authenticator.keyuri(userEmail, serviceName, secret);
       console.log('OTP Auth URL:', otpAuthUrl);
       
-      // Store the OTP URL for QRCodeSVG component
+      // Store the OTP URL for QRCodeSVG component FIRST
       setTwoFactorOTPUrl(otpAuthUrl);
       
-      // Also try to generate a data URL for fallback display
+      // Also try to generate a data URL for fallback display (optional, QRCodeSVG will work as fallback)
       try {
         const QRCodeModule = await import('qrcode');
         const QRCode = QRCodeModule.default;
@@ -306,7 +306,10 @@ export default function SecurityPage() {
         // We'll use QRCodeSVG component directly, so this is okay
         setTwoFactorQRCode('');
       }
+      
+      // Show the setup UI - React will batch state updates automatically
       setShowTwoFactorSetup(true);
+      console.log('2FA Setup state updated:', { otpAuthUrl, secret });
       success('Two-factor authentication setup initiated. Please scan the QR code with your authenticator app.');
     } catch (error: any) {
       console.error('Failed to generate 2FA setup:', error);
@@ -643,7 +646,7 @@ export default function SecurityPage() {
                 </p>
                 <div className="flex items-start space-x-4">
                   <div className="bg-white p-4 rounded border flex-shrink-0">
-                    {twoFactorOTPUrl && twoFactorSecret ? (
+                    {showTwoFactorSetup && twoFactorOTPUrl && twoFactorSecret ? (
                       <div className="flex flex-col items-center">
                         {twoFactorQRCode ? (
                           <img 
@@ -658,19 +661,22 @@ export default function SecurityPage() {
                               console.log('QR code image loaded successfully');
                             }}
                           />
-                        ) : (
-                          <div className="w-64 h-64 border border-gray-200 bg-white p-2">
+                        ) : twoFactorOTPUrl ? (
+                          <div className="w-64 h-64 border border-gray-200 bg-white p-2 flex items-center justify-center">
                             <QRCodeSVG
                               value={twoFactorOTPUrl}
-                              size={256}
+                              size={240}
                               level="M"
                               includeMargin={true}
-                              className="w-full h-full"
                             />
                           </div>
-                        )}
-                        {!twoFactorSecret && (
-                          <p className="text-xs text-red-600 mt-2">Warning: Secret not found. Please restart setup.</p>
+                        ) : (
+                          <div className="w-64 h-64 flex items-center justify-center bg-gray-100 rounded border border-gray-200">
+                            <div className="text-center text-gray-500">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
+                              <p className="text-sm">Preparing QR code...</p>
+                            </div>
+                          </div>
                         )}
                       </div>
                     ) : (
@@ -685,7 +691,7 @@ export default function SecurityPage() {
                             <>
                               <ExclamationTriangleIcon className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
                               <p className="text-sm">QR code not available</p>
-                              <p className="text-xs mt-1">Click "Enable Two-Factor Authentication" again</p>
+                              <p className="text-xs mt-1">Click "Enable Two-Factor Authentication" to start</p>
                             </>
                           )}
                         </div>

@@ -893,7 +893,7 @@ export default function DashboardPage() {
                     bodyFont: { size: 13 },
                     callbacks: {
                       label: function(context) {
-                        return `Revenue: ${formatCurrency(context.parsed.y)}`;
+                        return `Revenue: ${formatCurrency(context.parsed.y ?? 0)}`;
                       },
                     },
                   },

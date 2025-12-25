@@ -84,6 +84,21 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState<boolean | null>(null);
+  const [filterAdmin, setFilterAdmin] = useState<boolean | null>(null);
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterMinPayments, setFilterMinPayments] = useState('');
+  const [filterMaxPayments, setFilterMaxPayments] = useState('');
+  const [filterMinInvoices, setFilterMinInvoices] = useState('');
+  const [filterMaxInvoices, setFilterMaxInvoices] = useState('');
+  const [filterMinOutstanding, setFilterMinOutstanding] = useState('');
+  const [filterMaxOutstanding, setFilterMaxOutstanding] = useState('');
+  const [filterHasOutstanding, setFilterHasOutstanding] = useState<boolean | null>(null);
+  const [filterMinProducts, setFilterMinProducts] = useState('');
+  const [filterMaxProducts, setFilterMaxProducts] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<string>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -270,7 +285,7 @@ export default function CustomersPage() {
       fetchStats();
       fetchCustomers();
     }
-  }, [isAuthenticated, searchTerm, filterActive]);
+  }, [isAuthenticated, searchTerm, filterActive, filterAdmin, filterDateFrom, filterDateTo]);
 
   const fetchStats = async () => {
     try {
@@ -292,12 +307,114 @@ export default function CustomersPage() {
       const params: any = {};
       if (searchTerm) params.search = searchTerm;
       if (filterActive !== null) params.is_active = filterActive;
+      if (filterAdmin !== null) params.is_admin = filterAdmin;
+      if (filterDateFrom) params.created_from = filterDateFrom;
+      if (filterDateTo) params.created_to = filterDateTo;
 
       console.log('Fetching customers...');
       console.log('API base URL:', api.defaults.baseURL);
       const response = await api.get('/customers', { params });
       console.log('Customers response:', response.data);
-      setCustomers(response.data);
+      
+      // Apply client-side filters and sorting
+      let filtered = response.data || [];
+      
+      // Filter by payment amounts
+      if (filterMinPayments) {
+        filtered = filtered.filter((c: Customer) => (c.total_payments || 0) >= parseFloat(filterMinPayments));
+      }
+      if (filterMaxPayments) {
+        filtered = filtered.filter((c: Customer) => (c.total_payments || 0) <= parseFloat(filterMaxPayments));
+      }
+      
+      // Filter by invoice amounts
+      if (filterMinInvoices) {
+        filtered = filtered.filter((c: Customer) => (c.total_invoices || 0) >= parseFloat(filterMinInvoices));
+      }
+      if (filterMaxInvoices) {
+        filtered = filtered.filter((c: Customer) => (c.total_invoices || 0) <= parseFloat(filterMaxInvoices));
+      }
+      
+      // Filter by outstanding amounts
+      if (filterMinOutstanding) {
+        filtered = filtered.filter((c: Customer) => (c.outstanding_invoices || 0) >= parseFloat(filterMinOutstanding));
+      }
+      if (filterMaxOutstanding) {
+        filtered = filtered.filter((c: Customer) => (c.outstanding_invoices || 0) <= parseFloat(filterMaxOutstanding));
+      }
+      if (filterHasOutstanding !== null) {
+        if (filterHasOutstanding) {
+          filtered = filtered.filter((c: Customer) => (c.outstanding_invoices || 0) > 0);
+        } else {
+          filtered = filtered.filter((c: Customer) => (c.outstanding_invoices || 0) === 0);
+        }
+      }
+      
+      // Filter by product counts
+      if (filterMinProducts) {
+        const minProducts = parseFloat(filterMinProducts);
+        filtered = filtered.filter((c: Customer) => {
+          const totalProducts = (c.total_licenses || 0) + (c.total_subscriptions || 0);
+          return totalProducts >= minProducts;
+        });
+      }
+      if (filterMaxProducts) {
+        const maxProducts = parseFloat(filterMaxProducts);
+        filtered = filtered.filter((c: Customer) => {
+          const totalProducts = (c.total_licenses || 0) + (c.total_subscriptions || 0);
+          return totalProducts <= maxProducts;
+        });
+      }
+      
+      // Apply sorting
+      filtered.sort((a: Customer, b: Customer) => {
+        let aValue: any;
+        let bValue: any;
+        
+        switch (sortBy) {
+          case 'name':
+            aValue = (a.full_name || '').toLowerCase();
+            bValue = (b.full_name || '').toLowerCase();
+            break;
+          case 'email':
+            aValue = (a.email || '').toLowerCase();
+            bValue = (b.email || '').toLowerCase();
+            break;
+          case 'created_at':
+            aValue = new Date(a.created_at).getTime();
+            bValue = new Date(b.created_at).getTime();
+            break;
+          case 'total_payments':
+            aValue = a.total_payments || 0;
+            bValue = b.total_payments || 0;
+            break;
+          case 'total_invoices':
+            aValue = a.total_invoices || 0;
+            bValue = b.total_invoices || 0;
+            break;
+          case 'outstanding_invoices':
+            aValue = a.outstanding_invoices || 0;
+            bValue = b.outstanding_invoices || 0;
+            break;
+          case 'total_products':
+            aValue = (a.total_licenses || 0) + (a.total_subscriptions || 0);
+            bValue = (b.total_licenses || 0) + (b.total_subscriptions || 0);
+            break;
+          case 'last_payment_date':
+            aValue = a.last_payment_date ? new Date(a.last_payment_date).getTime() : 0;
+            bValue = b.last_payment_date ? new Date(b.last_payment_date).getTime() : 0;
+            break;
+          default:
+            aValue = new Date(a.created_at).getTime();
+            bValue = new Date(b.created_at).getTime();
+        }
+        
+        if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+      
+      setCustomers(filtered);
       setAccessDenied(false);
     } catch (error: any) {
       console.error('Failed to fetch customers:', error);
@@ -632,6 +749,51 @@ export default function CustomersPage() {
     }
   }, [emailBodyHtml]);
   
+  const scopeCssToContainer = (css: string, containerClass: string) => {
+    if (!css || !css.trim()) return '';
+    
+    try {
+      // Remove existing style tags if any
+      let cleanCss = css.replace(/<style[^>]*>|<\/style>/gi, '').trim();
+      
+      // Simple approach: prefix all selectors with the container class
+      // Match CSS rules: selector { declarations }
+      const ruleRegex = /([^{}]+)\{([^{}]+)\}/g;
+      let scopedCss = cleanCss.replace(ruleRegex, (match, selector, declarations) => {
+        // Don't scope @ rules
+        if (selector.trim().startsWith('@')) {
+          return match;
+        }
+        
+        // Scope each selector
+        const scopedSelectors = selector
+          .split(',')
+          .map((sel: string) => {
+            const trimmed = sel.trim();
+            // Skip global selectors and already scoped selectors
+            if (
+              trimmed === 'body' || 
+              trimmed === 'html' || 
+              trimmed.includes(containerClass) ||
+              trimmed.startsWith('@')
+            ) {
+              return trimmed;
+            }
+            return `.${containerClass} ${trimmed}`;
+          })
+          .join(', ');
+        
+        return `${scopedSelectors} {${declarations}}`;
+      });
+      
+      return scopedCss;
+    } catch (error) {
+      console.error('Error scoping CSS:', error);
+      // Fallback: wrap entire CSS in container class
+      return `.${containerClass} {\n${css}\n}`;
+    }
+  };
+
   const getRenderedEmailHtml = () => {
     if (!emailBodyHtml) return emailBodyText || '';
     
@@ -648,9 +810,10 @@ export default function CustomersPage() {
       .replace(/\{\{content\}\}/g, content.replace(/\n/g, '<br>'))
       .replace(/\{\{highlight\}\}/g, highlight);
     
-    // Wrap with CSS if provided
+    // Wrap with scoped CSS if provided
     if (emailCss && emailCss.trim().length > 0) {
-      html = `<style>${emailCss}</style>${html}`;
+      const scopedCss = scopeCssToContainer(emailCss, 'email-preview-scoped');
+      html = `<style>${scopedCss}</style>${html}`;
     }
     
     // Add JS if provided (though most email clients won't execute it)
@@ -933,7 +1096,8 @@ export default function CustomersPage() {
       )}
 
       {/* Filters and Search */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-4">
+        {/* Search and Quick Filters Row */}
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -945,39 +1109,254 @@ export default function CustomersPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilterActive(null)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterActive === null
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
+          
+          {/* Sort Dropdown */}
+          <div className="flex gap-2 items-center">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
             >
-              All
-            </button>
+              <option value="created_at">Sort by: Join Date</option>
+              <option value="name">Sort by: Name</option>
+              <option value="email">Sort by: Email</option>
+              <option value="total_payments">Sort by: Total Payments</option>
+              <option value="total_invoices">Sort by: Total Invoices</option>
+              <option value="outstanding_invoices">Sort by: Outstanding</option>
+              <option value="total_products">Sort by: Products</option>
+              <option value="last_payment_date">Sort by: Last Payment</option>
+            </select>
             <button
-              onClick={() => setFilterActive(true)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterActive === true
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
             >
-              Active
-            </button>
-            <button
-              onClick={() => setFilterActive(false)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterActive === false
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              Inactive
+              {sortOrder === 'asc' ? '↑' : '↓'}
             </button>
           </div>
         </div>
+
+        {/* Quick Status Filters */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterActive(null)}
+            className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+              filterActive === null
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            All Status
+          </button>
+          <button
+            onClick={() => setFilterActive(true)}
+            className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+              filterActive === true
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setFilterActive(false)}
+            className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+              filterActive === false
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            Inactive
+          </button>
+          <button
+            onClick={() => setFilterAdmin(filterAdmin === true ? null : true)}
+            className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+              filterAdmin === true
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            Admins
+          </button>
+          <button
+            onClick={() => setFilterHasOutstanding(filterHasOutstanding === true ? null : true)}
+            className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+              filterHasOutstanding === true
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            Has Outstanding
+          </button>
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="px-4 py-2 rounded-lg transition-colors text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
+          </button>
+        </div>
+
+        {/* Advanced Filters Panel */}
+        {showAdvancedFilters && (
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Date Range */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Created From
+              </label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Created To
+              </label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+
+            {/* Payment Range */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Min Payments ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={filterMinPayments}
+                onChange={(e) => setFilterMinPayments(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Max Payments ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={filterMaxPayments}
+                onChange={(e) => setFilterMaxPayments(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+
+            {/* Invoice Range */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Min Invoices
+              </label>
+              <input
+                type="number"
+                value={filterMinInvoices}
+                onChange={(e) => setFilterMinInvoices(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Max Invoices
+              </label>
+              <input
+                type="number"
+                value={filterMaxInvoices}
+                onChange={(e) => setFilterMaxInvoices(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+
+            {/* Outstanding Range */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Min Outstanding ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={filterMinOutstanding}
+                onChange={(e) => setFilterMinOutstanding(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Max Outstanding ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={filterMaxOutstanding}
+                onChange={(e) => setFilterMaxOutstanding(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+
+            {/* Product Count Range */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Min Products
+              </label>
+              <input
+                type="number"
+                value={filterMinProducts}
+                onChange={(e) => setFilterMinProducts(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Max Products
+              </label>
+              <input
+                type="number"
+                value={filterMaxProducts}
+                onChange={(e) => setFilterMaxProducts(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+
+            {/* Clear Filters Button */}
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setFilterActive(null);
+                  setFilterAdmin(null);
+                  setFilterDateFrom('');
+                  setFilterDateTo('');
+                  setFilterMinPayments('');
+                  setFilterMaxPayments('');
+                  setFilterMinInvoices('');
+                  setFilterMaxInvoices('');
+                  setFilterMinOutstanding('');
+                  setFilterMaxOutstanding('');
+                  setFilterHasOutstanding(null);
+                  setFilterMinProducts('');
+                  setFilterMaxProducts('');
+                }}
+                className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm"
+              >
+                Clear All Filters
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Customers Table */}
@@ -1742,15 +2121,17 @@ export default function CustomersPage() {
                   {/* Email Body Preview */}
                   <div className="bg-white dark:bg-gray-800 min-h-[400px] overflow-y-auto" style={{ backgroundColor: '#f3f4f6' }}>
                     {emailBodyHtml ? (
-                      <div 
-                        className="email-preview-html"
-                        style={{
-                          fontFamily: 'system-ui, -apple-system, sans-serif',
-                          padding: '20px',
-                          minHeight: '400px',
-                        }}
-                        dangerouslySetInnerHTML={{ __html: getRenderedEmailHtml() }}
-                      />
+                      <div className="email-preview-scoped">
+                        <div 
+                          className="email-preview-html"
+                          style={{
+                            fontFamily: 'system-ui, -apple-system, sans-serif',
+                            padding: '20px',
+                            minHeight: '400px',
+                          }}
+                          dangerouslySetInnerHTML={{ __html: getRenderedEmailHtml() }}
+                        />
+                      </div>
                     ) : emailBodyText ? (
                       <div className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-sans p-6">
                         {emailBodyText}

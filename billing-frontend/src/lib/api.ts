@@ -451,6 +451,9 @@ export const supportAPI = {
   listTickets: () =>
     api.get('/support/tickets'),
   
+  list: (params?: any) =>
+    api.get('/support/tickets', { params }),
+  
   getTicket: (id: string) =>
     api.get(`/support/tickets/${id}`),
   
@@ -720,6 +723,14 @@ export const customerSubscriptionsAPI = {
   getUsage: async (licenseId: string) => {
     const response = await api.get(`/customer/subscriptions/usage/${licenseId}`);
     return response.data;
+  },
+
+  // Cancel subscription
+  cancel: async (subscriptionId: string, cancelAtPeriodEnd: boolean = true) => {
+    const response = await api.post(`/subscriptions/${subscriptionId}/cancel`, {
+      cancel_at_period_end: cancelAtPeriodEnd
+    });
+    return response.data;
   }
 };
 
@@ -976,6 +987,13 @@ export const dedicatedServersAPI = {
     api.post(`/dedicated-servers/instances/${id}/terminate`),
   getInstanceStatus: (id: number) => 
     api.get(`/dedicated-servers/instances/${id}/status`),
+  // Power controls
+  startInstance: (id: number) => 
+    api.post(`/dedicated-servers/instances/${id}/start`),
+  stopInstance: (id: number) => 
+    api.post(`/dedicated-servers/instances/${id}/stop`),
+  restartInstance: (id: number) => 
+    api.post(`/dedicated-servers/instances/${id}/restart`),
 };
 
 // Reports API

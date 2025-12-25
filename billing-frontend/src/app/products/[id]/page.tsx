@@ -110,7 +110,7 @@ export default function ProductDetailPage() {
       price: product.price_monthly,
       billing_cycle: 'monthly',
       category: product.features?.category || 'product',
-      type: product.id.startsWith('server-') ? 'server' : 'product',
+      type: 'product' as const,
     };
 
     addItem(cartItem);

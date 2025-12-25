@@ -126,7 +126,6 @@ export default function TransactionsPage() {
       console.log('Loading payments data...');
       console.log('API base URL:', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001');
       console.log('Request params:', params);
-      console.log('Full API URL:', paymentsAPI.list.defaults?.baseURL || 'Not set');
       
       const [paymentsResponse, statsResponse] = await Promise.all([
         paymentsAPI.list(params).catch(err => {

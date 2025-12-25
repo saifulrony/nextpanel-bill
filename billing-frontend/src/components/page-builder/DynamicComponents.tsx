@@ -2288,7 +2288,7 @@ export function CheckoutComponent({
                       Payment Method
                     </label>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                      {config.paymentMethods.map((method) => (
+                      {config.paymentMethods.map((method: string) => (
                         <label key={method} style={{ 
                           flex: 1,
                           padding: '1rem',
@@ -2316,14 +2316,26 @@ export function CheckoutComponent({
                 {/* Stripe Payment Form */}
                 {paymentMethod === 'stripe' && stripePromise && (
                   <Elements stripe={stripePromise}>
-                    <StripePaymentForm />
+                    <StripePaymentForm 
+                      amount={total * 100}
+                      onSuccess={async (paymentIntent: any) => {
+                        console.log('Payment successful:', paymentIntent);
+                        // Create order after successful payment
+                        const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
+                        await handleSubmit(syntheticEvent);
+                      }}
+                      onError={(error: string) => {
+                        console.error('Payment error:', error);
+                        alert(error);
+                      }}
+                    />
                   </Elements>
                 )}
                 
                 {/* Manual Payment Fields */}
                 {paymentMethod === 'manual' && (
                   <>
-                    {config.showCardNumber && (
+                    {((config as any).showCardNumber !== false) && (
                       <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                           Card Number *
@@ -2350,7 +2362,7 @@ export function CheckoutComponent({
                     )}
                     
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                      {config.showExpiryDate && (
+                      {((config as any).showExpiryDate !== false) && (
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                             Expiry Date *
@@ -2376,7 +2388,7 @@ export function CheckoutComponent({
                         </div>
                       )}
                       
-                      {config.showCVV && (
+                      {((config as any).showCVV !== false) && (
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                             CVV *
@@ -2403,7 +2415,7 @@ export function CheckoutComponent({
                       )}
                     </div>
                     
-                    {config.showNameOnCard && (
+                    {((config as any).showNameOnCard !== false) && (
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                           Name on Card *

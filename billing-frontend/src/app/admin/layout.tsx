@@ -41,6 +41,7 @@ import {
   CalculatorIcon,
   ShieldCheckIcon,
   AdjustmentsHorizontalIcon,
+  CodeBracketIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useRef, useEffect } from 'react';
 import { useInstalledModules } from '@/hooks/useInstalledModules';
@@ -88,9 +89,18 @@ const getBaseNavigation = () => [
       { name: 'Reports', href: '/admin/reports', icon: ChartBarIcon },
     ]
   },
-  { name: 'Server', href: '/admin/server', icon: ServerIcon },
+  { 
+    name: 'Server', 
+    href: '/admin/server', 
+    icon: ServerIcon,
+    children: [
+      { name: 'NextPanel Servers', href: '/admin/server', icon: ServerIcon },
+      { name: 'Dedicated Servers', href: '/admin/dedicated-servers/instances', icon: ServerIcon },
+    ]
+  },
   { name: 'Backup', href: '/admin/backup', icon: ArchiveBoxIcon },
   { name: 'Security', href: '/admin/security', icon: ShieldCheckIcon },
+  { name: 'API Docs', href: '/admin/api-keys', icon: CodeBracketIcon },
   { 
     name: 'Analytics', 
     href: '/admin/analytics', 
@@ -153,6 +163,7 @@ const navigationPermissions: Record<string, string> = {
   '/admin/payments': 'access_payments_transactions_page',
   '/admin/payments/gateways': 'access_payments_gateways_page',
   '/admin/server': 'access_server_page',
+  '/admin/dedicated-servers/instances': 'access_dedicated_servers_page',
   '/admin/backup': 'access_backup_page',
   '/admin/security': 'access_security_page',
   '/admin/analytics': 'access_analytics_overview_page',
@@ -173,6 +184,7 @@ const navigationPermissions: Record<string, string> = {
   '/admin/tax-rules': 'access_tax_rules_page',
   '/admin/affiliates': 'access_affiliates_page',
   '/admin/reports': 'access_reports_page',
+  '/admin/api-keys': 'access_api_keys_page',
 };
 
 export default function DashboardLayout({
@@ -443,7 +455,10 @@ export default function DashboardLayout({
     if (customizedSidebar.length > 0) {
       return customizedSidebar;
     }
-    return convertNavigationToSidebarItems(navigation);
+    if (navigation && navigation.length > 0) {
+      return convertNavigationToSidebarItems(navigation);
+    }
+    return [];
   };
 
   // Handle sidebar customization update
@@ -461,12 +476,16 @@ export default function DashboardLayout({
   // Get filtered navigation based on customization
   const getFilteredNavigation = () => {
     const sidebarItems = getSidebarItems();
+    if (!sidebarItems || sidebarItems.length === 0) {
+      // Fallback to navigation if sidebar items are empty
+      return navigation || [];
+    }
     const visibleItems = sidebarItems.filter(item => item.visible);
     const sortedItems = visibleItems.sort((a, b) => a.order - b.order);
     
     // Map back to navigation format
     return sortedItems.map(item => {
-      const originalItem = navigation.find(nav => nav.href === item.href);
+      const originalItem = navigation?.find(nav => nav.href === item.href);
       if (originalItem) {
         const result = { ...originalItem, name: item.name };
         
@@ -496,14 +515,16 @@ export default function DashboardLayout({
       }
       
       // Custom item - find in all navigation including children
-      let foundItem = null;
-      navigation.forEach(nav => {
-        if (nav.children) {
-          const child = nav.children.find((c: any) => c.href === item.href);
-          if (child) foundItem = child;
-        }
-      });
-      if (foundItem) {
+      let foundItem: any = null;
+      if (navigation) {
+        navigation.forEach(nav => {
+          if (nav.children) {
+            const child = nav.children.find((c: any) => c.href === item.href);
+            if (child) foundItem = child;
+          }
+        });
+      }
+      if (foundItem && typeof foundItem === 'object') {
         return { ...foundItem, name: item.name };
       }
       
@@ -628,7 +649,7 @@ export default function DashboardLayout({
             </button>
           </div>
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => renderNavigationItem(item, false))}
+            {getFilteredNavigation().map((item) => renderNavigationItem(item, false))}
           </nav>
         </div>
       </div>

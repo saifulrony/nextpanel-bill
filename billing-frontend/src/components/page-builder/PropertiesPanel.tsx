@@ -2367,7 +2367,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
         )}
 
         {/* Legacy Products Grid Component Properties (for backward compatibility) */}
-        {activeTab === 'content' && component.type === 'products-grid' && false && (
+        {activeTab === 'content' && component && component.type === 'products-grid' && false && component && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Number of Products</label>
@@ -2375,7 +2375,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 type="number"
                 min="1"
                 max="20"
-                value={component.props?.productCount || 6}
+                 value={component!.props?.productCount || 6}
                 onChange={(e) => updateProp('productCount', parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="6"
@@ -2385,7 +2385,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
               <input
                 type="text"
-                value={component.props?.title || 'Our Products'}
+                value={component!.props?.title || 'Our Products'}
                 onChange={(e) => updateProp('title', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="Our Products"
@@ -2395,7 +2395,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
               <input
                 type="text"
-                value={component.props?.subtitle || 'Choose from our range of hosting solutions designed to meet your needs'}
+                value={component!.props?.subtitle || 'Choose from our range of hosting solutions designed to meet your needs'}
                 onChange={(e) => updateProp('subtitle', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="Choose from our range of hosting solutions designed to meet your needs"
@@ -2404,7 +2404,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             <div className="flex items-center">
               <input
                 type="checkbox"
-                checked={component.props?.showPrices || false}
+                checked={component!.props?.showPrices || false}
                 onChange={(e) => updateProp('showPrices', e.target.checked)}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
@@ -2413,7 +2413,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             <div className="flex items-center">
               <input
                 type="checkbox"
-                checked={component.props?.showFeatures || false}
+                checked={component!.props?.showFeatures || false}
                 onChange={(e) => updateProp('showFeatures', e.target.checked)}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
@@ -2422,7 +2422,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             <div className="flex items-center">
               <input
                 type="checkbox"
-                checked={component.props?.showButtons || false}
+                checked={component!.props?.showButtons || false}
                 onChange={(e) => updateProp('showButtons', e.target.checked)}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
@@ -2431,7 +2431,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Card Style</label>
               <select
-                value={component.props?.cardStyle || 'default'}
+                value={component!.props?.cardStyle || 'default'}
                 onChange={(e) => updateProp('cardStyle', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
               >
@@ -2445,7 +2445,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
               <input
                 type="color"
-                value={component.props?.backgroundColor || '#ffffff'}
+                value={component!.props?.backgroundColor || '#ffffff'}
                 onChange={(e) => updateProp('backgroundColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -2454,7 +2454,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Card Background Color</label>
               <input
                 type="color"
-                value={component.props?.cardBackgroundColor || '#ffffff'}
+                value={component!.props?.cardBackgroundColor || '#ffffff'}
                 onChange={(e) => updateProp('cardBackgroundColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -2463,7 +2463,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
               <input
                 type="color"
-                value={component.props?.borderColor || '#e5e7eb'}
+                value={component!.props?.borderColor || '#e5e7eb'}
                 onChange={(e) => updateProp('borderColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -2472,7 +2472,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
               <input
                 type="color"
-                value={component.props?.textColor || '#374151'}
+                value={component!.props?.textColor || '#374151'}
                 onChange={(e) => updateProp('textColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -2481,7 +2481,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Price Color</label>
               <input
                 type="color"
-                value={component.props?.priceColor || '#4f46e5'}
+                value={component!.props?.priceColor || '#4f46e5'}
                 onChange={(e) => updateProp('priceColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -2490,7 +2490,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Button Color</label>
               <input
                 type="color"
-                value={component.props?.buttonColor || '#4f46e5'}
+                value={component!.props?.buttonColor || '#4f46e5'}
                 onChange={(e) => updateProp('buttonColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -2499,7 +2499,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Button Text Color</label>
               <input
                 type="color"
-                value={component.props?.buttonTextColor || '#ffffff'}
+                value={component!.props?.buttonTextColor || '#ffffff'}
                 onChange={(e) => updateProp('buttonTextColor', e.target.value)}
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -2508,7 +2508,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Spacing</label>
               <input
                 type="text"
-                value={component.props?.spacing || '1rem'}
+                value={component!.props?.spacing || '1rem'}
                 onChange={(e) => updateProp('spacing', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="1rem"
@@ -2518,12 +2518,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
         )}
 
         {/* Legacy Featured Products Component Properties (for backward compatibility) */}
-        {activeTab === 'content' && component.type === 'featured-products' && false && (
+        {activeTab === 'content' && component && component.type === 'featured-products' && false && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Columns</label>
               <select
-                value={component.props?.columns || 3}
+                value={component!.props?.columns || 3}
                 onChange={(e) => updateProp('columns', parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
               >
@@ -2539,7 +2539,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 type="number"
                 min="1"
                 max="10"
-                value={component.props?.productCount || 3}
+                value={component!.props?.productCount || 3}
                 onChange={(e) => updateProp('productCount', parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="3"
@@ -2549,7 +2549,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
               <input
                 type="text"
-                value={component.props?.title || 'Featured Products'}
+                value={component!.props?.title || 'Featured Products'}
                 onChange={(e) => updateProp('title', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="Featured Products"
@@ -2559,7 +2559,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
               <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
               <input
                 type="text"
-                value={component.props?.subtitle || 'Discover our most popular and recommended hosting solutions'}
+                value={component!.props?.subtitle || 'Discover our most popular and recommended hosting solutions'}
                 onChange={(e) => updateProp('subtitle', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 placeholder="Discover our most popular and recommended hosting solutions"
@@ -2568,7 +2568,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             <div className="flex items-center">
               <input
                 type="checkbox"
-                checked={component.props?.showPrices !== false}
+                checked={component!.props?.showPrices !== false}
                 onChange={(e) => updateProp('showPrices', e.target.checked)}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
@@ -2577,7 +2577,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             <div className="flex items-center">
               <input
                 type="checkbox"
-                checked={component.props?.showButtons !== false}
+                checked={component!.props?.showButtons !== false}
                 onChange={(e) => updateProp('showButtons', e.target.checked)}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />

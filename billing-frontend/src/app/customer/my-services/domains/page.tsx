@@ -529,7 +529,7 @@ export default function MyDomainsPage() {
         </div>
       </div>
 
-      {/* Domains List */}
+      {/* Domains Table */}
       {filteredDomains.length === 0 ? (
         <div className="text-center py-12">
           <GlobeAltIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -539,73 +539,106 @@ export default function MyDomainsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
-            {filteredDomains.map((domain) => (
-              <li key={domain.id}>
-                <div className="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <GlobeAltIcon className="h-8 w-8 text-indigo-600" />
-                    </div>
-                    <div className="ml-4">
+        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Domain Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Auto Renew
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Expiration
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredDomains.map((domain) => (
+                  <tr key={domain.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <p className="text-sm font-medium text-indigo-600 truncate">
+                        <GlobeAltIcon className="h-5 w-5 text-indigo-600 mr-3" />
+                        <div className="text-sm font-medium text-gray-900">
                           {domain.domain_name}
-                        </p>
-                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          domain.status === 'active' ? 'bg-green-100 text-green-800' :
-                          domain.status === 'expired' ? 'bg-red-100 text-red-800' :
-                          domain.status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
-                          domain.status === 'pending' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {domain.status}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        domain.status === 'active' ? 'bg-green-100 text-green-800' :
+                        domain.status === 'expired' ? 'bg-red-100 text-red-800' :
+                        domain.status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
+                        domain.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {domain.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => handleUpdateAutoRenew(domain.id, !domain.auto_renew)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                            domain.auto_renew ? 'bg-indigo-600' : 'bg-gray-200'
+                          }`}
+                          role="switch"
+                          aria-checked={domain.auto_renew}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              domain.auto_renew ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                        <span className="ml-3 text-sm text-gray-500">
+                          {domain.auto_renew ? 'Enabled' : 'Disabled'}
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center text-sm text-gray-500">
-                        <p>
-                          {domain.registrar && `Registrar: ${domain.registrar}`}
-                          {domain.expiry_date && ` • Expires: ${new Date(domain.expiry_date).toLocaleDateString()}`}
-                        </p>
-                      </div>
-                      {domain.nameservers && domain.nameservers.length > 0 && (
-                        <div className="mt-1">
-                          <p className="text-xs text-gray-500 mb-1">Nameservers:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {domain.nameservers.map((ns, index) => (
-                              <span
-                                key={index}
-                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200"
-                                onClick={() => {
-                                  setSelectedDomain(domain);
-                                  setShowDomainManagement(true);
-                                }}
-                                title="Click to edit nameservers"
-                              >
-                                {ns}
-                              </span>
-                            ))}
-                          </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {domain.expiry_date ? (
+                        <div>
+                          <div>{new Date(domain.expiry_date).toLocaleDateString()}</div>
+                          {domain.status === 'expiring' && (
+                            <div className="text-xs text-yellow-600 mt-1">
+                              Expires soon
+                            </div>
+                          )}
+                          {domain.status === 'expired' && (
+                            <div className="text-xs text-red-600 mt-1">
+                              Expired
+                            </div>
+                          )}
                         </div>
+                      ) : (
+                        <span className="text-gray-400">N/A</span>
                       )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        setSelectedDomain(domain);
-                        setShowDomainManagement(true);
-                      }}
-                      className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                    >
-                      Manage
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => {
+                          setSelectedDomain(domain);
+                          setShowDomainManagement(true);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        Manage
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

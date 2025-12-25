@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { customerSubscriptionsAPI } from '@/lib/api';
+import { customerSubscriptionsAPI, subscriptionsAPI, supportAPI } from '@/lib/api';
 import {
   ServerIcon,
   CheckCircleIcon,
@@ -10,13 +10,15 @@ import {
   ClockIcon,
   EyeIcon,
   ShoppingCartIcon,
+  XMarkIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
 interface HostingSubscription {
   id: string;
   name: string;
   description: string;
-  status: 'active' | 'suspended' | 'expired' | 'pending' | 'expiring';
+  status: 'active' | 'suspended' | 'expired' | 'pending' | 'expiring' | 'cancelled';
   nextpanel_url: string;
   nextpanel_username: string;
   purchased_at: string;
@@ -33,6 +35,7 @@ interface HostingSubscription {
   current_emails?: number;
   auto_renew?: boolean;
   subscription_status?: string;
+  subscription_id?: string | null;
 }
 
 
@@ -41,6 +44,10 @@ export default function MyHostingPage() {
   const [hostingSubscriptions, setHostingSubscriptions] = useState<HostingSubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState<HostingSubscription | null>(null);
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(true);
 
   useEffect(() => {
     const loadHostingSubscriptions = async () => {
@@ -107,9 +114,94 @@ export default function MyHostingPage() {
         return 'bg-red-100 text-red-800';
       case 'pending':
         return 'bg-blue-100 text-blue-800';
+      case 'cancelled':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleCancelClick = (subscription: HostingSubscription) => {
+    setSelectedSubscription(subscription);
+    setShowCancelModal(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!selectedSubscription) return;
+
+    try {
+      setCancellingId(selectedSubscription.id);
+      
+      // If subscription_id exists, cancel directly
+      if (selectedSubscription.subscription_id) {
+        await subscriptionsAPI.cancel(selectedSubscription.subscription_id, {
+          cancel_at_period_end: cancelAtPeriodEnd
+        });
+
+        // Reload subscriptions
+        const subscriptionsResponse = await customerSubscriptionsAPI.getHosting();
+        let subscriptions: HostingSubscription[] = [];
+        if (Array.isArray(subscriptionsResponse)) {
+          subscriptions = subscriptionsResponse;
+        } else if (subscriptionsResponse && Array.isArray(subscriptionsResponse.data)) {
+          subscriptions = subscriptionsResponse.data;
+        } else if (subscriptionsResponse && subscriptionsResponse.subscriptions && Array.isArray(subscriptionsResponse.subscriptions)) {
+          subscriptions = subscriptionsResponse.subscriptions;
+        } else if (subscriptionsResponse && subscriptionsResponse.items && Array.isArray(subscriptionsResponse.items)) {
+          subscriptions = subscriptionsResponse.items;
+        }
+        setHostingSubscriptions(subscriptions);
+
+        setShowCancelModal(false);
+        setSelectedSubscription(null);
+        setCancelAtPeriodEnd(true);
+        alert('Service cancellation request submitted successfully!');
+      } else {
+        // If no subscription_id, create a cancellation request ticket
+        const cancellationType = cancelAtPeriodEnd ? 'at the end of the billing period' : 'immediately';
+        const ticketDescription = `I would like to cancel my hosting service: ${selectedSubscription.name}
+
+Service Details:
+- Service ID: ${selectedSubscription.id}
+- Service Name: ${selectedSubscription.name}
+- Control Panel: ${selectedSubscription.nextpanel_url}
+- Username: ${selectedSubscription.nextpanel_username}
+- Expiry Date: ${selectedSubscription.expiry_date ? new Date(selectedSubscription.expiry_date).toLocaleDateString() : 'N/A'}
+
+Cancellation Preference: Cancel ${cancellationType}
+
+Please process this cancellation request at your earliest convenience.`;
+
+        const ticketResponse = await supportAPI.createTicket({
+          subject: `Cancellation Request: ${selectedSubscription.name}`,
+          description: ticketDescription,
+          category: 'Hosting Services',
+          priority: 'medium'
+        });
+
+        setShowCancelModal(false);
+        setSelectedSubscription(null);
+        setCancelAtPeriodEnd(true);
+        
+        const ticketNumber = ticketResponse.data?.ticket_number || ticketResponse.data?.id || 'N/A';
+        alert(`Cancellation request submitted successfully!\n\nSupport Ticket: ${ticketNumber}\n\nOur support team will process your cancellation request and contact you shortly.`);
+      }
+    } catch (err: any) {
+      console.error('Failed to cancel subscription or create ticket:', err);
+      const errorMessage = err.response?.data?.detail || 
+                         err.response?.data?.message || 
+                         err.message || 
+                         'Failed to process cancellation request. Please try again or contact support.';
+      alert(errorMessage);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const handleCancelClose = () => {
+    setShowCancelModal(false);
+    setSelectedSubscription(null);
+    setCancelAtPeriodEnd(true);
   };
 
   if (loading) {
@@ -229,6 +321,26 @@ export default function MyHostingPage() {
                     <EyeIcon className="h-4 w-4 mr-2" />
                     Open Control Panel
                   </a>
+                  
+                  {(subscription.status === 'active' || subscription.status === 'expiring') && (
+                    <button
+                      onClick={() => handleCancelClick(subscription)}
+                      disabled={cancellingId === subscription.id}
+                      className="inline-flex items-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cancellingId === subscription.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700 mr-2"></div>
+                          Cancelling...
+                        </>
+                      ) : (
+                        <>
+                          <TrashIcon className="h-4 w-4 mr-2" />
+                          Cancel Service
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -345,6 +457,95 @@ export default function MyHostingPage() {
               <ShoppingCartIcon className="h-4 w-4 mr-2" />
               Browse Hosting Plans
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && selectedSubscription && (
+        <div className="fixed z-50 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={handleCancelClose}></div>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Cancel Service
+                  </h3>
+                  <button
+                    onClick={handleCancelClose}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                <div className="mb-4">
+                  {selectedSubscription.subscription_id ? (
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to cancel <strong>{selectedSubscription.name}</strong>?
+                    </p>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-2">
+                        You are requesting to cancel <strong>{selectedSubscription.name}</strong>.
+                      </p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                        <p className="text-sm text-blue-800">
+                          <strong>Note:</strong> A support ticket will be created for your cancellation request. Our team will process it and contact you shortly.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={cancelAtPeriodEnd}
+                      onChange={(e) => setCancelAtPeriodEnd(e.target.checked)}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Cancel at end of billing period (recommended)
+                    </span>
+                  </label>
+                  {!cancelAtPeriodEnd && (
+                    <p className="mt-2 text-xs text-red-600">
+                      Warning: Cancelling immediately will terminate your service right away. This action cannot be undone.
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> Once cancelled, you will lose access to this service. All data associated with this service may be permanently deleted.
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={handleCancelClose}
+                    className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Keep Service
+                  </button>
+                  <button
+                    onClick={handleCancelConfirm}
+                    disabled={cancellingId !== null}
+                    className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {cancellingId 
+                      ? 'Processing...' 
+                      : selectedSubscription.subscription_id 
+                        ? 'Yes, Cancel Service' 
+                        : 'Submit Cancellation Request'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

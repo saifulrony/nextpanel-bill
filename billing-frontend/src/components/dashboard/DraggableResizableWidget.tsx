@@ -156,9 +156,9 @@ function DraggableWidget({
     }
   }, [isDragging, transform, config, id, onPositionChange]);
 
-  const handleMouseDown = (e: React.MouseEvent, handle?: string) => {
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, handle?: string) => {
     // If handle is provided, use it; otherwise detect from mouse position
-    const detectedHandle = handle || detectResizeEdge(e);
+    const detectedHandle = handle || detectResizeEdge(e as React.MouseEvent<HTMLDivElement>);
     
     if (!detectedHandle) return; // Not on a resize zone
     

@@ -54,16 +54,6 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
     loadProductData();
   }, [product.id]);
   
-  // Debug: Log when formData.category changes
-  useEffect(() => {
-    console.log('EditProductModal - formData.category changed:', {
-      category: formData.category,
-      productId: product.id,
-      productName: product.name,
-      originalCategory: product.features?.category
-    });
-  }, [formData.category, product.id, product.name, product.features?.category]);
-  
   const [formData, setFormData] = useState({
     name: product.name || '',
     description: product.description || '',
@@ -91,6 +81,16 @@ export default function EditProductModal({ product, onClose, onSuccess, categori
     discount_first_year: product.discount_first_year?.toString() || '0',
     discount_lifetime: product.discount_lifetime?.toString() || '0',
   });
+
+  // Debug: Log when formData.category changes
+  useEffect(() => {
+    console.log('EditProductModal - formData.category changed:', {
+      category: formData.category,
+      productId: product.id,
+      productName: product.name,
+      originalCategory: product.features?.category
+    });
+  }, [formData.category, product.id, product.name, product.features?.category]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;

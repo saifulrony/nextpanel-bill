@@ -56,7 +56,7 @@ export class GoogleDriveService {
     }
 
     try {
-      const credentialsPath = config.credentialsPath || process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+      const credentialsPath = config.credentialsPath || process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE || null;
       
       if (!credentialsPath) {
         console.error('No credentials path provided');

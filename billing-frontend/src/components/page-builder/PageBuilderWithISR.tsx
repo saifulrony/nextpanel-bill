@@ -3094,7 +3094,52 @@ export function PageBuilderWithISR({
             alert(`Page ${isNewPage ? 'created' : 'saved'} successfully, but failed to set as homepage.\n\nView at: /dynamic-page/${currentPageId.trim()}`);
           }
         } else {
-          alert(`Page ${isNewPage ? 'created' : 'saved'} successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+          // Automatically configure default page if slug matches a known page type
+          const slugToPageType: Record<string, keyof { homepage: string; cart: string; shop: string; checkout: string; order_success: string; about: string; contact: string; privacy: string; terms: string }> = {
+            'home': 'homepage',
+            'homepage': 'homepage',
+            'cart': 'cart',
+            'shop': 'shop',
+            'checkout': 'checkout',
+            'order-success': 'order_success',
+            'order_success': 'order_success',
+            'about': 'about',
+            'contact': 'contact',
+            'privacy': 'privacy',
+            'terms': 'terms',
+          };
+          
+          const pageType = slugToPageType[currentPageId.trim()];
+          if (pageType) {
+            // Update defaultPageConfig in localStorage
+            try {
+              const savedConfig = localStorage.getItem('default_page_config');
+              const config = savedConfig ? JSON.parse(savedConfig) : {
+                homepage: null,
+                cart: null,
+                shop: null,
+                checkout: null,
+                order_success: null,
+                about: null,
+                contact: null,
+                privacy: null,
+                terms: null,
+              };
+              
+              config[pageType] = currentPageId.trim();
+              localStorage.setItem('default_page_config', JSON.stringify(config));
+              
+              // Determine the URL path
+              const urlPath = pageType === 'homepage' ? '/' : `/${pageType === 'order_success' ? 'order-success' : pageType}`;
+              
+              alert(`Page ${isNewPage ? 'created' : 'saved'} successfully!\n\nYour page is now available at: ${urlPath}\n\nYou can also view it at: /dynamic-page/${currentPageId.trim()}`);
+            } catch (configError) {
+              console.error('Failed to update default page config:', configError);
+              alert(`Page ${isNewPage ? 'created' : 'saved'} successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+            }
+          } else {
+            alert(`Page ${isNewPage ? 'created' : 'saved'} successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+          }
         }
         
         if (onSave) {
@@ -3212,7 +3257,53 @@ export function PageBuilderWithISR({
       }
 
       const responseData = await saveResponse.json().catch(() => ({}));
-      alert(`Page published successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+      
+      // Automatically configure default page if slug matches a known page type
+      const slugToPageType: Record<string, keyof { homepage: string; cart: string; shop: string; checkout: string; order_success: string; about: string; contact: string; privacy: string; terms: string }> = {
+        'home': 'homepage',
+        'homepage': 'homepage',
+        'cart': 'cart',
+        'shop': 'shop',
+        'checkout': 'checkout',
+        'order-success': 'order_success',
+        'order_success': 'order_success',
+        'about': 'about',
+        'contact': 'contact',
+        'privacy': 'privacy',
+        'terms': 'terms',
+      };
+      
+      const pageType = slugToPageType[pageSlug];
+      if (pageType) {
+        // Update defaultPageConfig in localStorage
+        try {
+          const savedConfig = localStorage.getItem('default_page_config');
+          const config = savedConfig ? JSON.parse(savedConfig) : {
+            homepage: null,
+            cart: null,
+            shop: null,
+            checkout: null,
+            order_success: null,
+            about: null,
+            contact: null,
+            privacy: null,
+            terms: null,
+          };
+          
+          config[pageType] = pageSlug;
+          localStorage.setItem('default_page_config', JSON.stringify(config));
+          
+          // Determine the URL path
+          const urlPath = pageType === 'homepage' ? '/' : `/${pageType === 'order_success' ? 'order-success' : pageType}`;
+          
+          alert(`Page published successfully!\n\nYour page is now available at: ${urlPath}\n\nYou can also view it at: /dynamic-page/${pageSlug}`);
+        } catch (configError) {
+          console.error('Failed to update default page config:', configError);
+          alert(`Page published successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+        }
+      } else {
+        alert(`Page published successfully!\n\nView at: /dynamic-page/${currentPageId.trim()}`);
+      }
     } catch (error: any) {
       console.error('Error publishing page:', error);
       

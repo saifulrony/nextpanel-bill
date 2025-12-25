@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     
     // If still no credentials path, use environment variable
     if (!credentialsPath) {
-      credentialsPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+      credentialsPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE || null;
     }
     
     // Validate folder ID

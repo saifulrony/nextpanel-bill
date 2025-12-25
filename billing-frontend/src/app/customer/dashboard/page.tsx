@@ -107,7 +107,7 @@ export default function CustomerDashboard() {
         setPaymentMethods(methods);
         // Set default payment method
         if (methods.length > 0) {
-          const defaultMethod = methods.find(m => m.is_default) || methods[0];
+          const defaultMethod = methods.find((m: any) => m.is_default) || methods[0];
           setSelectedPaymentMethodId(defaultMethod.id);
         }
 

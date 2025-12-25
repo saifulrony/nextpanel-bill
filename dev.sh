@@ -53,6 +53,54 @@ check_frontend_health() {
     [ "$status" != "000" ] && [ "$status" != "" ]
 }
 
+# Check if frontend has errors
+check_frontend_has_errors() {
+    local status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:4000 2>/dev/null || echo "000")
+    [ "$status" = "500" ]
+}
+
+# Check frontend logs for common error patterns
+check_frontend_error_patterns() {
+    local log_file="$PROJECT_ROOT/frontend.log"
+    if [ -f "$log_file" ]; then
+        # Check for common build errors
+        if grep -q "Failed to compile\|Error:\|Cannot find module\|Module not found\|Parsing error\|Syntax error" "$log_file" 2>/dev/null; then
+            return 0  # Found errors
+        fi
+    fi
+    return 1  # No errors found
+}
+
+# Auto-fix frontend errors
+auto_fix_frontend() {
+    local frontend_pid=$(get_pid "$FRONTEND_PID_FILE")
+    local port_pid=$(find_process_by_port 4000)
+    
+    print_warning "Frontend is returning 500 errors. Attempting auto-fix..."
+    
+    # Stop frontend
+    if [ ! -z "$port_pid" ]; then
+        print_status "Stopping frontend process..."
+        kill_port 4000
+        pkill -f "next.*dev.*4000" 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Clear Next.js cache
+    print_status "Clearing Next.js cache to fix build errors..."
+    cd "$PROJECT_ROOT/billing-frontend"
+    rm -rf .next node_modules/.cache 2>/dev/null || true
+    print_success "Cache cleared"
+    
+    # Clear old log (from project root)
+    cd "$PROJECT_ROOT"
+    [ -f "frontend.log" ] && mv -f frontend.log frontend.log.old 2>/dev/null || true
+    
+    # Restart frontend
+    print_status "Restarting frontend..."
+    start_frontend
+}
+
 # Get process ID from PID file
 get_pid() {
     local pid_file=$1
@@ -196,22 +244,50 @@ start_frontend() {
     echo "$frontend_pid" > "$FRONTEND_PID_FILE"
     
     # Wait for frontend to be ready
-    print_status "Waiting for frontend to compile (this may take 30-60 seconds)..."
+    print_status "Waiting for frontend to compile (this may take 30-90 seconds)..."
     local waited=0
-    local max_wait=90
+    local max_wait=120  # Increased to 120 seconds for cache-clear rebuilds
+    local consecutive_errors=0
     while [ $waited -lt $max_wait ]; do
-        if check_frontend_health; then
+        local http_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:4000 2>/dev/null || echo "000")
+        
+        # If we get 200-399, it's healthy
+        if [ "$http_status" != "000" ] && [ "$http_status" != "" ] && [ "$http_status" != "500" ]; then
             print_success "Frontend is running (PID: $frontend_pid)"
             return 0
         fi
+        
+        # If we get 500, check if it's still compiling or has actual errors
+        if [ "$http_status" = "500" ]; then
+            consecutive_errors=$((consecutive_errors + 1))
+            # If we've seen 500 for more than 30 seconds (10 checks), check logs
+            if [ $waited -gt 30 ] && check_frontend_error_patterns; then
+                print_warning "Frontend has compilation errors. Check logs: tail -f frontend.log"
+                return 1
+            fi
+        else
+            consecutive_errors=0  # Reset counter if status changed
+        fi
+        
+        # Show progress for long waits
+        if [ $((waited % 15)) -eq 0 ] && [ $waited -gt 0 ]; then
+            print_status "Still compiling... (${waited}s elapsed)"
+        fi
+        
         sleep 3
         waited=$((waited + 3))
     done
     
-    # Final check
-    if check_frontend_health; then
-        print_success "Frontend is running (PID: $frontend_pid)"
-        return 0
+    # Final check - be more lenient after long wait
+    local final_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:4000 2>/dev/null || echo "000")
+    if [ "$final_status" != "000" ] && [ "$final_status" != "" ]; then
+        if [ "$final_status" = "500" ] && check_frontend_error_patterns; then
+            print_warning "Frontend has compilation errors after ${max_wait}s. Check logs: tail -f frontend.log"
+            return 1
+        else
+            print_success "Frontend is running (PID: $frontend_pid) - may still be compiling"
+            return 0
+        fi
     fi
     
     print_warning "Frontend may still be compiling. Check logs: tail -f frontend.log"
@@ -253,6 +329,21 @@ ensure_frontend_running() {
     
     # Check if frontend is already running and healthy
     if [ ! -z "$port_pid" ] && check_frontend_health; then
+        # Check if it's returning 500 errors
+        if check_frontend_has_errors; then
+            # Check if it's been running for more than 60 seconds and has actual error patterns
+            local uptime=$(ps -o etime= -p "$port_pid" 2>/dev/null | awk -F: '{if (NF==2) print $1*60+$2; else if (NF==3) print $1*3600+$2*60+$3; else print 0}')
+            # Only auto-fix if it's been running for a while AND has actual error patterns in logs
+            if [ "${uptime:-0}" -gt 60 ] && check_frontend_error_patterns; then
+                auto_fix_frontend
+                return $?
+            else
+                print_warning "Frontend is compiling, may show errors temporarily (running for ${uptime:-0}s)..."
+                return 0
+            fi
+        fi
+        
+        # Frontend is healthy
         if [ ! -z "$frontend_pid" ] && is_pid_running "$frontend_pid"; then
             print_success "Frontend already running (PID: $frontend_pid)"
             return 0
@@ -306,8 +397,9 @@ show_status() {
     if check_frontend_health; then
         if [ "$http_status" = "500" ]; then
             print_warning "Frontend: Running but returning errors (PID: ${actual_pid:-$frontend_pid}, HTTP: $http_status)"
+            echo "   💡 Tip: Run './dev.sh fix-frontend' to auto-fix, or wait for auto-fix on next start"
         else
-        print_success "Frontend: Running (PID: ${actual_pid:-$frontend_pid})"
+            print_success "Frontend: Running (PID: ${actual_pid:-$frontend_pid})"
         fi
         echo "   URL: http://localhost:4000"
         NETWORK_IP=$(hostname -I | awk '{print $1}')
@@ -342,8 +434,32 @@ main() {
             ensure_backend_running
             ensure_frontend_running
             
-            # Show status
+            # Show status first
             show_status
+            
+            # Check and auto-fix frontend errors after a longer wait (to allow initial compilation)
+            print_status "Waiting 15 seconds to check for frontend errors..."
+            sleep 15
+            
+            # Only auto-fix if we have persistent errors and it's not just compiling
+            if check_frontend_has_errors; then
+                # Check if it's a real error or just compiling
+                local frontend_pid=$(find_process_by_port 4000)
+                if [ ! -z "$frontend_pid" ]; then
+                    local uptime=$(ps -o etime= -p "$frontend_pid" 2>/dev/null | awk -F: '{if (NF==2) print $1*60+$2; else if (NF==3) print $1*3600+$2*60+$3; else print 0}')
+                    # Only auto-fix if it's been running for more than 30 seconds and has error patterns
+                    if [ "${uptime:-0}" -gt 30 ] && check_frontend_error_patterns; then
+                        print_warning "Frontend errors detected, attempting auto-fix..."
+                        auto_fix_frontend
+                        # Wait again after auto-fix
+                        print_status "Waiting 20 seconds for frontend to recompile after auto-fix..."
+                        sleep 20
+                        show_status
+                    else
+                        print_status "Frontend may still be compiling, will check again later..."
+                    fi
+                fi
+            fi
             
             # Check if all services are actually healthy
             local backend_ok=false
@@ -376,7 +492,10 @@ main() {
             echo "   - Run './dev.sh restart' to restart services (clears Next.js cache)"
             echo "   - Run './dev.sh stop' to stop services"
             echo "   - Run './dev.sh clear-cache' to clear Next.js cache only"
+            echo "   - Run './dev.sh fix-frontend' to manually fix frontend errors"
             echo "   - View logs: tail -f backend.log frontend.log"
+            echo ""
+            echo "🔧 Auto-fix: Frontend 500 errors are automatically detected and fixed!"
             echo ""
             ;;
         status)
@@ -417,15 +536,25 @@ main() {
             rm -rf "$PROJECT_ROOT/billing-frontend/node_modules/.cache" 2>/dev/null || true
             print_success "Cache cleared! Restart frontend with './dev.sh restart' or './dev.sh start'"
             ;;
+        fix-frontend)
+            print_header "🔧 Fixing frontend errors..."
+            if check_frontend_has_errors || check_frontend_error_patterns; then
+                auto_fix_frontend
+            else
+                print_success "No frontend errors detected. Frontend appears to be healthy."
+            fi
+            show_status
+            ;;
         *)
-            echo "Usage: $0 [start|status|restart|stop|clear-cache]"
+            echo "Usage: $0 [start|status|restart|stop|clear-cache|fix-frontend]"
             echo ""
             echo "Commands:"
-            echo "  start       - Start services (default, only starts if not running)"
-            echo "  status      - Show current service status"
-            echo "  restart     - Restart all services (clears Next.js cache)"
-            echo "  stop        - Stop all services"
-            echo "  clear-cache - Clear Next.js build cache only"
+            echo "  start        - Start services (default, only starts if not running)"
+            echo "  status       - Show current service status"
+            echo "  restart      - Restart all services (clears Next.js cache)"
+            echo "  stop         - Stop all services"
+            echo "  clear-cache  - Clear Next.js build cache only"
+            echo "  fix-frontend - Manually fix frontend errors (clears cache and restarts)"
             exit 1
             ;;
     esac

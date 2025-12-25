@@ -13,7 +13,7 @@ import PaymentAutomationModal from '@/components/orders/PaymentAutomationModal';
 import AutomationSelectorModal from '@/components/orders/AutomationSelectorModal';
 import ChargePaymentModal from '@/components/orders/ChargePaymentModal';
 import { exportToExcel, handleFileImport } from '@/lib/excel-utils';
-import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface Customer {
   id: string;
@@ -109,6 +109,7 @@ export default function OrdersPage() {
     max_amount: '',
     order_type: 'all', // 'all', 'single', 'subscription'
   });
+  const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
@@ -118,17 +119,53 @@ export default function OrdersPage() {
   }, [filters.status, filters.start_date, filters.end_date, filters.min_amount, filters.max_amount]);
 
   useEffect(() => {
-    // Filter orders by order_type
+    // Filter orders by order_type and search term
     let filtered = [...orders];
     
+    // Filter by order type
     if (filters.order_type === 'single') {
       filtered = filtered.filter(o => !o.is_recurring && (!o.billing_period || o.billing_period === 'one-time'));
     } else if (filters.order_type === 'subscription') {
       filtered = filtered.filter(o => o.is_recurring || (o.billing_period && o.billing_period !== 'one-time'));
     }
     
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(order => {
+        // Search in order number
+        if (order.order_number?.toLowerCase().includes(searchLower)) return true;
+        // Search in invoice number
+        if (order.invoice_number?.toLowerCase().includes(searchLower)) return true;
+        // Search in order ID
+        if (order.id.toLowerCase().includes(searchLower)) return true;
+        // Search in customer name
+        if (order.customer?.full_name?.toLowerCase().includes(searchLower)) return true;
+        // Search in customer email
+        if (order.customer?.email?.toLowerCase().includes(searchLower)) return true;
+        // Search in company name
+        if (order.customer?.company_name?.toLowerCase().includes(searchLower)) return true;
+        // Search in status
+        if (order.status?.toLowerCase().includes(searchLower)) return true;
+        // Search in payment method
+        if (order.payment_method?.toLowerCase().includes(searchLower)) return true;
+        // Search in notes
+        if (order.notes?.toLowerCase().includes(searchLower)) return true;
+        // Search in item names/descriptions
+        if (order.items && Array.isArray(order.items)) {
+          const hasMatchingItem = order.items.some((item: any) => 
+            item.name?.toLowerCase().includes(searchLower) ||
+            item.description?.toLowerCase().includes(searchLower) ||
+            item.product_id?.toLowerCase().includes(searchLower)
+          );
+          if (hasMatchingItem) return true;
+        }
+        return false;
+      });
+    }
+    
     setFilteredOrders(filtered);
-  }, [orders, filters.order_type]);
+  }, [orders, filters.order_type, searchTerm]);
 
   const loadData = async () => {
     try {
@@ -850,6 +887,27 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* Search and Filters */}
+      <div className="bg-white shadow sm:rounded-lg mb-6 border border-gray-200">
+        <div className="px-4 py-5 sm:p-6">
+          {/* Search Bar */}
+          <div className="mb-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search orders by order number, invoice number, customer name, email, or status..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Filters */}
       <OrderFilters filters={filters} setFilters={setFilters} />
 
@@ -875,8 +933,8 @@ export default function OrdersPage() {
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No orders found</h3>
               <p className="mt-1 text-sm text-gray-500">
-                {filters.status || filters.start_date || filters.end_date
-                  ? 'Try adjusting your filters'
+                {searchTerm || filters.status || filters.start_date || filters.end_date
+                  ? 'Try adjusting your search or filters'
                   : 'Get started by creating a new order'}
               </p>
               <div className="mt-6">

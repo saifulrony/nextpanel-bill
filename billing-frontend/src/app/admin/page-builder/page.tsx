@@ -15,24 +15,57 @@ function AdminPageBuilderPageContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Get page ID from URL params if editing existing page
-    const id = searchParams.get('id');
-    const page = searchParams.get('page'); // Changed from 'type' to 'page'
-    
-    if (id) {
-      setPageId(id);
-      loadPage(id);
-    } else if (page) {
-      // Load default template based on page type
-      loadDefaultTemplate(page);
-    } else {
-      // Load saved page builder components if no specific page/type
-      const savedComponents = localStorage.getItem('page_builder_components');
-      if (savedComponents) {
-        setPageBuilderComponents(JSON.parse(savedComponents));
+    const loadPageData = async () => {
+      // Get page ID from URL params if editing existing page
+      const id = searchParams.get('id');
+      const page = searchParams.get('page'); // Changed from 'type' to 'page'
+      const slug = searchParams.get('slug'); // Get slug from URL
+      
+      if (id) {
+        setPageId(id);
+        await loadPage(id);
+        setIsLoading(false);
+      } else if (page || slug) {
+        // Determine the slug to use
+        let pageSlug = slug;
+        if (!pageSlug && page) {
+          // Map page type to slug if slug not provided
+          const pageTypeToSlug: Record<string, string> = {
+            homepage: 'home',
+            cart: 'cart',
+            shop: 'shop',
+            checkout: 'checkout',
+            order_success: 'order-success',
+            contact: 'contact',
+            about: 'about',
+            privacy: 'privacy',
+            terms: 'terms',
+          };
+          pageSlug = pageTypeToSlug[page] || page;
+        }
+        
+        if (pageSlug) {
+          setPageId(pageSlug);
+          // Try to load existing page from backend first
+          await loadPageBySlug(pageSlug, page);
+        } else {
+          // Fallback: load default template
+          if (page) {
+            loadDefaultTemplate(page);
+          }
+          setIsLoading(false);
+        }
+      } else {
+        // Load saved page builder components if no specific page/type
+        const savedComponents = localStorage.getItem('page_builder_components');
+        if (savedComponents) {
+          setPageBuilderComponents(JSON.parse(savedComponents));
+        }
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+    
+    loadPageData();
   }, [searchParams]);
 
   const loadPage = async (id: string) => {
@@ -46,6 +79,76 @@ function AdminPageBuilderPageContent() {
       }
     } catch (error) {
       console.error('Error loading page:', error);
+    }
+  };
+
+  const loadPageBySlug = async (slug: string, pageType?: string) => {
+    try {
+      setIsLoading(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+      
+      const token = localStorage.getItem('access_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      // Try to load existing page from backend
+      const response = await fetch(`${apiUrl}/api/v1/pages/${slug}`, {
+        headers,
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Loaded existing page from backend:', data);
+        setPageTitle(data.title || 'Untitled Page');
+        setPageDescription(data.description || '');
+        setPageBuilderComponents(data.components || []);
+        setIsLoading(false);
+        return;
+      } else if (response.status === 404) {
+        // Page doesn't exist, load default template
+        console.log('Page not found, loading default template');
+        if (pageType) {
+          loadDefaultTemplate(pageType);
+        } else {
+          // Try to infer page type from slug
+          const slugToPageType: Record<string, string> = {
+            'home': 'homepage',
+            'homepage': 'homepage',
+            'cart': 'cart',
+            'shop': 'shop',
+            'checkout': 'checkout',
+            'order-success': 'order_success',
+            'order_success': 'order_success',
+            'contact': 'contact',
+            'about': 'about',
+            'privacy': 'privacy',
+            'terms': 'terms',
+          };
+          const inferredPageType = slugToPageType[slug];
+          if (inferredPageType) {
+            loadDefaultTemplate(inferredPageType);
+          }
+        }
+      } else {
+        console.error('Error loading page:', response.status, response.statusText);
+        // Fallback to default template
+        if (pageType) {
+          loadDefaultTemplate(pageType);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading page by slug:', error);
+      // Fallback to default template
+      if (pageType) {
+        loadDefaultTemplate(pageType);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 

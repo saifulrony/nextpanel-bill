@@ -9,7 +9,23 @@ export default function CouponsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<any>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    code: string;
+    name: string;
+    description: string;
+    coupon_type: string;
+    discount_value: number;
+    minimum_purchase: number;
+    maximum_discount: number | null;
+    usage_limit: number | null;
+    usage_limit_per_user: number;
+    valid_from: string;
+    valid_until: string | null;
+    applicable_to_products: string;
+    applicable_to_categories: string;
+    first_time_customers_only: boolean;
+    first_billing_period_only: boolean;
+  }>({
     code: '',
     name: '',
     description: '',

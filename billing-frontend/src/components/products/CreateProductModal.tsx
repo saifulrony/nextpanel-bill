@@ -358,14 +358,14 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
       
       // Extract product ID from response (axios returns data in response.data)
       // Try multiple possible response structures
-      const productId = response?.data?.id || response?.data?.data?.id || response?.id || (response?.data && typeof response.data === 'object' && 'id' in response.data ? response.data.id : null);
+      const productId = response?.data?.id || response?.data?.data?.id || (response?.data && typeof response.data === 'object' && 'id' in response.data ? response.data.id : null);
       
       if (!productId) {
         console.error('Product creation response structure:', {
           response,
           'response.data': response?.data,
           'response.data?.id': response?.data?.id,
-          'response.id': response?.id,
+          // 'response.id': response?.id, // Removed: AxiosResponse doesn't have id property
           keys: response ? Object.keys(response) : 'response is null/undefined'
         });
         throw new Error('Product was created but ID was not returned. Response: ' + JSON.stringify(response));

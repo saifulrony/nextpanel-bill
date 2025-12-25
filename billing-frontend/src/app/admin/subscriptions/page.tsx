@@ -14,7 +14,12 @@ import {
   PencilIcon,
   TrashIcon,
   EyeIcon,
+  ArrowTrendingUpIcon,
+  Squares2X2Icon,
+  PlayIcon,
+  PauseIcon,
 } from '@heroicons/react/24/outline';
+import UpgradeDowngradeModal from '@/components/subscriptions/UpgradeDowngradeModal';
 
 interface Subscription {
   id: string;
@@ -54,6 +59,9 @@ export default function SubscriptionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedSubscriptionIds, setSelectedSubscriptionIds] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -191,6 +199,42 @@ export default function SubscriptionsPage() {
     }
   };
 
+  const handleBulkAction = async (action: 'suspend' | 'cancel' | 'reactivate') => {
+    if (selectedSubscriptionIds.size === 0) {
+      alert('Please select at least one subscription');
+      return;
+    }
+
+    const actionText = action === 'suspend' ? 'suspend' : action === 'cancel' ? 'cancel' : 'reactivate';
+    if (!confirm(`Are you sure you want to ${actionText} ${selectedSubscriptionIds.size} subscription(s)?`)) {
+      return;
+    }
+
+    try {
+      const ids = Array.from(selectedSubscriptionIds);
+      const promises = ids.map(id => {
+        switch (action) {
+          case 'suspend':
+            return subscriptionsAPI.update(id, { status: 'suspended' });
+          case 'cancel':
+            return subscriptionsAPI.cancel(id, { cancel_at_period_end: true });
+          case 'reactivate':
+            return subscriptionsAPI.reactivate(id);
+          default:
+            return Promise.resolve();
+        }
+      });
+
+      await Promise.all(promises);
+      alert(`${selectedSubscriptionIds.size} subscription(s) ${actionText}ed successfully!`);
+      setSelectedSubscriptionIds(new Set());
+      setShowBulkActions(false);
+      loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || `Failed to ${actionText} subscriptions`);
+    }
+  };
+
   const stats = {
     total: subscriptions.length,
     active: subscriptions.filter(s => s.status === 'active').length,
@@ -249,9 +293,9 @@ export default function SubscriptionsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters & Bulk Actions */}
       <div className="bg-white rounded-lg shadow mb-6 p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
           <div className="flex-1">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -279,6 +323,25 @@ export default function SubscriptionsPage() {
               <option value="expired">Expired</option>
             </select>
           </div>
+          {selectedSubscriptionIds.size > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                {selectedSubscriptionIds.size} selected
+              </span>
+              <button
+                onClick={() => setShowBulkActions(true)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+              >
+                Bulk Actions
+              </button>
+              <button
+                onClick={() => setSelectedSubscriptionIds(new Set())}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Clear
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -304,6 +367,20 @@ export default function SubscriptionsPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubscriptionIds.size === filteredSubscriptions.length && filteredSubscriptions.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSubscriptionIds(new Set(filteredSubscriptions.map(s => s.id)));
+                        } else {
+                          setSelectedSubscriptionIds(new Set());
+                        }
+                      }}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Customer
                   </th>
@@ -330,6 +407,22 @@ export default function SubscriptionsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredSubscriptions.map((subscription) => (
                   <tr key={subscription.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedSubscriptionIds.has(subscription.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedSubscriptionIds);
+                          if (e.target.checked) {
+                            newSet.add(subscription.id);
+                          } else {
+                            newSet.delete(subscription.id);
+                          }
+                          setSelectedSubscriptionIds(newSet);
+                        }}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                         <div className="text-sm font-medium text-gray-900">
@@ -381,6 +474,18 @@ export default function SubscriptionsPage() {
                         >
                           <EyeIcon className="h-5 w-5" />
                         </button>
+                        {subscription.status === 'active' && !subscription.cancel_at_period_end && (
+                          <button
+                            onClick={() => {
+                              setSelectedSubscription(subscription);
+                              setShowUpgradeModal(true);
+                            }}
+                            className="text-green-600 hover:text-green-900"
+                            title="Upgrade/Downgrade Plan"
+                          >
+                            <ArrowTrendingUpIcon className="h-5 w-5" />
+                          </button>
+                        )}
                         {subscription.cancel_at_period_end ? (
                           <button
                             onClick={() => handleReactivate(subscription.id)}
@@ -497,6 +602,18 @@ export default function SubscriptionsPage() {
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
+                {selectedSubscription.status === 'active' && !selectedSubscription.cancel_at_period_end && (
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setShowUpgradeModal(true);
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                  >
+                    <ArrowTrendingUpIcon className="h-4 w-4" />
+                    Change Plan
+                  </button>
+                )}
                 {selectedSubscription.cancel_at_period_end ? (
                   <button
                     onClick={() => {
@@ -528,6 +645,86 @@ export default function SubscriptionsPage() {
                   Close
                   </button>
                 </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade/Downgrade Modal */}
+      {showUpgradeModal && selectedSubscription && (
+        <UpgradeDowngradeModal
+          subscription={selectedSubscription}
+          onClose={() => {
+            setShowUpgradeModal(false);
+            setSelectedSubscription(null);
+          }}
+          onSuccess={() => {
+            loadData();
+            setShowUpgradeModal(false);
+          }}
+        />
+      )}
+
+      {/* Bulk Actions Modal */}
+      {showBulkActions && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Bulk Actions ({selectedSubscriptionIds.size} selected)
+                </h2>
+                <button
+                  onClick={() => setShowBulkActions(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircleIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleBulkAction('suspend')}
+                  className="w-full flex items-center gap-3 px-4 py-3 border border-yellow-300 bg-yellow-50 text-yellow-800 rounded-lg hover:bg-yellow-100 transition-colors"
+                >
+                  <PauseIcon className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-medium">Suspend Subscriptions</div>
+                    <div className="text-sm text-yellow-700">Temporarily suspend selected subscriptions</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleBulkAction('cancel')}
+                  className="w-full flex items-center gap-3 px-4 py-3 border border-red-300 bg-red-50 text-red-800 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  <XCircleIcon className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-medium">Cancel Subscriptions</div>
+                    <div className="text-sm text-red-700">Cancel at period end</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleBulkAction('reactivate')}
+                  className="w-full flex items-center gap-3 px-4 py-3 border border-green-300 bg-green-50 text-green-800 rounded-lg hover:bg-green-100 transition-colors"
+                >
+                  <PlayIcon className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-medium">Reactivate Subscriptions</div>
+                    <div className="text-sm text-green-700">Reactivate cancelled subscriptions</div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowBulkActions(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

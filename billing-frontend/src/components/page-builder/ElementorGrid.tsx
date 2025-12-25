@@ -176,8 +176,16 @@ function GridCell({
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onAddToContainer={onAddToContainer}
-            onColumnClick={onCellClick}
-            onColumnAddClick={onCellAddClick}
+            onColumnClick={onCellClick ? (containerId: string, columnIndex: number) => {
+              const rowIndex = Math.floor(columnIndex / 1000);
+              const colIndex = columnIndex % 1000;
+              onCellClick(containerId, rowIndex, colIndex);
+            } : undefined}
+            onColumnAddClick={onCellAddClick ? (containerId: string, columnIndex: number) => {
+              const rowIndex = Math.floor(columnIndex / 1000);
+              const colIndex = columnIndex % 1000;
+              onCellAddClick(containerId, rowIndex, colIndex);
+            } : undefined}
             onAddColumn={() => {}}
             onRemoveColumn={() => {}}
             onAddAfter={onAddAfter}
@@ -268,7 +276,7 @@ export default function ElementorGrid({
   // Helper to get cell span
   const getCellSpan = (rowIndex: number, colIndex: number): number => {
     const key = `${rowIndex}-${colIndex}`;
-    return cellSpans[key]?.colSpan || 1;
+    return (cellSpans as any)[key]?.colSpan || 1;
   };
 
   // Build cells array from grid template - only render cells that start at their position
@@ -396,7 +404,7 @@ export default function ElementorGrid({
                       >
                         {layout.gridTemplate.flatMap((row, rowIdx) => 
                           row.map((cellId, colIdx) => {
-                            const cellSpan = layout.cellSpans[`${rowIdx}-${colIdx}`]?.colSpan || 1;
+                            const cellSpan = (layout.cellSpans as any)[`${rowIdx}-${colIdx}`]?.colSpan || 1;
                             // Only render the first cell of a span
                             const isFirstInSpan = !row.slice(0, colIdx).includes(cellId);
                             if (!isFirstInSpan) return null;

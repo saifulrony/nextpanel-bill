@@ -150,7 +150,7 @@ export async function handleFileImport(
   file: File,
   onSuccess: (data: any[]) => void,
   onError: (error: string) => void
-): void {
+): Promise<void> {
   try {
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     let data: any[];

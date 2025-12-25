@@ -24,7 +24,7 @@ interface Software {
   category: string;
   release_date: string;
   last_updated: string;
-  status: 'available' | 'downloading' | 'downloaded';
+  status: 'available' | 'downloading' | 'downloaded' | 'unavailable';
   license_key?: string;
   installation_guide?: string;
 }
@@ -90,8 +90,15 @@ export default function MySoftwaresPage() {
                       installation_guide: product.features?.installation_guide || undefined,
                     });
                   }
-                } catch (err) {
-                  console.error(`Failed to load product ${item.product_id}:`, err);
+                } catch (err: any) {
+                  // Handle 404 errors gracefully - product might have been deleted
+                  if (err.response?.status === 404) {
+                    console.warn(`Product ${item.product_id} not found, skipping...`);
+                    // Optionally, you could add the item with basic info from the order
+                    // For now, we'll just skip it
+                  } else {
+                    console.error(`Failed to load product ${item.product_id}:`, err);
+                  }
                 }
               }
             }

@@ -9,6 +9,7 @@ import { StripeProvider } from '@/contexts/StripeContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import EditPageButtonWrapper from '@/components/EditPageButtonWrapper'
 
 export const metadata: Metadata = {
   title: 'NextPanel Billing - License Management',
@@ -31,6 +32,7 @@ export default function RootLayout({
               <DefaultPageProvider>
                 <StripeProvider>
                   {children}
+                  <EditPageButtonWrapper />
                   <ToastContainer
                     position="top-right"
                     autoClose={5000}

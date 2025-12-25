@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { dedicatedServersAPI, ordersAPI } from '@/lib/api';
+import { dedicatedServersAPI, ordersAPI, subscriptionsAPI } from '@/lib/api';
 import {
   ServerIcon,
   CheckCircleIcon,
@@ -24,6 +24,7 @@ import {
   KeyIcon,
   InformationCircleIcon,
   XMarkIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
 interface ServerInstance {
@@ -68,6 +69,9 @@ export default function MyServersPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [showPassword, setShowPassword] = useState<Record<number, boolean>>({});
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [serverToCancel, setServerToCancel] = useState<ServerInstance | null>(null);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -214,8 +218,17 @@ export default function MyServersPage() {
     }
   };
 
-  const handleServerAction = async (serverId: number, action: 'reboot' | 'suspend' | 'unsuspend', bootType?: string) => {
-    if (!confirm(`Are you sure you want to ${action} this server?`)) {
+  const handleServerAction = async (serverId: number, action: 'reboot' | 'suspend' | 'unsuspend' | 'start' | 'stop' | 'restart', bootType?: string) => {
+    const actionLabels: Record<string, string> = {
+      'reboot': 'reboot',
+      'suspend': 'suspend',
+      'unsuspend': 'unsuspend',
+      'start': 'start',
+      'stop': 'stop',
+      'restart': 'restart',
+    };
+    
+    if (!confirm(`Are you sure you want to ${actionLabels[action]} this server?`)) {
       return;
     }
 
@@ -228,9 +241,15 @@ export default function MyServersPage() {
         await dedicatedServersAPI.suspendInstance(serverId, 'Customer requested');
       } else if (action === 'unsuspend') {
         await dedicatedServersAPI.unsuspendInstance(serverId);
+      } else if (action === 'start') {
+        await dedicatedServersAPI.startInstance(serverId);
+      } else if (action === 'stop') {
+        await dedicatedServersAPI.stopInstance(serverId);
+      } else if (action === 'restart') {
+        await dedicatedServersAPI.restartInstance(serverId);
       }
 
-      alert(`Server ${action}ed successfully!`);
+      alert(`Server ${actionLabels[action]}ed successfully!`);
       await loadServers(); // Reload servers
       
       // Update selected server if it's the one we just modified
@@ -240,7 +259,17 @@ export default function MyServersPage() {
       }
     } catch (err: any) {
       console.error(`Failed to ${action} server:`, err);
-      const errorMessage = err.response?.data?.detail || err.message || `Failed to ${action} server`;
+      let errorMessage = err.response?.data?.detail || err.message || `Failed to ${action} server`;
+      
+      // Handle 404 errors specifically - endpoints not implemented yet
+      if (err.response?.status === 404) {
+        if (['start', 'stop', 'restart'].includes(action)) {
+          errorMessage = `The ${action} server feature is not yet available. The backend endpoint needs to be implemented. Please use Reboot or Suspend options for now, or contact support.`;
+        } else {
+          errorMessage = `The ${action} server endpoint was not found. Please contact support if this issue persists.`;
+        }
+      }
+      
       alert(errorMessage);
     } finally {
       setActionLoading(null);
@@ -288,6 +317,30 @@ export default function MyServersPage() {
 
   const getStatusLabel = (status: string) => {
     return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const handleCancelClick = (server: ServerInstance) => {
+    setServerToCancel(server);
+    setShowCancelModal(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!serverToCancel) return;
+
+    try {
+      setCancellingId(serverToCancel.id);
+      
+      // For servers, we don't have a direct cancel API, so show support message
+      alert('To cancel this server, please contact support. Your server will be terminated at the end of the current billing period.');
+      
+      setShowCancelModal(false);
+      setServerToCancel(null);
+    } catch (err: any) {
+      console.error('Failed to cancel server:', err);
+      alert('Failed to process cancellation. Please contact support.');
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   if (loading) {
@@ -369,7 +422,7 @@ export default function MyServersPage() {
                           {product?.name || `Server #${server.id}`}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {product?.description || `${server.server_type || 'Server'} Instance`}
+                          {product?.description || 'Server Instance'}
                         </p>
                       </div>
                       <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(server.status)}`}>
@@ -500,69 +553,128 @@ export default function MyServersPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="ml-6 flex flex-col space-y-2 min-w-[200px]">
-                    <button
-                      onClick={() => {
-                        setSelectedServer(server);
-                        setShowDetailsModal(true);
-                      }}
-                      className="inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      <InformationCircleIcon className="h-4 w-4 mr-2" />
-                      View Details
-                    </button>
-                    
+                  <div className="ml-6 flex flex-col items-end space-y-3">
+                    {/* Power Control Icon Buttons */}
                     {server.status === 'active' && (
-                      <>
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                         <button
-                          onClick={() => handleServerAction(server.id, 'reboot', 'soft')}
-                          disabled={isActionLoading}
-                          className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                          onClick={() => handleServerAction(server.id, 'start')}
+                          disabled={actionLoading === server.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Start Server"
                         >
-                          {isActionLoading ? (
-                            <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                          {actionLoading === server.id ? (
+                            <ArrowPathIcon className="h-5 w-5 animate-spin" />
                           ) : (
-                            <ArrowPathIcon className="h-4 w-4 mr-2" />
+                            <PlayIcon className="h-5 w-5" />
                           )}
-                          Reboot
                         </button>
                         <button
-                          onClick={() => handleServerAction(server.id, 'suspend')}
-                          disabled={isActionLoading}
-                          className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                          onClick={() => handleServerAction(server.id, 'stop')}
+                          disabled={actionLoading === server.id}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Stop Server"
                         >
-                          <StopIcon className="h-4 w-4 mr-2" />
-                          Suspend
+                          {actionLoading === server.id ? (
+                            <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <StopIcon className="h-5 w-5" />
+                          )}
                         </button>
-                      </>
+                        <button
+                          onClick={() => handleServerAction(server.id, 'restart')}
+                          disabled={actionLoading === server.id}
+                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Restart Server"
+                        >
+                          {actionLoading === server.id ? (
+                            <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <ArrowPathIcon className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
                     )}
                     
-                    {server.status === 'suspended' && (
-                      <button
-                        onClick={() => handleServerAction(server.id, 'unsuspend')}
-                        disabled={isActionLoading}
-                        className="inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                      >
-                        {isActionLoading ? (
-                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <PlayIcon className="h-4 w-4 mr-2" />
-                        )}
-                        Unsuspend
-                      </button>
+                    {server.status !== 'active' && server.status !== 'provisioning' && server.status !== 'suspended' && (
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                        <button
+                          onClick={() => handleServerAction(server.id, 'start')}
+                          disabled={actionLoading === server.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Start Server"
+                        >
+                          {actionLoading === server.id ? (
+                            <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <PlayIcon className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
                     )}
 
-                    {server.control_panel_url && (
-                      <a
-                        href={server.control_panel_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        <EyeIcon className="h-4 w-4 mr-2" />
-                        Control Panel
-                      </a>
+                    {server.status === 'suspended' && (
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                        <button
+                          onClick={() => handleServerAction(server.id, 'unsuspend')}
+                          disabled={actionLoading === server.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Unsuspend Server"
+                        >
+                          {actionLoading === server.id ? (
+                            <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <PlayIcon className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
                     )}
+
+                    {/* Other Actions */}
+                    <div className="flex flex-col space-y-2">
+                      <button
+                        onClick={() => {
+                          setSelectedServer(server);
+                          setShowDetailsModal(true);
+                        }}
+                        className="inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        <InformationCircleIcon className="h-4 w-4 mr-2" />
+                        View Details
+                      </button>
+                      
+                      {server.control_panel_url && (
+                        <a
+                          href={server.control_panel_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          <EyeIcon className="h-4 w-4 mr-2" />
+                          Control Panel
+                        </a>
+                      )}
+
+                      {(server.status === 'active' || server.status === 'provisioning') && (
+                        <button
+                          onClick={() => handleCancelClick(server)}
+                          disabled={cancellingId === server.id}
+                          className="inline-flex items-center justify-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {cancellingId === server.id ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700 mr-2"></div>
+                              Cancelling...
+                            </>
+                          ) : (
+                            <>
+                              <TrashIcon className="h-4 w-4 mr-2" />
+                              Cancel Service
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -604,6 +716,58 @@ export default function MyServersPage() {
           actionLoading={actionLoading === selectedServer.id}
         />
       )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && serverToCancel && (
+        <div className="fixed z-50 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowCancelModal(false)}></div>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Cancel Server
+                  </h3>
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to cancel this server? To proceed with cancellation, please contact our support team.
+                  </p>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> Server cancellation requires manual processing. Please contact support to cancel your server service. All data will be permanently deleted upon cancellation.
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Close
+                  </button>
+                  <a
+                    href="/customer/support"
+                    className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Contact Support
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -618,7 +782,7 @@ function ServerDetailsModal({
   server: ServerInstance;
   product?: ServerProduct;
   onClose: () => void;
-  onAction: (serverId: number, action: 'reboot' | 'suspend' | 'unsuspend', bootType?: string) => void;
+  onAction: (serverId: number, action: 'reboot' | 'suspend' | 'unsuspend' | 'start' | 'stop' | 'restart', bootType?: string) => void;
   actionLoading: boolean;
 }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -794,36 +958,78 @@ function ServerDetailsModal({
               {/* Server Actions */}
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Server Actions</h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-3">
                   {server.status === 'active' && (
                     <>
-                      <button
-                        onClick={() => onAction(server.id, 'reboot', 'soft')}
-                        disabled={actionLoading}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        {actionLoading ? (
-                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <ArrowPathIcon className="h-4 w-4 mr-2" />
-                        )}
-                        Reboot
-                      </button>
-                      <button
-                        onClick={() => onAction(server.id, 'suspend')}
-                        disabled={actionLoading}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        <StopIcon className="h-4 w-4 mr-2" />
-                        Suspend
-                      </button>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-2">Power Controls</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            onClick={() => onAction(server.id, 'start')}
+                            disabled={actionLoading}
+                            className="inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {actionLoading ? (
+                              <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <PlayIcon className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => onAction(server.id, 'stop')}
+                            disabled={actionLoading}
+                            className="inline-flex items-center justify-center px-3 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {actionLoading ? (
+                              <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <StopIcon className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => onAction(server.id, 'restart')}
+                            disabled={actionLoading}
+                            className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            {actionLoading ? (
+                              <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ArrowPathIcon className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                          <span>Start</span>
+                          <span>Stop</span>
+                          <span>Restart</span>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Management</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => onAction(server.id, 'reboot', 'soft')}
+                            disabled={actionLoading}
+                            className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            Reboot
+                          </button>
+                          <button
+                            onClick={() => onAction(server.id, 'suspend')}
+                            disabled={actionLoading}
+                            className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-yellow-300 shadow-sm text-sm font-medium rounded-md text-yellow-700 bg-white hover:bg-yellow-50 disabled:opacity-50"
+                          >
+                            Suspend
+                          </button>
+                        </div>
+                      </div>
                     </>
                   )}
                   {server.status === 'suspended' && (
                     <button
                       onClick={() => onAction(server.id, 'unsuspend')}
                       disabled={actionLoading}
-                      className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                      className="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
                     >
                       {actionLoading ? (
                         <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
@@ -831,6 +1037,20 @@ function ServerDetailsModal({
                         <PlayIcon className="h-4 w-4 mr-2" />
                       )}
                       Unsuspend
+                    </button>
+                  )}
+                  {server.status !== 'active' && server.status !== 'suspended' && server.status !== 'provisioning' && (
+                    <button
+                      onClick={() => onAction(server.id, 'start')}
+                      disabled={actionLoading}
+                      className="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {actionLoading ? (
+                        <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <PlayIcon className="h-4 w-4 mr-2" />
+                      )}
+                      Start Server
                     </button>
                   )}
                 </div>

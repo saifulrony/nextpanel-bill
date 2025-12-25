@@ -67,6 +67,7 @@ export default function CustomerLayout({
     hosting: 0,
     servers: 0,
     licenses: 0,
+    softwares: 0,
     others: 0,
   });
 
@@ -121,6 +122,7 @@ export default function CustomerLayout({
           hosting: hostingResponse?.length || 0,
           servers: serversResponse.data?.length || 0,
           licenses: licensesResponse.data?.length || 0,
+          softwares: 0,
           others: filteredOthers.length,
         });
       } catch (error) {
