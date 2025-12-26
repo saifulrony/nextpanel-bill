@@ -918,4 +918,5 @@ from app.models.dedicated_server import (
     ServerStatus,
     ProvisioningType
 )
+from app.models.vps_api_key import VPSAPIKey
 

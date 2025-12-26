@@ -233,20 +233,74 @@ export default function MyServersPage() {
     }
 
     setActionLoading(serverId);
+    
+    // Wrap in additional error handler to prevent unhandled errors
     try {
+      await executeServerAction(serverId, action, bootType, actionLabels);
+    } catch (error: any) {
+      // This is a safety net - should not reach here if executeServerAction handles errors properly
+      console.error('Unhandled error in handleServerAction:', error);
+      alert(`An unexpected error occurred: ${error?.message || 'Unknown error'}`);
+      setActionLoading(null);
+    }
+  };
+
+  const executeServerAction = async (
+    serverId: number, 
+    action: 'reboot' | 'suspend' | 'unsuspend' | 'start' | 'stop' | 'restart', 
+    bootType: string | undefined,
+    actionLabels: Record<string, string>
+  ) => {
+    
+    try {
+      let response;
+      
       // Use centralized API client
       if (action === 'reboot') {
-        await dedicatedServersAPI.rebootInstance(serverId, bootType);
+        response = await dedicatedServersAPI.rebootInstance(serverId, bootType);
       } else if (action === 'suspend') {
-        await dedicatedServersAPI.suspendInstance(serverId, 'Customer requested');
+        response = await dedicatedServersAPI.suspendInstance(serverId, 'Customer requested');
       } else if (action === 'unsuspend') {
-        await dedicatedServersAPI.unsuspendInstance(serverId);
+        response = await dedicatedServersAPI.unsuspendInstance(serverId);
       } else if (action === 'start') {
-        await dedicatedServersAPI.startInstance(serverId);
+        try {
+          response = await dedicatedServersAPI.startInstance(serverId);
+        } catch (startErr: any) {
+          // Re-throw with is404 flag for easier detection
+          if (startErr?.response?.status === 404 || startErr?.is404) {
+            const customErr: any = new Error('Start endpoint not found');
+            customErr.response = startErr?.response;
+            customErr.is404 = true;
+            throw customErr;
+          }
+          throw startErr;
+        }
       } else if (action === 'stop') {
-        await dedicatedServersAPI.stopInstance(serverId);
+        try {
+          response = await dedicatedServersAPI.stopInstance(serverId);
+        } catch (stopErr: any) {
+          if (stopErr?.response?.status === 404 || stopErr?.is404) {
+            const customErr: any = new Error('Stop endpoint not found');
+            customErr.response = stopErr?.response;
+            customErr.is404 = true;
+            throw customErr;
+          }
+          throw stopErr;
+        }
       } else if (action === 'restart') {
-        await dedicatedServersAPI.restartInstance(serverId);
+        try {
+          response = await dedicatedServersAPI.restartInstance(serverId);
+        } catch (restartErr: any) {
+          if (restartErr?.response?.status === 404 || restartErr?.is404) {
+            const customErr: any = new Error('Restart endpoint not found');
+            customErr.response = restartErr?.response;
+            customErr.is404 = true;
+            throw customErr;
+          }
+          throw restartErr;
+        }
+      } else {
+        throw new Error(`Unknown action: ${action}`);
       }
 
       alert(`Server ${actionLabels[action]}ed successfully!`);
@@ -259,18 +313,44 @@ export default function MyServersPage() {
       }
     } catch (err: any) {
       console.error(`Failed to ${action} server:`, err);
-      let errorMessage = err.response?.data?.detail || err.message || `Failed to ${action} server`;
+      console.error('Error details:', {
+        status: err?.response?.status,
+        statusText: err?.response?.statusText,
+        code: err?.code,
+        message: err?.message,
+        response: err?.response?.data
+      });
       
       // Handle 404 errors specifically - endpoints not implemented yet
-      if (err.response?.status === 404) {
+      const is404 = err?.response?.status === 404 || 
+                    err?.is404 === true ||
+                    err?.code === 'ERR_BAD_REQUEST' || 
+                    err?.message?.includes('404') ||
+                    err?.message?.includes('not found') ||
+                    err?.message?.includes('Request failed with status code 404');
+      
+      if (is404) {
+        let errorMessage = '';
         if (['start', 'stop', 'restart'].includes(action)) {
           errorMessage = `The ${action} server feature is not yet available. The backend endpoint needs to be implemented. Please use Reboot or Suspend options for now, or contact support.`;
         } else {
           errorMessage = `The ${action} server endpoint was not found. Please contact support if this issue persists.`;
         }
+        
+        // Use setTimeout to ensure alert is shown and doesn't block
+        setTimeout(() => {
+          alert(errorMessage);
+        }, 0);
+        
+        setActionLoading(null);
+        return; // Exit early to prevent further execution
       }
       
-      alert(errorMessage);
+      // Handle other errors
+      const errorMessage = err?.response?.data?.detail || err?.message || `Failed to ${action} server`;
+      setTimeout(() => {
+        alert(errorMessage);
+      }, 0);
     } finally {
       setActionLoading(null);
     }
@@ -558,7 +638,14 @@ export default function MyServersPage() {
                     {server.status === 'active' && (
                       <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                         <button
-                          onClick={() => handleServerAction(server.id, 'start')}
+                          onClick={async () => {
+                            try {
+                              await handleServerAction(server.id, 'start');
+                            } catch (err: any) {
+                              // Already handled in handleServerAction, but catch here to prevent unhandled error
+                              console.log('Error caught in button handler:', err);
+                            }
+                          }}
                           disabled={actionLoading === server.id}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Start Server"
@@ -570,7 +657,13 @@ export default function MyServersPage() {
                           )}
                         </button>
                         <button
-                          onClick={() => handleServerAction(server.id, 'stop')}
+                          onClick={async () => {
+                            try {
+                              await handleServerAction(server.id, 'stop');
+                            } catch (err: any) {
+                              console.log('Error caught in button handler:', err);
+                            }
+                          }}
                           disabled={actionLoading === server.id}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Stop Server"
@@ -582,7 +675,13 @@ export default function MyServersPage() {
                           )}
                         </button>
                         <button
-                          onClick={() => handleServerAction(server.id, 'restart')}
+                          onClick={async () => {
+                            try {
+                              await handleServerAction(server.id, 'restart');
+                            } catch (err: any) {
+                              console.log('Error caught in button handler:', err);
+                            }
+                          }}
                           disabled={actionLoading === server.id}
                           className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Restart Server"
@@ -599,7 +698,13 @@ export default function MyServersPage() {
                     {server.status !== 'active' && server.status !== 'provisioning' && server.status !== 'suspended' && (
                       <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                         <button
-                          onClick={() => handleServerAction(server.id, 'start')}
+                          onClick={async () => {
+                            try {
+                              await handleServerAction(server.id, 'start');
+                            } catch (err: any) {
+                              console.log('Error caught in button handler:', err);
+                            }
+                          }}
                           disabled={actionLoading === server.id}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Start Server"
@@ -616,7 +721,13 @@ export default function MyServersPage() {
                     {server.status === 'suspended' && (
                       <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                         <button
-                          onClick={() => handleServerAction(server.id, 'unsuspend')}
+                          onClick={async () => {
+                            try {
+                              await handleServerAction(server.id, 'unsuspend');
+                            } catch (err: any) {
+                              console.log('Error caught in button handler:', err);
+                            }
+                          }}
                           disabled={actionLoading === server.id}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Unsuspend Server"

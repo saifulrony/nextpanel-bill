@@ -12,7 +12,7 @@ import os
 
 from app.core.config import settings as config_settings
 from app.core.database import init_db
-from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages, customer_domains, customer_subscriptions, customer_invoices, customer_profile, order_automation, staff, coupons, credit_notes, email_templates, currencies, tax_rules, affiliates, recurring_billing, reports, dedicated_servers, security
+from app.api.v1 import auth, licenses, plans, products, domains, domain_providers, domain_pricing, payments, subscriptions, invoices, usage, admin, notifications, analytics, support, events, customers, dashboard, nextpanel, payment_gateways, marketplace, orders, customization, pages, customer_domains, customer_subscriptions, customer_invoices, customer_profile, order_automation, staff, coupons, credit_notes, email_templates, currencies, tax_rules, affiliates, recurring_billing, reports, dedicated_servers, security, vps_api_keys
 from app.api.v1 import settings as settings_api
 from app.schemas import HealthResponse
 
@@ -244,8 +244,33 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 
 # Mount static files for uploads
-if os.path.exists("uploads"):
-    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Try multiple possible locations for uploads directory
+# Priority: /tmp/nextpanel_uploads (where images are actually saved) > billing-backend/uploads > relative uploads
+UPLOADS_DIR = None
+possible_paths = [
+    "/tmp/nextpanel_uploads",  # Fallback location where images are actually saved
+    os.path.join(os.path.dirname(__file__), "..", "..", "uploads"),  # billing-backend/uploads
+    "uploads",  # Relative to current working directory
+]
+
+for path in possible_paths:
+    abs_path = os.path.abspath(path)
+    if os.path.exists(abs_path):
+        # Check if it has images or logos subdirectory (to ensure it's the right one)
+        if os.path.exists(os.path.join(abs_path, "images")) or os.path.exists(os.path.join(abs_path, "logos")):
+            UPLOADS_DIR = abs_path
+            logger.info(f"Found uploads directory with content: {UPLOADS_DIR}")
+            break
+
+if UPLOADS_DIR:
+    logger.info(f"Mounting static files from: {UPLOADS_DIR}")
+    try:
+        app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+        logger.info(f"Successfully mounted /uploads to {UPLOADS_DIR}")
+    except Exception as e:
+        logger.error(f"Failed to mount static files: {e}")
+else:
+    logger.warning("Uploads directory not found, static file serving disabled")
 
 # Health check endpoint
 @app.get("/health", response_model=HealthResponse)
@@ -297,6 +322,7 @@ app.include_router(customer_domains.router, prefix="/api/v1/customer/domains", t
 app.include_router(customer_subscriptions.router, prefix="/api/v1/customer/subscriptions", tags=["customer-subscriptions"])
 app.include_router(customer_invoices.router, prefix="/api/v1/customer/billing", tags=["customer-billing"])
 app.include_router(customer_profile.router, prefix="/api/v1/customer", tags=["customer-profile"])
+app.include_router(vps_api_keys.router, prefix="/api/v1/customer/vps-api-keys", tags=["vps-api-keys"])
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(nextpanel.router, prefix="/api/v1")
 app.include_router(customization.router, prefix="/api/v1")

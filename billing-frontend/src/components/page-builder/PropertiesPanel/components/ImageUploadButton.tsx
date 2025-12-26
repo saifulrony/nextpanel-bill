@@ -57,7 +57,12 @@ export function ImageUploadButton({
       }
 
       const data = await response.json();
-      const imageUrl = `${apiUrl}${data.image_url}`;
+      // Use full backend URL for images to ensure they load correctly
+      // The backend is serving images correctly, so use the full URL
+      const relativePath = data.image_url || data.url;
+      const imageUrl = relativePath.startsWith('http') 
+        ? relativePath 
+        : `${apiUrl}${relativePath}`;
       onUploadSuccess(imageUrl);
     } catch (err) {
       console.error('Error uploading image:', err);

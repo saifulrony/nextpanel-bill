@@ -10,8 +10,9 @@ export interface CartItem {
   billing_cycle: string;
   category: string;
   quantity: number;
-  type: 'product' | 'domain';
+  type: 'product' | 'domain' | 'vps_product';
   domain_name?: string; // For domain items
+  image?: string; // Product image URL
 }
 
 interface CartContextType {

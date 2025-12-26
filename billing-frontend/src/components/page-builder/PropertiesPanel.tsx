@@ -26,34 +26,37 @@ function Accordion({ title, children, defaultOpen = false, isOpen: controlledIsO
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={handleToggle}
-        className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
-      >
-        <div className="flex items-center space-x-3 flex-1">
-          {leftIcon && (
-            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-              {leftIcon}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={handleToggle}
+          className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors pr-20"
+        >
+          <div className="flex items-center space-x-3 flex-1">
+            {leftIcon && (
+              <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                {leftIcon}
+              </div>
+            )}
+            <div className="text-sm font-medium text-gray-700 text-left">
+              {typeof title === 'string' ? <span>{title}</span> : title}
             </div>
-          )}
-          <div className="text-sm font-medium text-gray-700 text-left">
-            {typeof title === 'string' ? <span>{title}</span> : title}
           </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          {rightIcon && (
-            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-              {rightIcon}
-            </div>
-          )}
+        </button>
+        {/* Icons positioned on the right: chevron first, then delete icon */}
+        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10 flex items-center space-x-2">
           {isOpen ? (
             <ChevronUpIcon className="h-5 w-5 text-gray-500" />
           ) : (
             <ChevronDownIcon className="h-5 w-5 text-gray-500" />
           )}
+          {rightIcon && (
+            <div onClick={(e) => e.stopPropagation()}>
+              {rightIcon}
+            </div>
+          )}
         </div>
-      </button>
+      </div>
       {isOpen && (
         <div className="p-4 bg-white border-t border-gray-200">
           {children}
@@ -412,6 +415,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [localCustomFields, setLocalCustomFields] = useState<any[]>([]);
   const [widthWarning, setWidthWarning] = useState<string | null>(null);
+  
+  // Use ref to always get the latest component
+  const componentRef = useRef(component);
+  useEffect(() => {
+    componentRef.current = component;
+  }, [component]);
 
   // Remove highlight after 3 seconds
   React.useEffect(() => {
@@ -493,6 +502,29 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
       });
     }
   }, [component?.id]); // Only run once when component changes
+
+  // Auto-initialize slider slides if missing
+  React.useEffect(() => {
+    if (component && component.type === 'slider' && (!component.props?.slides || component.props.slides.length === 0)) {
+      const defaultSlide = {
+        id: `slide-${Date.now()}`,
+        image: '',
+        title: '',
+        description: '',
+        buttonText: '',
+        buttonLink: '#',
+        overlay: true,
+        overlayOpacity: 0.5,
+      };
+      onUpdate({
+        ...component,
+        props: {
+          ...component.props,
+          slides: [defaultSlide],
+        },
+      });
+    }
+  }, [component?.id, component?.type]); // Only run when component changes
 
   // Auto-initialize checkout custom fields if missing
   React.useEffect(() => {
@@ -627,7 +659,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
 
   if (!component) {
     return (
-      <div className="w-80 bg-white border-l border-gray-200 h-full flex items-center justify-center">
+      <div className="bg-white border-l border-gray-200 h-full flex items-center justify-center w-full">
         <div className="text-center text-gray-400 px-4">
           <svg className="h-12 w-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -748,8 +780,8 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
   };
 
   return (
-    <React.Fragment>
-    <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col">
+    <>
+    <div className="bg-white border-l border-gray-200 h-full flex flex-col w-full overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600">
         <div className="flex items-center justify-between">
@@ -791,7 +823,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 min-h-0">
         {/* Dynamic Components Info - Show in Content tab */}
         {activeTab === 'content' && (component.type === 'domain-search' || component.type === 'products-grid' || component.type === 'featured-products' || component.type === 'product-search' || component.type === 'contact-form' || component.type === 'newsletter') && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1109,7 +1141,641 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             )}
             {activeTab === 'style' && (
               <div className="space-y-4">
-                {/* Colors removed - available in account settings */}
+                {/* Colors Section */}
+                <Accordion title="Colors" defaultOpen={true}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.backgroundColor || '#ffffff'}
+                          onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.backgroundColor || '#ffffff'}
+                          onChange={(e) => updateProp('backgroundColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.textColor || '#374151'}
+                          onChange={(e) => updateProp('textColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.textColor || '#374151'}
+                          onChange={(e) => updateProp('textColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#374151"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.buttonColor || '#4f46e5'}
+                          onChange={(e) => updateProp('buttonColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.buttonColor || '#4f46e5'}
+                          onChange={(e) => updateProp('buttonColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#4f46e5"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Text Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.buttonTextColor || '#ffffff'}
+                          onChange={(e) => updateProp('buttonTextColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.buttonTextColor || '#ffffff'}
+                          onChange={(e) => updateProp('buttonTextColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Background Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.itemBackgroundColor || '#ffffff'}
+                          onChange={(e) => updateProp('itemBackgroundColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.itemBackgroundColor || '#ffffff'}
+                          onChange={(e) => updateProp('itemBackgroundColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.borderColor || '#e5e7eb'}
+                          onChange={(e) => updateProp('borderColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.borderColor || '#e5e7eb'}
+                          onChange={(e) => updateProp('borderColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#e5e7eb"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Header Text Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.headerTextColor || component.props?.textColor || '#111827'}
+                          onChange={(e) => updateProp('headerTextColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.headerTextColor || component.props?.textColor || '#111827'}
+                          onChange={(e) => updateProp('headerTextColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#111827"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Price Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.priceColor || component.props?.textColor || '#374151'}
+                          onChange={(e) => updateProp('priceColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.priceColor || component.props?.textColor || '#374151'}
+                          onChange={(e) => updateProp('priceColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#374151"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Total Text Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.totalTextColor || component.props?.textColor || '#111827'}
+                          onChange={(e) => updateProp('totalTextColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.totalTextColor || component.props?.textColor || '#111827'}
+                          onChange={(e) => updateProp('totalTextColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#111827"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Accordion>
+
+                {/* Typography Section */}
+                <Accordion title="Typography">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Header Font Size</label>
+                      <input
+                        type="text"
+                        value={component.props?.headerFontSize || '24px'}
+                        onChange={(e) => updateProp('headerFontSize', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="24px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Header Font Weight</label>
+                      <select
+                        value={component.props?.headerFontWeight || 'bold'}
+                        onChange={(e) => updateProp('headerFontWeight', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="300">Light</option>
+                        <option value="400">Normal</option>
+                        <option value="500">Medium</option>
+                        <option value="600">Semi Bold</option>
+                        <option value="700">Bold</option>
+                        <option value="800">Extra Bold</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Name Font Size</label>
+                      <input
+                        type="text"
+                        value={component.props?.itemNameFontSize || '16px'}
+                        onChange={(e) => updateProp('itemNameFontSize', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="16px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Name Font Weight</label>
+                      <select
+                        value={component.props?.itemNameFontWeight || '500'}
+                        onChange={(e) => updateProp('itemNameFontWeight', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="300">Light</option>
+                        <option value="400">Normal</option>
+                        <option value="500">Medium</option>
+                        <option value="600">Semi Bold</option>
+                        <option value="700">Bold</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Price Font Size</label>
+                      <input
+                        type="text"
+                        value={component.props?.priceFontSize || '16px'}
+                        onChange={(e) => updateProp('priceFontSize', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="16px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Price Font Weight</label>
+                      <select
+                        value={component.props?.priceFontWeight || '600'}
+                        onChange={(e) => updateProp('priceFontWeight', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="400">Normal</option>
+                        <option value="500">Medium</option>
+                        <option value="600">Semi Bold</option>
+                        <option value="700">Bold</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Total Font Size</label>
+                      <input
+                        type="text"
+                        value={component.props?.totalFontSize || '20px'}
+                        onChange={(e) => updateProp('totalFontSize', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="20px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Total Font Weight</label>
+                      <select
+                        value={component.props?.totalFontWeight || '700'}
+                        onChange={(e) => updateProp('totalFontWeight', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="500">Medium</option>
+                        <option value="600">Semi Bold</option>
+                        <option value="700">Bold</option>
+                        <option value="800">Extra Bold</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Font Size</label>
+                      <input
+                        type="text"
+                        value={component.props?.buttonFontSize || '16px'}
+                        onChange={(e) => updateProp('buttonFontSize', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="16px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Font Weight</label>
+                      <select
+                        value={component.props?.buttonFontWeight || '500'}
+                        onChange={(e) => updateProp('buttonFontWeight', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="400">Normal</option>
+                        <option value="500">Medium</option>
+                        <option value="600">Semi Bold</option>
+                        <option value="700">Bold</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+                      <select
+                        value={component.props?.fontFamily || 'Inter'}
+                        onChange={(e) => updateProp('fontFamily', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="Inter">Inter</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="Open Sans">Open Sans</option>
+                        <option value="Lato">Lato</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Poppins">Poppins</option>
+                        <option value="Source Sans Pro">Source Sans Pro</option>
+                        <option value="Nunito">Nunito</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                      </select>
+                    </div>
+                  </div>
+                </Accordion>
+
+                {/* Spacing Section */}
+                <Accordion title="Spacing">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Padding</label>
+                        <input
+                          type="text"
+                          value={component.props?.padding || '24px'}
+                          onChange={(e) => updateProp('padding', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="24px"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Margin</label>
+                        <input
+                          type="text"
+                          value={component.style?.margin || component.props?.margin || '0'}
+                          onChange={(e) => {
+                            if (component.style) {
+                              updateStyle('margin', e.target.value);
+                            } else {
+                              updateProp('margin', e.target.value);
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Gap</label>
+                      <input
+                        type="text"
+                        value={component.props?.itemGap || '16px'}
+                        onChange={(e) => updateProp('itemGap', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="16px"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Space between cart items</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Padding</label>
+                      <input
+                        type="text"
+                        value={component.props?.itemPadding || '16px'}
+                        onChange={(e) => updateProp('itemPadding', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="16px"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Internal padding for each cart item</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Header Margin Bottom</label>
+                      <input
+                        type="text"
+                        value={component.props?.headerMarginBottom || '24px'}
+                        onChange={(e) => updateProp('headerMarginBottom', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="24px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Total Section Margin Top</label>
+                      <input
+                        type="text"
+                        value={component.props?.totalMarginTop || '24px'}
+                        onChange={(e) => updateProp('totalMarginTop', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="24px"
+                      />
+                    </div>
+                  </div>
+                </Accordion>
+
+                {/* Borders Section */}
+                <Accordion title="Borders">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Border Width</label>
+                      <input
+                        type="text"
+                        value={component.props?.itemBorderWidth || '1px'}
+                        onChange={(e) => updateProp('itemBorderWidth', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="1px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Border Radius</label>
+                      <input
+                        type="text"
+                        value={component.props?.itemBorderRadius || '8px'}
+                        onChange={(e) => updateProp('itemBorderRadius', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="8px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Container Border Width</label>
+                      <input
+                        type="text"
+                        value={component.props?.containerBorderWidth || '0px'}
+                        onChange={(e) => updateProp('containerBorderWidth', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Container Border Radius</label>
+                      <input
+                        type="text"
+                        value={component.props?.containerBorderRadius || '0px'}
+                        onChange={(e) => updateProp('containerBorderRadius', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0px"
+                      />
+                    </div>
+                  </div>
+                </Accordion>
+
+                {/* Button Styling Section */}
+                <Accordion title="Button Styling">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Border Radius</label>
+                      <input
+                        type="text"
+                        value={component.props?.buttonBorderRadius || '8px'}
+                        onChange={(e) => updateProp('buttonBorderRadius', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="8px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Padding</label>
+                      <input
+                        type="text"
+                        value={component.props?.buttonPadding || '12px 24px'}
+                        onChange={(e) => updateProp('buttonPadding', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="12px 24px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Hover Opacity</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={component.props?.buttonHoverOpacity || 0.9}
+                        onChange={(e) => updateProp('buttonHoverOpacity', parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">0.0 to 1.0 (0.9 = 90% opacity on hover)</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Clear Button Background</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.clearButtonBackground || '#ffffff'}
+                          onChange={(e) => updateProp('clearButtonBackground', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.clearButtonBackground || '#ffffff'}
+                          onChange={(e) => updateProp('clearButtonBackground', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Clear Button Text Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.clearButtonTextColor || '#374151'}
+                          onChange={(e) => updateProp('clearButtonTextColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.clearButtonTextColor || '#374151'}
+                          onChange={(e) => updateProp('clearButtonTextColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#374151"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Clear Button Border Color</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={component.props?.clearButtonBorderColor || '#d1d5db'}
+                          onChange={(e) => updateProp('clearButtonBorderColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={component.props?.clearButtonBorderColor || '#d1d5db'}
+                          onChange={(e) => updateProp('clearButtonBorderColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                          placeholder="#d1d5db"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Accordion>
+
+                {/* Layout Section */}
+                <Accordion title="Layout">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Layout</label>
+                      <select
+                        value={component.props?.itemLayout || 'horizontal'}
+                        onChange={(e) => updateProp('itemLayout', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="horizontal">Horizontal</option>
+                        <option value="vertical">Vertical</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Header Alignment</label>
+                      <select
+                        value={component.props?.headerAlignment || 'left'}
+                        onChange={(e) => updateProp('headerAlignment', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Button Alignment</label>
+                      <select
+                        value={component.props?.buttonAlignment || 'stretch'}
+                        onChange={(e) => updateProp('buttonAlignment', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="stretch">Stretch (Full Width)</option>
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Width</label>
+                      <input
+                        type="text"
+                        value={component.props?.maxWidth || ''}
+                        onChange={(e) => updateProp('maxWidth', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="1200px or 100%"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Maximum width of the cart container</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
+                      <input
+                        type="text"
+                        value={component.style?.width || component.props?.width || ''}
+                        onChange={(e) => {
+                          if (component.style) {
+                            updateStyle('width', e.target.value);
+                          } else {
+                            updateProp('width', e.target.value);
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="100%"
+                      />
+                    </div>
+                  </div>
+                </Accordion>
+
+                {/* Effects Section */}
+                <Accordion title="Effects">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Hover Shadow</label>
+                      <select
+                        value={component.props?.itemHoverShadow || 'sm'}
+                        onChange={(e) => updateProp('itemHoverShadow', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      >
+                        <option value="none">None</option>
+                        <option value="sm">Small</option>
+                        <option value="md">Medium</option>
+                        <option value="lg">Large</option>
+                        <option value="xl">Extra Large</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Item Transition Duration</label>
+                      <input
+                        type="text"
+                        value={component.props?.itemTransitionDuration || '200ms'}
+                        onChange={(e) => updateProp('itemTransitionDuration', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="200ms"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Box Shadow</label>
+                      <input
+                        type="text"
+                        value={component.props?.boxShadow || 'none'}
+                        onChange={(e) => updateProp('boxShadow', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                        placeholder="0 1px 3px rgba(0,0,0,0.1)"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">CSS box-shadow value</p>
+                    </div>
+                  </div>
+                </Accordion>
           </div>
             )}
           </>
@@ -1118,34 +1784,14 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
         {/* Slider Component Properties */}
         {activeTab === 'content' && component.type === 'slider' && (
           <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">Slides</label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const currentSlides = component.props?.slides || [];
-                    const newSlide = {
-                      id: `slide-${Date.now()}`,
-                      image: '',
-                      title: '',
-                      description: '',
-                      buttonText: '',
-                      buttonLink: '#',
-                      overlay: true,
-                      overlayOpacity: 0.5,
-                    };
-                    updateProp('slides', [...currentSlides, newSlide]);
-                  }}
-                  className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-                >
-                  + Add Slide
-                </button>
-              </div>
-              <div className="space-y-3">
-                {(component.props?.slides || [
-                  {
-                    id: '1',
+            <div className="flex items-center justify-between mb-4">
+              <label className="block text-sm font-medium text-gray-700">Slides</label>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentSlides = component.props?.slides || [];
+                  const newSlide = {
+                    id: `slide-${Date.now()}`,
                     image: '',
                     title: '',
                     description: '',
@@ -1153,40 +1799,176 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                     buttonLink: '#',
                     overlay: true,
                     overlayOpacity: 0.5,
-                  },
-                ]).map((slide: any, index: number) => (
-                  <div key={slide.id || index} className="border border-gray-300 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-700">Slide {index + 1}</span>
+                  };
+                  updateProp('slides', [...currentSlides, newSlide]);
+                }}
+                className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+              >
+                + Add Slide
+              </button>
+            </div>
+            <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-2 -mr-2">
+              {(!component.props?.slides || component.props.slides.length === 0) ? (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  <p>No slides yet. Click "+ Add Slide" to create your first slide.</p>
+                </div>
+              ) : (
+                component.props.slides.map((slide: any, index: number) => (
+                  <Accordion 
+                    key={slide.id || index}
+                    title={<span className="font-medium">Slide {index + 1}</span>}
+                    defaultOpen={false}
+                    rightIcon={
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const currentSlides = component.props?.slides || [];
                           updateProp('slides', currentSlides.filter((_: any, i: number) => i !== index));
                         }}
-                        className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                        className="p-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center justify-center"
+                        title="Remove slide"
                       >
-                        Remove
+                        <TrashIcon className="w-4 h-4" />
                       </button>
-                    </div>
+                    }
+                  >
+                    <div className="space-y-3 pt-2">
                     
                     {/* Image Upload */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Image</label>
                       {slide.image && (
-                        <div className="mb-2">
-                          <img src={slide.image} alt={`Slide ${index + 1}`} className="w-full h-24 object-cover rounded border" />
+                        <div className="mb-2 relative">
+                          <img 
+                            src={slide.image} 
+                            alt={`Slide ${index + 1}`} 
+                            className="w-full h-24 object-cover rounded border"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              // Don't hide the image, just show error overlay
+                              const parent = target.parentElement;
+                              if (parent && !parent.querySelector('.image-error-overlay')) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'image-error-overlay absolute inset-0 bg-red-50 border border-red-200 rounded flex items-center justify-center text-xs text-red-600 z-10';
+                                errorDiv.textContent = 'Image failed to load';
+                                parent.style.position = 'relative';
+                                parent.appendChild(errorDiv);
+                              }
+                            }}
+                            onLoad={(e) => {
+                              // Remove error overlay if image loads successfully
+                              const target = e.target as HTMLImageElement;
+                              const parent = target.parentElement;
+                              const errorOverlay = parent?.querySelector('.image-error-overlay');
+                              if (errorOverlay) {
+                                errorOverlay.remove();
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentSlides = component.props?.slides || [];
+                              const updatedSlides = [...currentSlides];
+                              updatedSlides[index] = { ...updatedSlides[index], image: '' };
+                              updateProp('slides', updatedSlides);
+                            }}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                            title="Remove image"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       )}
                       <ImageUploadButton
                         onUploadSuccess={(imageUrl) => {
-                          const currentSlides = component.props?.slides || [];
-                          const updatedSlides = [...currentSlides];
-                          updatedSlides[index] = { ...updatedSlides[index], image: imageUrl };
-                          updateProp('slides', updatedSlides);
+                          // Use ref to get latest component to avoid stale closure
+                          const latestComponent = componentRef.current;
+                          const currentSlides = latestComponent.props?.slides || [];
+                          
+                          // Capture slide ID and index from current closure
+                          const slideId = slide.id;
+                          const slideIndex = index;
+                          
+                          console.log('Image upload success:', {
+                            slideId,
+                            slideIndex,
+                            imageUrl,
+                            currentSlidesCount: currentSlides.length,
+                            currentSlides: currentSlides
+                          });
+                          
+                          if (currentSlides.length === 0) {
+                            // If no slides exist, create one with the image
+                            const newSlide = {
+                              id: slideId || `slide-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                              image: imageUrl,
+                              title: '',
+                              description: '',
+                              buttonText: '',
+                              buttonLink: '#',
+                              overlay: true,
+                              overlayOpacity: 0.5,
+                            };
+                            console.log('Creating new slide with image:', newSlide);
+                            updateProp('slides', [newSlide]);
+                          } else {
+                            // Find the slide to update - use the current slides array from ref
+                            const slideToUpdateIndex = currentSlides.findIndex((s: any, i: number) => {
+                              // Match by ID if available, otherwise match by index
+                              return (slideId && s.id === slideId) || (!slideId && i === slideIndex);
+                            });
+                            
+                            if (slideToUpdateIndex === -1) {
+                              console.warn('Could not find slide to update, adding new slide');
+                              // If slide not found, add it to the end
+                              const newSlide = {
+                                id: slideId || `slide-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                image: imageUrl,
+                                title: slide.title || '',
+                                description: slide.description || '',
+                                buttonText: slide.buttonText || '',
+                                buttonLink: slide.buttonLink || '#',
+                                overlay: slide.overlay !== undefined ? slide.overlay : true,
+                                overlayOpacity: slide.overlayOpacity || 0.5,
+                              };
+                              updateProp('slides', [...currentSlides, newSlide]);
+                            } else {
+                              // Create a completely new array to ensure React detects the change
+                              const updatedSlides = currentSlides.map((s: any, i: number) => {
+                                if (i === slideToUpdateIndex) {
+                                  const updated = { ...s, image: imageUrl };
+                                  console.log(`Updating slide at index ${i}:`, s, '->', updated);
+                                  return updated;
+                                }
+                                return { ...s }; // Create new object for each slide to ensure immutability
+                              });
+                              
+                              console.log('Final slides array:', updatedSlides);
+                              updateProp('slides', updatedSlides);
+                            }
+                          }
                         }}
                         currentImageUrl={slide.image}
                       />
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Or enter image URL</label>
+                        <input
+                          type="url"
+                          value={slide.image || ''}
+                          onChange={(e) => {
+                            const currentSlides = component.props?.slides || [];
+                            const updatedSlides = [...currentSlides];
+                            updatedSlides[index] = { ...updatedSlides[index], image: e.target.value };
+                            updateProp('slides', updatedSlides);
+                          }}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                          placeholder="https://example.com/image.jpg"
+                        />
+                      </div>
                     </div>
                     
                     {/* Title */}
@@ -1256,49 +2038,10 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                         placeholder="#"
                       />
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Button Background Color</label>
-              <input
-                type="color"
-                value={component.props?.buttonBackgroundColor || '#ffffff'}
-                onChange={(e) => updateProp('buttonBackgroundColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Button Text Color</label>
-              <input
-                type="color"
-                value={component.props?.buttonTextColor || '#000000'}
-                onChange={(e) => updateProp('buttonTextColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Overlay Color</label>
-              <input
-                type="color"
-                value={component.props?.overlayColor || '#000000'}
-                onChange={(e) => updateProp('overlayColor', e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Overlay Opacity</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={component.props?.overlayOpacity || 0.5}
-                onChange={(e) => updateProp('overlayOpacity', parseFloat(e.target.value))}
-                className="w-full"
-              />
-              <span className="text-xs text-gray-500">{component.props?.overlayOpacity || 0.5}</span>
+                    </div>
+                  </Accordion>
+                ))
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <label className="flex items-center">
@@ -1874,22 +2617,52 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             <label className="block text-sm font-medium text-gray-700 mb-2">Image</label>
             <div className="space-y-2">
               {/* Image Preview */}
-              {component.props?.src && (
+              {component.props?.src && component.props.src.trim() !== '' ? (
                 <div className="relative w-full h-48 border border-gray-300 rounded-md overflow-hidden bg-gray-50">
                   <img
                     src={component.props.src}
                     alt={component.props?.alt || 'Preview'}
                     className="w-full h-full object-contain"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x200?text=Image+Not+Found';
+                      const target = e.target as HTMLImageElement;
+                      const parent = target.parentElement;
+                      if (parent) {
+                        target.style.display = 'none';
+                        if (!parent.querySelector('.image-error-placeholder')) {
+                          const errorDiv = document.createElement('div');
+                          errorDiv.className = 'image-error-placeholder flex items-center justify-center h-full bg-red-50 border border-red-200 text-red-600';
+                          errorDiv.innerHTML = `
+                            <div class="text-center">
+                              <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                              </svg>
+                              <p class="text-xs font-medium">Image failed to load</p>
+                              <p class="text-xs mt-1">Please check the URL or upload a new image</p>
+                            </div>
+                          `;
+                          parent.appendChild(errorDiv);
+                        }
+                      }
                     }}
                   />
+                </div>
+              ) : (
+                <div className="relative w-full h-48 border-2 border-dashed border-gray-300 rounded-md overflow-hidden bg-gray-50 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <p className="text-sm font-medium">No image</p>
+                    <p className="text-xs mt-1">Upload an image or enter a URL</p>
+                  </div>
                 </div>
               )}
               
               {/* Upload Button */}
               <ImageUploadButton
-                onUploadSuccess={(imageUrl) => updateProp('src', imageUrl)}
+                onUploadSuccess={(imageUrl) => {
+                  updateProp('src', imageUrl);
+                }}
                 currentImageUrl={component.props?.src}
               />
               
@@ -4391,7 +5164,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
           </div>
         </div>
       )}
-    </React.Fragment>
+    </>
   );
 }
 
@@ -4434,6 +5207,26 @@ function ImageUploadButton({
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
         (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
 
+      console.log('Uploading image to:', `${apiUrl}/api/v1/customization/image`);
+      
+      // Helper to normalize image URL to relative path if from our backend
+      const normalizeImageUrl = (url: string): string => {
+        // If it's a full URL from our backend, convert to relative path
+        if (url.startsWith(apiUrl + '/uploads/')) {
+          return url.replace(apiUrl, '');
+        }
+        // If it's already a relative path starting with /uploads, use it
+        if (url.startsWith('/uploads/')) {
+          return url;
+        }
+        // If it's a full external URL, use it as-is
+        if (url.startsWith('http')) {
+          return url;
+        }
+        // Otherwise, construct full URL
+        return `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+      };
+
       const response = await fetch(`${apiUrl}/api/v1/customization/image`, {
         method: 'POST',
         headers: {
@@ -4443,16 +5236,61 @@ function ImageUploadButton({
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to upload image');
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { detail: errorText || `HTTP ${response.status}: ${response.statusText}` };
+        }
+        console.error('Upload failed:', errorData);
+        throw new Error(errorData.detail || `Failed to upload image: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      const imageUrl = `${apiUrl}${data.image_url}`;
+      console.log('Upload response:', data);
+      
+      // Handle different response formats - use full backend URL for images
+      // The backend is serving images correctly, so use the full URL
+      let relativePath: string;
+      if (data.image_url) {
+        relativePath = data.image_url;
+      } else if (data.url) {
+        relativePath = data.url;
+      } else {
+        throw new Error('Invalid response format: missing image_url or url');
+      }
+
+      // Construct full URL if it's a relative path
+      const imageUrl = relativePath.startsWith('http') 
+        ? relativePath 
+        : `${apiUrl}${relativePath}`;
+
+      console.log('Image URL (full URL):', imageUrl);
+      
+      // Call success with full backend URL - backend CORS allows this
       onUploadSuccess(imageUrl);
     } catch (err) {
       console.error('Error uploading image:', err);
-      setError(err instanceof Error ? err.message : 'Failed to upload image');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
+      setError(errorMessage);
+      
+      // Fallback: Use base64 data URL if server upload fails
+      try {
+        console.log('Using base64 fallback for image');
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          onUploadSuccess(reader.result as string);
+          setError(null); // Clear error since we have a fallback
+        };
+        reader.onerror = () => {
+          setError('Failed to process image file');
+        };
+        reader.readAsDataURL(file);
+      } catch (fallbackErr) {
+        console.error('Base64 fallback also failed:', fallbackErr);
+        setError(errorMessage + '. Also failed to use local fallback.');
+      }
     } finally {
       setUploading(false);
       // Reset file input

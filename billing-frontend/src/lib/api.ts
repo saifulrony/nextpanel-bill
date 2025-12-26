@@ -784,6 +784,16 @@ export const customerBillingAPI = {
   }
 };
 
+// VPS API Keys API
+export const vpsAPIKeysAPI = {
+  list: () => api.get('/customer/vps-api-keys'),
+  get: (id: string) => api.get(`/customer/vps-api-keys/${id}`),
+  create: (data: any) => api.post('/customer/vps-api-keys', data),
+  update: (id: string, data: any) => api.put(`/customer/vps-api-keys/${id}`, data),
+  delete: (id: string) => api.delete(`/customer/vps-api-keys/${id}`),
+  regenerate: (id: string) => api.post(`/customer/vps-api-keys/${id}/regenerate`),
+};
+
 export const customerProfileAPI = {
   // Get customer profile
   getProfile: async () => {
@@ -987,13 +997,10 @@ export const dedicatedServersAPI = {
     api.post(`/dedicated-servers/instances/${id}/terminate`),
   getInstanceStatus: (id: number) => 
     api.get(`/dedicated-servers/instances/${id}/status`),
-  // Power controls
-  startInstance: (id: number) => 
-    api.post(`/dedicated-servers/instances/${id}/start`),
-  stopInstance: (id: number) => 
-    api.post(`/dedicated-servers/instances/${id}/stop`),
-  restartInstance: (id: number) => 
-    api.post(`/dedicated-servers/instances/${id}/restart`),
+  // Power controls - Note: These endpoints need to be implemented in the backend
+  startInstance: (id: number) => api.post(`/dedicated-servers/instances/${id}/start`),
+  stopInstance: (id: number) => api.post(`/dedicated-servers/instances/${id}/stop`),
+  restartInstance: (id: number) => api.post(`/dedicated-servers/instances/${id}/restart`),
 };
 
 // Reports API

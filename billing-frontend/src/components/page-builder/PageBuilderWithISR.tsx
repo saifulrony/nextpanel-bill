@@ -920,6 +920,10 @@ const SortableComponent = React.memo(function SortableComponent({
             onAddColumn={onAddColumn}
             onRemoveColumn={onRemoveColumn}
             onAddAfter={onAddAfter}
+            onSelectComponent={(componentId) => {
+              // Directly set the selected component - the PropertiesPanel will find it
+              setSelectedComponent(componentId);
+            }}
           />
         </div>
             
@@ -1916,7 +1920,7 @@ export function PageBuilderWithISR({
         return { 
           ...baseComponent, 
           props: { 
-            src: 'https://via.placeholder.com/800x400?text=Image',
+            src: '', // Empty by default - user must upload or provide URL
             alt: 'Image description',
             width: 'auto',
             height: 'auto',
@@ -2587,6 +2591,26 @@ export function PageBuilderWithISR({
   };
 
   const handleColumnClick = (containerId: string, columnIndex: number) => {
+    // Check if this is a grid cell click
+    const gridComponent = components.find(comp => comp.id === containerId && comp.type === 'grid');
+    if (gridComponent) {
+      // Decode row and column from columnIndex (row*1000 + col)
+      const rowIndex = Math.floor(columnIndex / 1000);
+      const colIndex = columnIndex % 1000;
+      const cellKey = `${rowIndex}-${colIndex}`;
+      const gridData = gridComponent.props?.gridData || {};
+      const cellWidget = gridData[cellKey];
+      
+      // If there's a widget in this cell, select it for editing
+      if (cellWidget) {
+        setSelectedComponent(cellWidget.id);
+        setTargetContainer(null);
+        setShowComponentSelector(false);
+        return;
+      }
+    }
+    
+    // Otherwise, open component selector for empty cell/column
     setTargetContainer({ id: containerId, columnIndex });
     setShowComponentSelector(true);
   };
@@ -2763,15 +2787,106 @@ export function PageBuilderWithISR({
   };
 
   const handleUpdateComponent = (updatedComponent: Component) => {
-    const newComponents = components.map((comp) =>
-      comp.id === updatedComponent.id ? updatedComponent : comp
-    );
+    // Helper to recursively update a component, including nested ones in grid cells
+    const updateComponentRecursively = (comps: Component[]): Component[] => {
+      return comps.map((comp) => {
+        // Direct match
+        if (comp.id === updatedComponent.id) {
+          return updatedComponent;
+        }
+        
+        // Check grid cells
+        if (comp.type === 'grid' && comp.props?.gridData) {
+          const gridData = comp.props.gridData;
+          let updatedGridData = { ...gridData };
+          let gridUpdated = false;
+          
+          for (const key in gridData) {
+            if (gridData[key]?.id === updatedComponent.id) {
+              updatedGridData[key] = updatedComponent;
+              gridUpdated = true;
+              break;
+            }
+          }
+          
+          if (gridUpdated) {
+            return {
+              ...comp,
+              props: {
+                ...comp.props,
+                gridData: updatedGridData,
+              },
+            };
+          }
+        }
+        
+        // Check container children
+        if (comp.children) {
+          const updatedChildren = updateComponentRecursively(comp.children);
+          if (updatedChildren !== comp.children) {
+            return {
+              ...comp,
+              children: updatedChildren,
+            };
+          }
+        }
+        
+        return comp;
+      });
+    };
+    
+    const newComponents = updateComponentRecursively(components);
     setComponents(newComponents);
     addToHistory(newComponents);
   };
 
   const handleDeleteComponent = (id: string) => {
-    const newComponents = components.filter((comp) => comp.id !== id);
+    // Helper to recursively delete a component, including nested ones in grid cells
+    const deleteComponentRecursively = (comps: Component[]): Component[] => {
+      return comps
+        .filter((comp) => comp.id !== id) // Remove top-level match
+        .map((comp) => {
+          // Check grid cells
+          if (comp.type === 'grid' && comp.props?.gridData) {
+            const gridData = comp.props.gridData;
+            const updatedGridData: Record<string, Component> = {};
+            let gridUpdated = false;
+            
+            for (const key in gridData) {
+              if (gridData[key]?.id !== id) {
+                updatedGridData[key] = gridData[key];
+              } else {
+                gridUpdated = true;
+              }
+            }
+            
+            if (gridUpdated) {
+              return {
+                ...comp,
+                props: {
+                  ...comp.props,
+                  gridData: updatedGridData,
+                },
+              };
+            }
+          }
+          
+          // Check container children
+          if (comp.children) {
+            const updatedChildren = deleteComponentRecursively(comp.children);
+            if (updatedChildren.length !== comp.children.length) {
+              return {
+                ...comp,
+                children: updatedChildren,
+              };
+            }
+          }
+          
+          return comp;
+        });
+    };
+    
+    const newComponents = deleteComponentRecursively(components);
     setComponents(newComponents);
     addToHistory(newComponents);
     setSelectedComponent(null);
@@ -3427,7 +3542,31 @@ export function PageBuilderWithISR({
     }
   };
 
-  const selectedComponentData = components.find((c) => c.id === selectedComponent);
+  // Helper function to find a component recursively, including nested ones in grid cells
+  const findComponentRecursively = (comps: Component[], id: string): Component | null => {
+    for (const comp of comps) {
+      if (comp.id === id) return comp;
+      
+      // Check grid cells
+      if (comp.type === 'grid' && comp.props?.gridData) {
+        const gridData = comp.props.gridData;
+        for (const key in gridData) {
+          if (gridData[key]?.id === id) return gridData[key];
+        }
+      }
+      
+      // Check container children
+      if (comp.children) {
+        const found = findComponentRecursively(comp.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  
+  const selectedComponentData = selectedComponent 
+    ? findComponentRecursively(components, selectedComponent)
+    : null;
 
   const deviceWidths = {
     desktop: '1200px',
@@ -3537,17 +3676,35 @@ export function PageBuilderWithISR({
 
   const handleMouseMove = (e: MouseEvent) => {
     if (isDraggingLeft) {
-      const newWidth = e.clientX;
-      if (newWidth >= 200 && newWidth <= 500) {
-        setLeftSidebarWidth(newWidth);
-        localStorage.setItem('pageBuilderLeftSidebarWidth', newWidth.toString());
+      const rawWidth = e.clientX;
+      // Apply base constraints
+      const minWidth = 200;
+      const maxWidth = 500;
+      const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, rawWidth));
+      
+      // Apply responsive calculation based on screen size
+      const responsiveWidth = calculateResponsiveSidebarWidth(constrainedWidth, true);
+      
+      if (responsiveWidth >= 200 && responsiveWidth <= 500) {
+        setLeftSidebarWidth(responsiveWidth);
+        // Store the base width (before responsive adjustment) for consistency
+        localStorage.setItem('pageBuilderLeftSidebarWidth', constrainedWidth.toString());
       }
     }
     if (isDraggingRight) {
-      const newWidth = window.innerWidth - e.clientX;
-      if (newWidth >= 200 && newWidth <= 500) {
-        setRightSidebarWidth(newWidth);
-        localStorage.setItem('pageBuilderRightSidebarWidth', newWidth.toString());
+      const rawWidth = window.innerWidth - e.clientX;
+      // Apply base constraints
+      const minWidth = 250;
+      const maxWidth = 500;
+      const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, rawWidth));
+      
+      // Apply responsive calculation based on screen size
+      const responsiveWidth = calculateResponsiveSidebarWidth(constrainedWidth, false);
+      
+      if (responsiveWidth >= 250 && responsiveWidth <= 500) {
+        setRightSidebarWidth(responsiveWidth);
+        // Store the base width (before responsive adjustment) for consistency
+        localStorage.setItem('pageBuilderRightSidebarWidth', constrainedWidth.toString());
       }
     }
   };
@@ -3878,7 +4035,7 @@ export function PageBuilderWithISR({
   }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-screen bg-gray-100 w-full overflow-hidden">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
@@ -4288,7 +4445,7 @@ export function PageBuilderWithISR({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 overflow-hidden relative">
+        <div className="flex flex-1 overflow-hidden relative w-full min-w-0">
           {/* Component Library */}
           {!previewMode && (
             <div 
@@ -4436,7 +4593,7 @@ export function PageBuilderWithISR({
           {/* Properties Panel */}
           {!previewMode && (
             <div 
-              className="bg-white border-l border-gray-200 flex-shrink-0 relative z-10"
+              className="bg-white border-l border-gray-200 flex-shrink-0 relative z-10 h-screen"
               style={{ width: `${rightSidebarWidth}px` }}
             >
               {selectedComponentData ? (

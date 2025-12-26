@@ -145,8 +145,10 @@ function GridCell({
         gridColumn: colSpan > 1 ? `span ${colSpan}` : 'auto',
       }}
       onClick={(e) => {
-        e.stopPropagation();
-        if (onCellClick) {
+        // Only handle cell click if clicking on empty cell area, not on the widget itself
+        // Widget clicks are handled by ComponentRenderer's onClick
+        if (!cellData && onCellClick) {
+          e.stopPropagation();
           onCellClick(gridId, rowIndex, colIndex);
         }
       }}
@@ -169,7 +171,10 @@ function GridCell({
             isSelected={isSelected && selectedComponent === cellData.id}
             isHovered={isHovered}
             onClick={() => {
-              if (onCellClick) {
+              // Directly select the widget if selection handler is available
+              if (onSelectComponent) {
+                onSelectComponent(cellData.id);
+              } else if (onCellClick) {
                 onCellClick(gridId, rowIndex, colIndex);
               }
             }}
@@ -193,6 +198,7 @@ function GridCell({
             columnIndex={rowIndex * 1000 + colIndex}
             isEditor={isEditor}
             selectedComponent={selectedComponent}
+            onSelectComponent={onSelectComponent}
           />
         ) : isEditor ? (
           // Empty Cell Placeholder
@@ -234,6 +240,7 @@ interface ElementorGridProps {
   onAddAfter?: (componentId: string, type: ComponentType) => void;
   isEditor: boolean;
   selectedComponent: string | null;
+  onSelectComponent?: (componentId: string) => void;
 }
 
 export default function ElementorGrid({
@@ -251,6 +258,7 @@ export default function ElementorGrid({
   onAddAfter,
   isEditor,
   selectedComponent,
+  onSelectComponent,
 }: ElementorGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showLayoutSelector, setShowLayoutSelector] = useState(false);
@@ -328,6 +336,18 @@ export default function ElementorGrid({
   };
 
   const handleCellClick = (gridId: string, rowIndex: number, colIndex: number) => {
+    // Check if there's a widget in this cell first
+    const cellKey = `${rowIndex}-${colIndex}`;
+    const gridData = component.props?.gridData || {};
+    const cellWidget = gridData[cellKey];
+    
+    // If there's a widget, select it directly
+    if (cellWidget && onSelectComponent) {
+      onSelectComponent(cellWidget.id);
+      return;
+    }
+    
+    // Otherwise, handle as column click (for empty cells)
     if (onColumnClick) {
       onColumnClick(gridId, rowIndex * 1000 + colIndex);
     }

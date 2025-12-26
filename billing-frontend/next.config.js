@@ -51,6 +51,15 @@ const nextConfig = {
     // number of pages that should be kept simultaneously without being disposed
     pagesBufferLength: 2,
   },
+  // Rewrite rules to proxy uploads from backend
+  async rewrites() {
+    return [
+      {
+        source: '/uploads/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.10.203:8001'}/uploads/:path*`,
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig

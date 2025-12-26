@@ -298,7 +298,11 @@ export default function CreateProductModal({ onClose, onSuccess, categories }: C
 
         console.log('Creating server product with payload:', JSON.stringify(serverPayload, null, 2));
 
-        const response = await fetch('http://192.168.177.129:8001/api/v1/dedicated-servers/products', {
+        // Use the API client instead of hardcoded URL
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+          (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001');
+        
+        const response = await fetch(`${apiUrl}/api/v1/dedicated-servers/products`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

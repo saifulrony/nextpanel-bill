@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCart } from '@/contexts/CartContext';
-import { plansAPI } from '@/lib/api';
+import { plansAPI, dedicatedServersAPI } from '@/lib/api';
 import {
   ShoppingCartIcon,
   CheckIcon,
@@ -15,22 +15,33 @@ import {
 } from '@heroicons/react/24/outline';
 
 interface Product {
-  id: string;
+  id: string | number;
   name: string;
   description: string;
   price_monthly: number;
-  price_yearly: number;
-  max_accounts: number;
-  max_domains: number;
-  max_databases: number;
-  max_emails: number;
-  features: any;
+  price_yearly?: number;
+  price_quarterly?: number;
+  max_accounts?: number;
+  max_domains?: number;
+  max_databases?: number;
+  max_emails?: number;
+  features?: any;
   is_active: boolean;
   is_featured?: boolean;
   sort_order?: number;
   created_at: string;
   category?: string;
   subcategory?: string;
+  // VPS/Dedicated Server specific fields
+  server_type?: 'vps' | 'dedicated';
+  cpu_cores?: number;
+  ram_gb?: number;
+  storage_gb?: number;
+  storage_type?: string;
+  bandwidth_tb?: number;
+  is_vps_product?: boolean; // Flag to identify VPS products
+  image?: string; // Product image URL
+  file_path?: string; // Product file path (for uploaded images)
 }
 
 // Icon mapping for different product categories
@@ -66,15 +77,54 @@ export default function ServicesPage() {
         setLoading(true);
         setError(null);
         
-        const [productsRes, categoriesRes] = await Promise.all([
+        // Load both regular products and VPS/dedicated server products
+        const [productsRes, categoriesRes, vpsProductsRes] = await Promise.all([
           plansAPI.list({ is_active: true }),
-          plansAPI.categories().catch(() => ({ data: [] }))
+          plansAPI.categories().catch(() => ({ data: [] })),
+          dedicatedServersAPI.listProducts({ is_active: true }).catch(() => ({ data: [] }))
         ]);
         
-        setProducts(productsRes.data || []);
+        // Transform regular products
+        const regularProducts: Product[] = (productsRes.data || []).map((p: any) => ({
+          ...p,
+          id: String(p.id),
+          is_vps_product: false,
+        }));
+        
+        // Transform VPS/dedicated server products to match Product interface
+        const vpsProducts: Product[] = (vpsProductsRes.data || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description || '',
+          price_monthly: p.price_monthly || 0,
+          price_yearly: p.price_yearly || null,
+          price_quarterly: p.price_quarterly || null,
+          is_active: p.is_active,
+          category: 'server',
+          subcategory: p.server_type === 'vps' ? 'vps' : 'dedicated',
+          server_type: p.server_type,
+          cpu_cores: p.cpu_cores,
+          ram_gb: p.ram_gb,
+          storage_gb: p.storage_gb,
+          storage_type: p.storage_type,
+          bandwidth_tb: p.bandwidth_tb,
+          is_vps_product: true,
+          features: {
+            category: 'server',
+            type: p.server_type,
+            cpu: `${p.cpu_cores} vCPU`,
+            ram: `${p.ram_gb} GB`,
+            storage: `${p.storage_gb} GB ${p.storage_type || 'SSD'}`,
+            bandwidth: `${p.bandwidth_tb} TB`,
+          },
+        }));
+        
+        // Combine both product types
+        const allProducts = [...regularProducts, ...vpsProducts];
+        setProducts(allProducts);
         
         // Extract unique categories from products
-        const productCategories = [...new Set(productsRes.data?.map((p: Product) => p.category).filter(Boolean))] as string[];
+        const productCategories = [...new Set(allProducts.map((p: Product) => p.category).filter(Boolean))] as string[];
         setCategories(['all', ...productCategories]);
         
       } catch (err) {
@@ -97,15 +147,44 @@ export default function ServicesPage() {
   const handleAddToCart = async (product: Product) => {
     setAddingToCart(product.id);
     
+    // Calculate price based on billing cycle
+    let price = product.price_monthly;
+    if (billingCycle === 'yearly' && product.price_yearly) {
+      price = product.price_yearly;
+    } else if (billingCycle === 'monthly') {
+      price = product.price_monthly;
+    }
+    
+    // Get image URL - prioritize file_path, then image, then use placeholder
+    let imageUrl = '';
+    if (product.file_path) {
+      // If file_path is a full URL, use it; otherwise construct the URL
+      imageUrl = product.file_path.startsWith('http') 
+        ? product.file_path 
+        : `${process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8001` : 'http://localhost:8001')}${product.file_path}`;
+    } else if (product.image) {
+      imageUrl = product.image;
+    }
+
     const cartItem = {
-      id: product.id,
+      id: String(product.id),
       name: product.name,
       description: product.description,
-      price: billingCycle === 'monthly' ? product.price_monthly : product.price_yearly,
+      price: price,
       billing_cycle: billingCycle,
       category: product.category || 'general',
-      type: 'product' as const,
-      quantity: 1
+      type: product.is_vps_product ? 'vps_product' as const : 'product' as const,
+      quantity: 1,
+      image: imageUrl,
+      // Include VPS-specific data if it's a VPS product
+      ...(product.is_vps_product && {
+        server_type: product.server_type,
+        cpu_cores: product.cpu_cores,
+        ram_gb: product.ram_gb,
+        storage_gb: product.storage_gb,
+        storage_type: product.storage_type,
+        bandwidth_tb: product.bandwidth_tb,
+      })
     };
 
     addItem(cartItem);
@@ -117,7 +196,10 @@ export default function ServicesPage() {
   };
 
   const getPrice = (product: Product) => {
-    return billingCycle === 'monthly' ? product.price_monthly : product.price_yearly;
+    if (billingCycle === 'yearly' && product.price_yearly) {
+      return product.price_yearly;
+    }
+    return product.price_monthly;
   };
 
   const getBillingText = () => {
@@ -260,22 +342,57 @@ export default function ServicesPage() {
                 <div className="mt-6">
                   <h4 className="text-sm font-medium text-gray-900 mb-3">Specifications:</h4>
                   <ul className="space-y-2">
-                    <li className="flex items-center text-sm text-gray-600">
-                      <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      Max Accounts: {product.max_accounts}
-                    </li>
-                    <li className="flex items-center text-sm text-gray-600">
-                      <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      Max Domains: {product.max_domains}
-                    </li>
-                    <li className="flex items-center text-sm text-gray-600">
-                      <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      Max Databases: {product.max_databases}
-                    </li>
-                    <li className="flex items-center text-sm text-gray-600">
-                      <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      Max Emails: {product.max_emails}
-                    </li>
+                    {product.is_vps_product ? (
+                      <>
+                        <li className="flex items-center text-sm text-gray-600">
+                          <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                          CPU: {product.cpu_cores} {product.cpu_cores === 1 ? 'Core' : 'Cores'}
+                        </li>
+                        <li className="flex items-center text-sm text-gray-600">
+                          <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                          RAM: {product.ram_gb} GB
+                        </li>
+                        <li className="flex items-center text-sm text-gray-600">
+                          <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                          Storage: {product.storage_gb} GB {product.storage_type || 'SSD'}
+                        </li>
+                        <li className="flex items-center text-sm text-gray-600">
+                          <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                          Bandwidth: {product.bandwidth_tb} TB/month
+                        </li>
+                        <li className="flex items-center text-sm text-gray-600">
+                          <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                          Type: {product.server_type === 'vps' ? 'VPS' : 'Dedicated Server'}
+                        </li>
+                      </>
+                    ) : (
+                      <>
+                        {product.max_accounts !== undefined && (
+                          <li className="flex items-center text-sm text-gray-600">
+                            <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                            Max Accounts: {product.max_accounts}
+                          </li>
+                        )}
+                        {product.max_domains !== undefined && (
+                          <li className="flex items-center text-sm text-gray-600">
+                            <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                            Max Domains: {product.max_domains}
+                          </li>
+                        )}
+                        {product.max_databases !== undefined && (
+                          <li className="flex items-center text-sm text-gray-600">
+                            <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                            Max Databases: {product.max_databases}
+                          </li>
+                        )}
+                        {product.max_emails !== undefined && (
+                          <li className="flex items-center text-sm text-gray-600">
+                            <CheckIcon className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                            Max Emails: {product.max_emails}
+                          </li>
+                        )}
+                      </>
+                    )}
                   </ul>
                 </div>
 

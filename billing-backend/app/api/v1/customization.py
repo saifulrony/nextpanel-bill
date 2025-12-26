@@ -211,6 +211,7 @@ async def upload_image(
     return {
         "message": "Image uploaded successfully",
         "image_url": image_url,
+        "url": image_url,  # Also return as 'url' for compatibility
         "filename": filename
     }
 

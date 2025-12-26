@@ -44,6 +44,78 @@ interface ComponentRendererProps {
   columnIndex?: number;
   isEditor?: boolean; // New prop to distinguish editor vs frontend mode
   selectedComponent?: string | null; // Add selected component ID for nested components
+  onSelectComponent?: (componentId: string) => void; // Direct selection handler for nested components
+}
+
+// Image component with error handling
+function ImageWithErrorHandling({ 
+  component, 
+  isEditor, 
+  isHovered 
+}: { 
+  component: Component; 
+  isEditor: boolean; 
+  isHovered: boolean;
+}) {
+  const [imageError, setImageError] = useState(false);
+  const imageSrc = component.props?.src;
+  const hasImage = imageSrc && imageSrc.trim() !== '';
+  
+  // Reset error when src changes
+  useEffect(() => {
+    setImageError(false);
+  }, [imageSrc]);
+  
+  if (!hasImage || imageError) {
+    return (
+      <div 
+        className={`flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300 text-gray-400 ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
+        style={{
+          width: component.props?.width || '100%',
+          height: component.props?.height || '200px',
+          minHeight: '200px',
+          ...component.style 
+        }}
+      >
+        <div className="text-center">
+          <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          <p className="text-sm font-medium">{imageError ? 'Image not found' : 'No image'}</p>
+          <p className="text-xs mt-1">{imageError ? 'Upload an image or provide a valid URL' : 'Click to upload or enter URL'}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <img
+      src={imageSrc}
+      alt={component.props?.alt || 'Image'}
+      style={{
+        width: component.props?.width || 'auto',
+        height: component.props?.height || 'auto',
+        maxWidth: component.props?.maxWidth || '100%',
+        objectFit: component.props?.objectFit || 'cover',
+        borderRadius: component.props?.borderRadius || '0',
+        border: component.props?.border || 'none',
+        borderColor: component.props?.borderColor || '#e5e7eb',
+        borderWidth: component.props?.borderWidth || '0',
+        margin: component.props?.margin || '0',
+        padding: component.props?.padding || '0',
+        backgroundColor: component.props?.backgroundColor || 'transparent',
+        boxShadow: component.props?.shadow === 'none' ? 'none' : 
+                  component.props?.shadow === 'sm' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' :
+                  component.props?.shadow === 'md' ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' :
+                  component.props?.shadow === 'lg' ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)' :
+                  component.props?.shadow === 'xl' ? '0 20px 25px -5px rgba(0, 0, 0, 0.1)' : 'none',
+        ...component.style 
+      }}
+      className={`${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
+      loading={component.props?.lazy ? 'lazy' : 'eager'}
+      onError={() => setImageError(true)}
+    />
+  );
 }
 
 export default function ComponentRenderer({
@@ -63,6 +135,7 @@ export default function ComponentRenderer({
   columnIndex,
   isEditor = true, // Default to editor mode for backward compatibility
   selectedComponent = null,
+  onSelectComponent,
 }: ComponentRendererProps) {
   const baseClasses = `
     relative transition-all
@@ -190,30 +263,10 @@ export default function ComponentRenderer({
       case 'image':
         return (
           <div className="relative">
-            <img
-              src={component.props?.src || 'https://via.placeholder.com/400x200?text=Image'}
-              alt={component.props?.alt || 'Image'}
-              style={{
-                width: component.props?.width || 'auto',
-                height: component.props?.height || 'auto',
-                maxWidth: component.props?.maxWidth || '100%',
-                objectFit: component.props?.objectFit || 'cover',
-                borderRadius: component.props?.borderRadius || '0',
-                border: component.props?.border || 'none',
-                borderColor: component.props?.borderColor || '#e5e7eb',
-                borderWidth: component.props?.borderWidth || '0',
-                margin: component.props?.margin || '0',
-                padding: component.props?.padding || '0',
-                backgroundColor: component.props?.backgroundColor || 'transparent',
-                boxShadow: component.props?.shadow === 'none' ? 'none' : 
-                          component.props?.shadow === 'sm' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' :
-                          component.props?.shadow === 'md' ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' :
-                          component.props?.shadow === 'lg' ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)' :
-                          component.props?.shadow === 'xl' ? '0 20px 25px -5px rgba(0, 0, 0, 0.1)' : 'none',
-                ...component.style 
-              }}
-              className={`${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
-              loading={component.props?.lazy ? 'lazy' : 'eager'}
+            <ImageWithErrorHandling 
+              component={component}
+              isEditor={isEditor}
+              isHovered={isHovered}
             />
             {component.props?.showCaption && component.props?.caption && (
               <div 
@@ -338,6 +391,7 @@ export default function ComponentRenderer({
             onAddAfter={onAddAfter}
             isEditor={isEditor}
             selectedComponent={selectedComponent}
+            onSelectComponent={onSelectComponent}
               />
         );
 
@@ -959,6 +1013,7 @@ export default function ComponentRenderer({
     <div className="relative group">
       <div
         className={`${baseClasses} relative`}
+        onClick={onClick}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         style={{ cursor: 'pointer' }}
