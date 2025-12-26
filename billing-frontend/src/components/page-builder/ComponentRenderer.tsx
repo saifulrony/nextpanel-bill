@@ -27,6 +27,53 @@ import ResponsiveGrid from './ResponsiveGrid';
 import ResponsiveShowcase from './ResponsiveShowcase';
 import ElementorGrid from './ElementorGrid';
 
+// Helper function to build animation styles from component props
+function buildAnimationStyles(component: Component): React.CSSProperties {
+  const animationStyles: React.CSSProperties = {};
+  
+  // Use custom animation name if provided, otherwise use regular animation name
+  const animationName = component.props?.customAnimationName || 
+                       component.props?.animationName || 
+                       component.props?.animation;
+  
+  if (animationName && animationName !== 'none') {
+    animationStyles.animationName = animationName;
+    animationStyles.animationDuration = `${component.props?.animationDuration || 300}ms`;
+    animationStyles.animationDelay = `${component.props?.animationDelay || 0}ms`;
+    animationStyles.animationTimingFunction = component.props?.animationTimingFunction || 'ease';
+    animationStyles.animationIterationCount = component.props?.animationIterationCount || 1;
+    animationStyles.animationDirection = component.props?.animationDirection || 'normal';
+    animationStyles.animationFillMode = component.props?.animationFillMode || 'both';
+  }
+  
+  // Add hover animation styles
+  const hoverAnimation = component.props?.hoverAnimation;
+  if (hoverAnimation && hoverAnimation !== 'none') {
+    const hoverTransition = component.props?.hoverTransition || 'all 0.3s ease';
+    animationStyles.transition = hoverTransition;
+  }
+  
+  return animationStyles;
+}
+
+// Helper function to build hover styles
+function buildHoverStyles(component: Component): string {
+  const hoverStyles: string[] = [];
+  
+  const hoverAnimation = component.props?.hoverAnimation;
+  const hoverScale = component.props?.hoverScale;
+  
+  if (hoverAnimation && hoverAnimation !== 'none') {
+    hoverStyles.push(`animation: ${hoverAnimation} 0.6s ease;`);
+  }
+  
+  if (hoverScale && hoverScale !== 1) {
+    hoverStyles.push(`transform: scale(${hoverScale});`);
+  }
+  
+  return hoverStyles.join(' ');
+}
+
 interface ComponentRendererProps {
   component: Component;
   isSelected: boolean;
@@ -143,6 +190,33 @@ export default function ComponentRenderer({
     ${isEditor && isHovered && !isSelected ? 'ring-2 ring-indigo-300 ring-offset-2' : ''}
   `;
 
+  // Build animation styles
+  const animationStyles = buildAnimationStyles(component);
+  const hoverStyles = buildHoverStyles(component);
+
+  // Inject custom keyframes if provided
+  useEffect(() => {
+    if (component.props?.customKeyframes && component.props?.customAnimationName) {
+      const styleId = `custom-keyframes-${component.id}`;
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+      
+      if (!styleElement) {
+        styleElement = document.createElement('style');
+        styleElement.id = styleId;
+        document.head.appendChild(styleElement);
+      }
+      
+      styleElement.textContent = component.props.customKeyframes;
+      
+      return () => {
+        const element = document.getElementById(styleId);
+        if (element) {
+          element.remove();
+        }
+      };
+    }
+  }, [component.id, component.props?.customKeyframes, component.props?.customAnimationName]);
+
   const renderComponent = () => {
     switch (component.type) {
       case 'heading':
@@ -178,9 +252,25 @@ export default function ComponentRenderer({
               letterSpacing: component.props?.letterSpacing || '-0.025em',
               margin: component.props?.margin || '0',
               padding: component.props?.padding || '0',
-              ...headingOtherStyles 
+              ...headingOtherStyles,
+              ...animationStyles
             }}
             className={`${component.className || ''} ${isEditor && isHovered ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}`}
+            onMouseEnter={(e) => {
+              if (hoverStyles && !isEditor) {
+                (e.currentTarget as HTMLElement).setAttribute('style', 
+                  (e.currentTarget as HTMLElement).getAttribute('style') + '; ' + hoverStyles
+                );
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (hoverStyles && !isEditor) {
+                const currentStyle = (e.currentTarget as HTMLElement).getAttribute('style') || '';
+                (e.currentTarget as HTMLElement).setAttribute('style', 
+                  currentStyle.replace(hoverStyles, '')
+                );
+              }
+            }}
           >
             {hasHtmlTags ? (
               <div dangerouslySetInnerHTML={{ __html: headingText }} />

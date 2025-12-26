@@ -4519,7 +4519,105 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
         {/* Style Tab - General styling for all components */}
         {activeTab === 'style' && component.type !== 'header' && (
           <div className="space-y-4">
-            {/* Colors, Spacing, Border, Size removed - available in account settings */}
+            {/* Colors Section */}
+            <Accordion title="Colors" defaultOpen={true}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={component.style?.backgroundColor || component.props?.backgroundColor || '#ffffff'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('backgroundColor', e.target.value);
+                        } else {
+                          updateProp('backgroundColor', e.target.value);
+                        }
+                      }}
+                      className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={component.style?.backgroundColor || component.props?.backgroundColor || '#ffffff'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('backgroundColor', e.target.value);
+                        } else {
+                          updateProp('backgroundColor', e.target.value);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                      placeholder="#ffffff or rgba(255,255,255,1)"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={component.style?.color || component.props?.textColor || component.props?.color || '#374151'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('color', e.target.value);
+                        } else {
+                          updateProp('textColor', e.target.value);
+                          updateProp('color', e.target.value);
+                        }
+                      }}
+                      className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={component.style?.color || component.props?.textColor || component.props?.color || '#374151'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('color', e.target.value);
+                        } else {
+                          updateProp('textColor', e.target.value);
+                          updateProp('color', e.target.value);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                      placeholder="#374151"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={component.style?.borderColor || component.props?.borderColor || '#e5e7eb'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderColor', e.target.value);
+                        } else {
+                          updateProp('borderColor', e.target.value);
+                        }
+                      }}
+                      className="w-12 h-10 border border-gray-300 rounded-md cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={component.style?.borderColor || component.props?.borderColor || '#e5e7eb'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderColor', e.target.value);
+                        } else {
+                          updateProp('borderColor', e.target.value);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                      placeholder="#e5e7eb"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Accordion>
+
+            {/* Typography Section */}
             <Accordion title="Typography">
               <div className="space-y-4">
                 <div>
@@ -4537,7 +4635,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     placeholder="16px"
                   />
-        </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Font Weight</label>
                   <select
@@ -4551,20 +4649,28 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                   >
-                    <option value="300">Light</option>
-                    <option value="400">Normal</option>
-                    <option value="500">Medium</option>
-                    <option value="600">Semi Bold</option>
-                    <option value="700">Bold</option>
-                    <option value="800">Extra Bold</option>
-                    <option value="900">Black</option>
+                    <option value="100">Thin (100)</option>
+                    <option value="200">Extra Light (200)</option>
+                    <option value="300">Light (300)</option>
+                    <option value="400">Normal (400)</option>
+                    <option value="500">Medium (500)</option>
+                    <option value="600">Semi Bold (600)</option>
+                    <option value="700">Bold (700)</option>
+                    <option value="800">Extra Bold (800)</option>
+                    <option value="900">Black (900)</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
                   <select
-                    value={component.props?.fontFamily || 'Inter'}
-                    onChange={(e) => updateProp('fontFamily', e.target.value)}
+                    value={component.props?.fontFamily || component.style?.fontFamily || 'Inter'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('fontFamily', e.target.value);
+                      } else {
+                        updateProp('fontFamily', e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                   >
                     <option value="Inter">Inter</option>
@@ -4575,15 +4681,26 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                     <option value="Poppins">Poppins</option>
                     <option value="Source Sans Pro">Source Sans Pro</option>
                     <option value="Nunito">Nunito</option>
+                    <option value="Raleway">Raleway</option>
+                    <option value="Ubuntu">Ubuntu</option>
+                    <option value="Playfair Display">Playfair Display</option>
                     <option value="Georgia">Georgia</option>
                     <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                    <option value="monospace">Monospace</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Text Alignment</label>
                   <select
-                    value={component.props?.textAlign || 'left'}
-                    onChange={(e) => updateProp('textAlign', e.target.value)}
+                    value={component.style?.textAlign || component.props?.textAlign || 'left'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('textAlign', e.target.value);
+                      } else {
+                        updateProp('textAlign', e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                   >
                     <option value="left">Left</option>
@@ -4596,24 +4713,536 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                   <label className="block text-sm font-medium text-gray-700 mb-2">Line Height</label>
                   <input
                     type="text"
-                    value={component.props?.lineHeight || ''}
-                    onChange={(e) => updateProp('lineHeight', e.target.value)}
+                    value={component.style?.lineHeight || component.props?.lineHeight || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('lineHeight', e.target.value);
+                      } else {
+                        updateProp('lineHeight', e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    placeholder="1.5"
+                    placeholder="1.5 or 24px"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Letter Spacing</label>
                   <input
                     type="text"
-                    value={component.props?.letterSpacing || ''}
-                    onChange={(e) => updateProp('letterSpacing', e.target.value)}
+                    value={component.style?.letterSpacing || component.props?.letterSpacing || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('letterSpacing', e.target.value);
+                      } else {
+                        updateProp('letterSpacing', e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    placeholder="0"
+                    placeholder="0 or 0.5px"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Transform</label>
+                  <select
+                    value={component.style?.textTransform || component.props?.textTransform || 'none'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('textTransform', e.target.value);
+                      } else {
+                        updateProp('textTransform', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="none">None</option>
+                    <option value="uppercase">Uppercase</option>
+                    <option value="lowercase">Lowercase</option>
+                    <option value="capitalize">Capitalize</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Decoration</label>
+                  <select
+                    value={component.style?.textDecoration || component.props?.textDecoration || 'none'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('textDecoration', e.target.value);
+                      } else {
+                        updateProp('textDecoration', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="none">None</option>
+                    <option value="underline">Underline</option>
+                    <option value="overline">Overline</option>
+                    <option value="line-through">Line Through</option>
+                  </select>
+                </div>
+              </div>
+            </Accordion>
+
+            {/* Spacing Section */}
+            <Accordion title="Spacing">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Padding (All Sides)</label>
+                  <input
+                    type="text"
+                    value={component.style?.padding || component.props?.padding || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('padding', e.target.value);
+                      } else {
+                        updateProp('padding', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="16px or 1rem"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Padding Top</label>
+                    <input
+                      type="text"
+                      value={component.style?.paddingTop || component.props?.paddingTop || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('paddingTop', e.target.value);
+                        } else {
+                          updateProp('paddingTop', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Padding Right</label>
+                    <input
+                      type="text"
+                      value={component.style?.paddingRight || component.props?.paddingRight || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('paddingRight', e.target.value);
+                        } else {
+                          updateProp('paddingRight', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Padding Bottom</label>
+                    <input
+                      type="text"
+                      value={component.style?.paddingBottom || component.props?.paddingBottom || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('paddingBottom', e.target.value);
+                        } else {
+                          updateProp('paddingBottom', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Padding Left</label>
+                    <input
+                      type="text"
+                      value={component.style?.paddingLeft || component.props?.paddingLeft || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('paddingLeft', e.target.value);
+                        } else {
+                          updateProp('paddingLeft', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                </div>
+                <div className="border-t pt-4 mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Margin (All Sides)</label>
+                  <input
+                    type="text"
+                    value={component.style?.margin || component.props?.margin || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('margin', e.target.value);
+                      } else {
+                        updateProp('margin', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="16px or 1rem"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Margin Top</label>
+                    <input
+                      type="text"
+                      value={component.style?.marginTop || component.props?.marginTop || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('marginTop', e.target.value);
+                        } else {
+                          updateProp('marginTop', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Margin Right</label>
+                    <input
+                      type="text"
+                      value={component.style?.marginRight || component.props?.marginRight || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('marginRight', e.target.value);
+                        } else {
+                          updateProp('marginRight', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Margin Bottom</label>
+                    <input
+                      type="text"
+                      value={component.style?.marginBottom || component.props?.marginBottom || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('marginBottom', e.target.value);
+                        } else {
+                          updateProp('marginBottom', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Margin Left</label>
+                    <input
+                      type="text"
+                      value={component.style?.marginLeft || component.props?.marginLeft || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('marginLeft', e.target.value);
+                        } else {
+                          updateProp('marginLeft', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="16px"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Accordion>
+
+            {/* Borders Section */}
+            <Accordion title="Borders">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Border Width</label>
+                  <input
+                    type="text"
+                    value={component.style?.borderWidth || component.props?.borderWidth || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('borderWidth', e.target.value);
+                      } else {
+                        updateProp('borderWidth', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="1px"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Border Top</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderTopWidth || component.props?.borderTopWidth || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderTopWidth', e.target.value);
+                        } else {
+                          updateProp('borderTopWidth', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="1px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Border Right</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderRightWidth || component.props?.borderRightWidth || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderRightWidth', e.target.value);
+                        } else {
+                          updateProp('borderRightWidth', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="1px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Border Bottom</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderBottomWidth || component.props?.borderBottomWidth || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderBottomWidth', e.target.value);
+                        } else {
+                          updateProp('borderBottomWidth', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="1px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Border Left</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderLeftWidth || component.props?.borderLeftWidth || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderLeftWidth', e.target.value);
+                        } else {
+                          updateProp('borderLeftWidth', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="1px"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Border Style</label>
+                  <select
+                    value={component.style?.borderStyle || component.props?.borderStyle || 'solid'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('borderStyle', e.target.value);
+                      } else {
+                        updateProp('borderStyle', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="none">None</option>
+                    <option value="solid">Solid</option>
+                    <option value="dashed">Dashed</option>
+                    <option value="dotted">Dotted</option>
+                    <option value="double">Double</option>
+                    <option value="groove">Groove</option>
+                    <option value="ridge">Ridge</option>
+                    <option value="inset">Inset</option>
+                    <option value="outset">Outset</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Border Radius</label>
+                  <input
+                    type="text"
+                    value={component.style?.borderRadius || component.props?.borderRadius || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('borderRadius', e.target.value);
+                      } else {
+                        updateProp('borderRadius', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="4px or 50%"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Top Left</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderTopLeftRadius || component.props?.borderTopLeftRadius || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderTopLeftRadius', e.target.value);
+                        } else {
+                          updateProp('borderTopLeftRadius', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="4px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Top Right</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderTopRightRadius || component.props?.borderTopRightRadius || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderTopRightRadius', e.target.value);
+                        } else {
+                          updateProp('borderTopRightRadius', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="4px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Bottom Right</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderBottomRightRadius || component.props?.borderBottomRightRadius || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderBottomRightRadius', e.target.value);
+                        } else {
+                          updateProp('borderBottomRightRadius', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="4px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Bottom Left</label>
+                    <input
+                      type="text"
+                      value={component.style?.borderBottomLeftRadius || component.props?.borderBottomLeftRadius || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('borderBottomLeftRadius', e.target.value);
+                        } else {
+                          updateProp('borderBottomLeftRadius', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="4px"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Accordion>
+
+            {/* Shadows Section */}
+            <Accordion title="Shadows">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Box Shadow</label>
+                  <input
+                    type="text"
+                    value={component.style?.boxShadow || component.props?.boxShadow || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('boxShadow', e.target.value);
+                      } else {
+                        updateProp('boxShadow', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    placeholder="0 2px 4px rgba(0,0,0,0.1)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: offset-x offset-y blur-radius spread-radius color</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const shadow = '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)';
+                      if (component.style) {
+                        updateStyle('boxShadow', shadow);
+                      } else {
+                        updateProp('boxShadow', shadow);
+                      }
+                    }}
+                    className="px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-300"
+                  >
+                    Small
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const shadow = '0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23)';
+                      if (component.style) {
+                        updateStyle('boxShadow', shadow);
+                      } else {
+                        updateProp('boxShadow', shadow);
+                      }
+                    }}
+                    className="px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-300"
+                  >
+                    Medium
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const shadow = '0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23)';
+                      if (component.style) {
+                        updateStyle('boxShadow', shadow);
+                      } else {
+                        updateProp('boxShadow', shadow);
+                      }
+                    }}
+                    className="px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-300"
+                  >
+                    Large
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (component.style) {
+                        updateStyle('boxShadow', 'none');
+                      } else {
+                        updateProp('boxShadow', 'none');
+                      }
+                    }}
+                    className="px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-300"
+                  >
+                    None
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Text Shadow</label>
+                  <input
+                    type="text"
+                    value={component.style?.textShadow || component.props?.textShadow || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('textShadow', e.target.value);
+                      } else {
+                        updateProp('textShadow', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    placeholder="1px 1px 2px rgba(0,0,0,0.1)"
                   />
                 </div>
               </div>
             </Accordion>
+
+            {/* Layout Section */}
             <Accordion title="Layout">
               <div className="space-y-4">
                 <div>
@@ -4644,15 +5273,71 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                     placeholder="auto"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Max Width</label>
-                  <input
-                    type="text"
-                    value={component.props?.maxWidth || ''}
-                    onChange={(e) => updateProp('maxWidth', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    placeholder="none"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Min Width</label>
+                    <input
+                      type="text"
+                      value={component.style?.minWidth || component.props?.minWidth || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('minWidth', e.target.value);
+                        } else {
+                          updateProp('minWidth', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="auto"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Max Width</label>
+                    <input
+                      type="text"
+                      value={component.style?.maxWidth || component.props?.maxWidth || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('maxWidth', e.target.value);
+                        } else {
+                          updateProp('maxWidth', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Min Height</label>
+                    <input
+                      type="text"
+                      value={component.style?.minHeight || component.props?.minHeight || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('minHeight', e.target.value);
+                        } else {
+                          updateProp('minHeight', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="auto"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Max Height</label>
+                    <input
+                      type="text"
+                      value={component.style?.maxHeight || component.props?.maxHeight || ''}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('maxHeight', e.target.value);
+                        } else {
+                          updateProp('maxHeight', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="none"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Display</label>
@@ -4665,7 +5350,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                     <option value="inline">Inline</option>
                     <option value="inline-block">Inline Block</option>
                     <option value="flex">Flex</option>
+                    <option value="inline-flex">Inline Flex</option>
                     <option value="grid">Grid</option>
+                    <option value="inline-grid">Inline Grid</option>
+                    <option value="table">Table</option>
+                    <option value="table-cell">Table Cell</option>
+                    <option value="none">None</option>
                   </select>
                 </div>
                 <div>
@@ -4685,65 +5375,718 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                   />
                   <p className="text-xs text-gray-500 mt-1">CSS grid-template-columns value (e.g., "repeat(3, 1fr)", "1fr 2fr 1fr", "200px 1fr")</p>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Flex Direction</label>
+                  <select
+                    value={component.style?.flexDirection || component.props?.flexDirection || 'row'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('flexDirection', e.target.value);
+                      } else {
+                        updateProp('flexDirection', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="row">Row</option>
+                    <option value="column">Column</option>
+                    <option value="row-reverse">Row Reverse</option>
+                    <option value="column-reverse">Column Reverse</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Justify Content</label>
+                    <select
+                      value={component.style?.justifyContent || component.props?.justifyContent || 'flex-start'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('justifyContent', e.target.value);
+                        } else {
+                          updateProp('justifyContent', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="flex-start">Start</option>
+                      <option value="flex-end">End</option>
+                      <option value="center">Center</option>
+                      <option value="space-between">Space Between</option>
+                      <option value="space-around">Space Around</option>
+                      <option value="space-evenly">Space Evenly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Align Items</label>
+                    <select
+                      value={component.style?.alignItems || component.props?.alignItems || 'stretch'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('alignItems', e.target.value);
+                        } else {
+                          updateProp('alignItems', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="stretch">Stretch</option>
+                      <option value="flex-start">Start</option>
+                      <option value="flex-end">End</option>
+                      <option value="center">Center</option>
+                      <option value="baseline">Baseline</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gap (Flex/Grid)</label>
+                  <input
+                    type="text"
+                    value={component.style?.gap || component.props?.gap || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('gap', e.target.value);
+                      } else {
+                        updateProp('gap', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="16px"
+                  />
+                </div>
+              </div>
+            </Accordion>
+
+            {/* Advanced Section */}
+            <Accordion title="Advanced">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Opacity</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={component.style?.opacity !== undefined ? component.style.opacity : (component.props?.opacity !== undefined ? component.props.opacity : 1)}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        if (component.style) {
+                          updateStyle('opacity', value.toString());
+                        } else {
+                          updateProp('opacity', value.toString());
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    <input
+                      type="text"
+                      value={component.style?.opacity !== undefined ? component.style.opacity : (component.props?.opacity !== undefined ? component.props.opacity : '1')}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('opacity', e.target.value);
+                        } else {
+                          updateProp('opacity', e.target.value);
+                        }
+                      }}
+                      className="w-16 px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Position</label>
+                  <select
+                    value={component.style?.position || component.props?.position || 'static'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('position', e.target.value);
+                      } else {
+                        updateProp('position', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="static">Static</option>
+                    <option value="relative">Relative</option>
+                    <option value="absolute">Absolute</option>
+                    <option value="fixed">Fixed</option>
+                    <option value="sticky">Sticky</option>
+                  </select>
+                </div>
+                {(component.style?.position && component.style.position !== 'static') || (component.props?.position && component.props.position !== 'static') ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Top</label>
+                      <input
+                        type="text"
+                        value={component.style?.top || component.props?.top || ''}
+                        onChange={(e) => {
+                          if (component.style) {
+                            updateStyle('top', e.target.value);
+                          } else {
+                            updateProp('top', e.target.value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Right</label>
+                      <input
+                        type="text"
+                        value={component.style?.right || component.props?.right || ''}
+                        onChange={(e) => {
+                          if (component.style) {
+                            updateStyle('right', e.target.value);
+                          } else {
+                            updateProp('right', e.target.value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Bottom</label>
+                      <input
+                        type="text"
+                        value={component.style?.bottom || component.props?.bottom || ''}
+                        onChange={(e) => {
+                          if (component.style) {
+                            updateStyle('bottom', e.target.value);
+                          } else {
+                            updateProp('bottom', e.target.value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0px"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Left</label>
+                      <input
+                        type="text"
+                        value={component.style?.left || component.props?.left || ''}
+                        onChange={(e) => {
+                          if (component.style) {
+                            updateStyle('left', e.target.value);
+                          } else {
+                            updateProp('left', e.target.value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0px"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Z-Index</label>
+                  <input
+                    type="text"
+                    value={component.style?.zIndex || component.props?.zIndex || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('zIndex', e.target.value);
+                      } else {
+                        updateProp('zIndex', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="auto"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Overflow</label>
+                  <select
+                    value={component.style?.overflow || component.props?.overflow || 'visible'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('overflow', e.target.value);
+                      } else {
+                        updateProp('overflow', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="visible">Visible</option>
+                    <option value="hidden">Hidden</option>
+                    <option value="scroll">Scroll</option>
+                    <option value="auto">Auto</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Overflow X</label>
+                    <select
+                      value={component.style?.overflowX || component.props?.overflowX || 'visible'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('overflowX', e.target.value);
+                        } else {
+                          updateProp('overflowX', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="visible">Visible</option>
+                      <option value="hidden">Hidden</option>
+                      <option value="scroll">Scroll</option>
+                      <option value="auto">Auto</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Overflow Y</label>
+                    <select
+                      value={component.style?.overflowY || component.props?.overflowY || 'visible'}
+                      onChange={(e) => {
+                        if (component.style) {
+                          updateStyle('overflowY', e.target.value);
+                        } else {
+                          updateProp('overflowY', e.target.value);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="visible">Visible</option>
+                      <option value="hidden">Hidden</option>
+                      <option value="scroll">Scroll</option>
+                      <option value="auto">Auto</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Transform</label>
+                  <input
+                    type="text"
+                    value={component.style?.transform || component.props?.transform || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('transform', e.target.value);
+                      } else {
+                        updateProp('transform', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    placeholder="translateX(10px) rotate(5deg)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">CSS transform value (e.g., "translateX(10px)", "rotate(5deg)", "scale(1.2)")</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Transform Origin</label>
+                  <input
+                    type="text"
+                    value={component.style?.transformOrigin || component.props?.transformOrigin || ''}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('transformOrigin', e.target.value);
+                      } else {
+                        updateProp('transformOrigin', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    placeholder="center or 50% 50%"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cursor</label>
+                  <select
+                    value={component.style?.cursor || component.props?.cursor || 'default'}
+                    onChange={(e) => {
+                      if (component.style) {
+                        updateStyle('cursor', e.target.value);
+                      } else {
+                        updateProp('cursor', e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="default">Default</option>
+                    <option value="pointer">Pointer</option>
+                    <option value="text">Text</option>
+                    <option value="move">Move</option>
+                    <option value="not-allowed">Not Allowed</option>
+                    <option value="wait">Wait</option>
+                    <option value="help">Help</option>
+                    <option value="grab">Grab</option>
+                    <option value="grabbing">Grabbing</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom CSS</label>
+                  <textarea
+                    value={component.props?.customCSS || ''}
+                    onChange={(e) => updateProp('customCSS', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    rows={3}
+                    placeholder="/* Add custom CSS here */"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Add any custom CSS properties (will be applied as inline styles)</p>
+                </div>
               </div>
             </Accordion>
           </div>
         )}
 
-        {/* Motion Tab - Animations and transitions */}
+        {/* Motion Tab - Animations and transitions with live preview */}
         {activeTab === 'motion' && component.type !== 'header' && (
           <div className="space-y-4">
-            <Accordion title="Animation" defaultOpen={true}>
+            {/* Live Preview */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">Live Preview</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const previewElement = document.getElementById(`animation-preview-${component.id}`);
+                    if (previewElement) {
+                      previewElement.style.animation = 'none';
+                      setTimeout(() => {
+                        const animationName = component.props?.customAnimationName || 
+                                             component.props?.animationName || 
+                                             component.props?.animation || 
+                                             'none';
+                        const duration = component.props?.animationDuration || 300;
+                        const delay = component.props?.animationDelay || 0;
+                        const timing = component.props?.animationTimingFunction || 'ease';
+                        const iteration = component.props?.animationIterationCount || 1;
+                        const direction = component.props?.animationDirection || 'normal';
+                        const fillMode = component.props?.animationFillMode || 'both';
+                        if (animationName !== 'none') {
+                          previewElement.style.animation = `${animationName} ${duration}ms ${timing} ${delay}ms ${iteration} ${direction} ${fillMode}`;
+                        }
+                      }, 10);
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                >
+                  ▶ Play Animation
+                </button>
+              </div>
+              <div
+                id={`animation-preview-${component.id}`}
+                className="w-full h-20 bg-white border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-sm text-gray-600"
+                style={{
+                  animationName: component.props?.customAnimationName || 
+                                 component.props?.animationName || 
+                                 component.props?.animation || 
+                                 'none',
+                  animationDuration: `${component.props?.animationDuration || 300}ms`,
+                  animationDelay: `${component.props?.animationDelay || 0}ms`,
+                  animationTimingFunction: component.props?.animationTimingFunction || 'ease',
+                  animationIterationCount: component.props?.animationIterationCount || 1,
+                  animationDirection: component.props?.animationDirection || 'normal',
+                  animationFillMode: component.props?.animationFillMode || 'both',
+                }}
+              >
+                Preview Box
+              </div>
+              {/* Inject custom keyframes for preview if provided */}
+              {component.props?.customKeyframes && component.props?.customAnimationName && (
+                <style
+                  dangerouslySetInnerHTML={{
+                    __html: component.props.customKeyframes
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Entrance Animations */}
+            <Accordion title="Entrance Animations" defaultOpen={true}>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Animation Type</label>
                   <select
-                    value={component.props?.animation || 'none'}
-                    onChange={(e) => updateProp('animation', e.target.value)}
+                    value={component.props?.animationName || component.props?.animation || 'none'}
+                    onChange={(e) => {
+                      updateProp('animationName', e.target.value);
+                      updateProp('animation', e.target.value);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <optgroup label="None">
+                      <option value="none">None</option>
+                    </optgroup>
+                    <optgroup label="Fade">
+                      <option value="fadeIn">Fade In</option>
+                      <option value="fadeInUp">Fade In Up</option>
+                      <option value="fadeInDown">Fade In Down</option>
+                      <option value="fadeInLeft">Fade In Left</option>
+                      <option value="fadeInRight">Fade In Right</option>
+                    </optgroup>
+                    <optgroup label="Slide">
+                      <option value="slideInUp">Slide In Up</option>
+                      <option value="slideInDown">Slide In Down</option>
+                      <option value="slideInLeft">Slide In Left</option>
+                      <option value="slideInRight">Slide In Right</option>
+                    </optgroup>
+                    <optgroup label="Zoom">
+                      <option value="zoomIn">Zoom In</option>
+                      <option value="zoomOut">Zoom Out</option>
+                      <option value="zoomInUp">Zoom In Up</option>
+                      <option value="zoomInDown">Zoom In Down</option>
+                    </optgroup>
+                    <optgroup label="Bounce">
+                      <option value="bounceIn">Bounce In</option>
+                      <option value="bounceInUp">Bounce In Up</option>
+                      <option value="bounceInDown">Bounce In Down</option>
+                      <option value="bounceInLeft">Bounce In Left</option>
+                      <option value="bounceInRight">Bounce In Right</option>
+                    </optgroup>
+                    <optgroup label="Rotate">
+                      <option value="rotateIn">Rotate In</option>
+                      <option value="rotateInDownLeft">Rotate In Down Left</option>
+                      <option value="rotateInDownRight">Rotate In Down Right</option>
+                      <option value="rotateInUpLeft">Rotate In Up Left</option>
+                      <option value="rotateInUpRight">Rotate In Up Right</option>
+                    </optgroup>
+                    <optgroup label="Flip">
+                      <option value="flipInX">Flip In X</option>
+                      <option value="flipInY">Flip In Y</option>
+                    </optgroup>
+                    <optgroup label="Attention">
+                      <option value="pulse">Pulse</option>
+                      <option value="rubberBand">Rubber Band</option>
+                      <option value="shake">Shake</option>
+                      <option value="swing">Swing</option>
+                      <option value="tada">Tada</option>
+                      <option value="wobble">Wobble</option>
+                      <option value="jello">Jello</option>
+                      <option value="heartBeat">Heart Beat</option>
+                    </optgroup>
+                    <optgroup label="Special">
+                      <option value="lightSpeedIn">Light Speed In</option>
+                      <option value="rollIn">Roll In</option>
+                      <option value="jackInTheBox">Jack In The Box</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Duration (ms)</label>
+                    <input
+                      type="number"
+                      value={component.props?.animationDuration || 300}
+                      onChange={(e) => updateProp('animationDuration', parseInt(e.target.value) || 300)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      min="0"
+                      step="50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Delay (ms)</label>
+                    <input
+                      type="number"
+                      value={component.props?.animationDelay || 0}
+                      onChange={(e) => updateProp('animationDelay', parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      min="0"
+                      step="50"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Timing Function</label>
+                  <select
+                    value={component.props?.animationTimingFunction || 'ease'}
+                    onChange={(e) => updateProp('animationTimingFunction', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="ease">Ease</option>
+                    <option value="ease-in">Ease In</option>
+                    <option value="ease-out">Ease Out</option>
+                    <option value="ease-in-out">Ease In Out</option>
+                    <option value="linear">Linear</option>
+                    <option value="cubic-bezier(0.68, -0.55, 0.265, 1.55)">Back</option>
+                    <option value="cubic-bezier(0.25, 0.46, 0.45, 0.94)">Ease In Quad</option>
+                    <option value="cubic-bezier(0.55, 0.055, 0.675, 0.19)">Ease In Cubic</option>
+                    <option value="cubic-bezier(0.895, 0.03, 0.685, 0.22)">Ease In Quart</option>
+                    <option value="cubic-bezier(0.755, 0.05, 0.855, 0.06)">Ease In Quint</option>
+                    <option value="cubic-bezier(0.6, -0.28, 0.735, 0.045)">Ease In Sine</option>
+                    <option value="cubic-bezier(0.95, 0.05, 0.795, 0.035)">Ease In Expo</option>
+                    <option value="cubic-bezier(0.86, 0, 0.07, 1)">Ease In Circ</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Iteration Count</label>
+                    <input
+                      type="text"
+                      value={component.props?.animationIterationCount || 1}
+                      onChange={(e) => updateProp('animationIterationCount', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="1 or infinite"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Direction</label>
+                    <select
+                      value={component.props?.animationDirection || 'normal'}
+                      onChange={(e) => updateProp('animationDirection', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="reverse">Reverse</option>
+                      <option value="alternate">Alternate</option>
+                      <option value="alternate-reverse">Alternate Reverse</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Fill Mode</label>
+                  <select
+                    value={component.props?.animationFillMode || 'both'}
+                    onChange={(e) => updateProp('animationFillMode', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                   >
                     <option value="none">None</option>
-                    <option value="fade">Fade</option>
-                    <option value="slide">Slide</option>
-                    <option value="zoom">Zoom</option>
+                    <option value="forwards">Forwards</option>
+                    <option value="backwards">Backwards</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+              </div>
+            </Accordion>
+
+            {/* Hover Animations */}
+            <Accordion title="Hover Animations">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Hover Animation</label>
+                  <select
+                    value={component.props?.hoverAnimation || 'none'}
+                    onChange={(e) => updateProp('hoverAnimation', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="none">None</option>
+                    <option value="grow">Grow</option>
+                    <option value="shrink">Shrink</option>
+                    <option value="pulse">Pulse</option>
+                    <option value="wobble">Wobble</option>
                     <option value="bounce">Bounce</option>
+                    <option value="rotate">Rotate</option>
+                    <option value="flip">Flip</option>
+                    <option value="glow">Glow</option>
+                    <option value="lift">Lift Up</option>
+                    <option value="tilt">Tilt</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Duration (ms)</label>
-                  <input
-                    type="number"
-                    value={component.props?.animationDuration || 300}
-                    onChange={(e) => updateProp('animationDuration', parseInt(e.target.value) || 300)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    min="0"
-                    step="50"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Hover Scale</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2"
+                      step="0.1"
+                      value={component.props?.hoverScale || 1.05}
+                      onChange={(e) => updateProp('hoverScale', parseFloat(e.target.value))}
+                      className="flex-1"
+                    />
+                    <input
+                      type="text"
+                      value={component.props?.hoverScale || 1.05}
+                      onChange={(e) => updateProp('hoverScale', parseFloat(e.target.value) || 1.05)}
+                      className="w-16 px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Delay (ms)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Hover Transition</label>
                   <input
-                    type="number"
-                    value={component.props?.animationDelay || 0}
-                    onChange={(e) => updateProp('animationDelay', parseInt(e.target.value) || 0)}
+                    type="text"
+                    value={component.props?.hoverTransition || 'all 0.3s ease'}
+                    onChange={(e) => updateProp('hoverTransition', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    min="0"
-                    step="50"
+                    placeholder="all 0.3s ease"
                   />
                 </div>
               </div>
             </Accordion>
+
+            {/* Transitions */}
             <Accordion title="Transitions">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Transition Property</label>
                   <input
                     type="text"
-                    value={component.style?.transition || ''}
-                    onChange={(e) => updateStyle('transition', e.target.value)}
+                    value={component.style?.transition || component.props?.transition || ''}
+                    onChange={(e) => {
+                      updateStyle('transition', e.target.value);
+                      updateProp('transition', e.target.value);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     placeholder="all 0.3s ease"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Duration (ms)</label>
+                    <input
+                      type="number"
+                      value={component.props?.transitionDuration || 300}
+                      onChange={(e) => updateProp('transitionDuration', parseInt(e.target.value) || 300)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      min="0"
+                      step="50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Delay (ms)</label>
+                    <input
+                      type="number"
+                      value={component.props?.transitionDelay || 0}
+                      onChange={(e) => updateProp('transitionDelay', parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      min="0"
+                      step="50"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Transition Timing</label>
+                  <select
+                    value={component.props?.transitionTimingFunction || 'ease'}
+                    onChange={(e) => updateProp('transitionTimingFunction', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="ease">Ease</option>
+                    <option value="ease-in">Ease In</option>
+                    <option value="ease-out">Ease Out</option>
+                    <option value="ease-in-out">Ease In Out</option>
+                    <option value="linear">Linear</option>
+                    <option value="cubic-bezier(0.68, -0.55, 0.265, 1.55)">Back</option>
+                    <option value="cubic-bezier(0.25, 0.46, 0.45, 0.94)">Ease In Quad</option>
+                  </select>
+                </div>
+              </div>
+            </Accordion>
+
+            {/* Custom Animation */}
+            <Accordion title="Custom Animation">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Animation Name</label>
+                  <input
+                    type="text"
+                    value={component.props?.customAnimationName || ''}
+                    onChange={(e) => updateProp('customAnimationName', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    placeholder="myCustomAnimation"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Keyframes (CSS)</label>
+                  <textarea
+                    value={component.props?.customKeyframes || ''}
+                    onChange={(e) => updateProp('customKeyframes', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                    rows={6}
+                    placeholder="@keyframes myCustomAnimation {&#10;  0% { transform: translateY(0); }&#10;  100% { transform: translateY(-20px); }&#10;}"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Add custom CSS keyframes. Use the animation name above.</p>
                 </div>
               </div>
             </Accordion>
