@@ -13,7 +13,7 @@ interface PropertiesPanelProps {
 }
 
 // Accordion Component
-function Accordion({ title, children, defaultOpen = false, isOpen: controlledIsOpen, onToggle, leftIcon, rightIcon }: { title: string | React.ReactNode; children: React.ReactNode; defaultOpen?: boolean; isOpen?: boolean; onToggle?: () => void; leftIcon?: React.ReactNode; rightIcon?: React.ReactNode }) {
+function Accordion({ title, children, defaultOpen = false, isOpen: controlledIsOpen, onToggle, leftIcon, rightIcon, accordionId }: { title: string | React.ReactNode; children: React.ReactNode; defaultOpen?: boolean; isOpen?: boolean; onToggle?: () => void; leftIcon?: React.ReactNode; rightIcon?: React.ReactNode; accordionId?: string }) {
   const [internalIsOpen, setInternalIsOpen] = useState(defaultOpen);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const handleToggle = () => {
@@ -207,69 +207,6 @@ function ProductsGridProperties({ component, updateProp }: { component: Componen
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
-        <input
-          type="color"
-          value={component.props?.backgroundColor || '#ffffff'}
-          onChange={(e) => updateProp('backgroundColor', e.target.value)}
-          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Card Background Color</label>
-        <input
-          type="color"
-          value={component.props?.cardBackgroundColor || '#ffffff'}
-          onChange={(e) => updateProp('cardBackgroundColor', e.target.value)}
-          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Border Color</label>
-        <input
-          type="color"
-          value={component.props?.borderColor || '#e5e7eb'}
-          onChange={(e) => updateProp('borderColor', e.target.value)}
-          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
-        <input
-          type="color"
-          value={component.props?.textColor || '#374151'}
-          onChange={(e) => updateProp('textColor', e.target.value)}
-          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Price Color</label>
-        <input
-          type="color"
-          value={component.props?.priceColor || '#4f46e5'}
-          onChange={(e) => updateProp('priceColor', e.target.value)}
-          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Button Color</label>
-        <input
-          type="color"
-          value={component.props?.buttonColor || '#4f46e5'}
-          onChange={(e) => updateProp('buttonColor', e.target.value)}
-          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Button Text Color</label>
-        <input
-          type="color"
-          value={component.props?.buttonTextColor || '#ffffff'}
-          onChange={(e) => updateProp('buttonTextColor', e.target.value)}
-          className="w-full h-10 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Spacing</label>
         <input
           type="text"
@@ -410,11 +347,56 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'motion'>('content');
   const [highlightedFieldId, setHighlightedFieldId] = useState<string | null>(null);
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set());
+  const [openAccordionId, setOpenAccordionId] = useState<string | null>(null); // Track single open accordion
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [draggedFieldId, setDraggedFieldId] = useState<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [localCustomFields, setLocalCustomFields] = useState<any[]>([]);
   const [widthWarning, setWidthWarning] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollHeight, setScrollHeight] = useState<number | undefined>(undefined);
+  
+  // Calculate available height for scrollable content
+  useEffect(() => {
+    const updateScrollHeight = () => {
+      if (containerRef.current) {
+        const containerHeight = containerRef.current.clientHeight;
+        // Get header (first direct child div)
+        const header = containerRef.current.children[0] as HTMLElement;
+        // Get tabs (second direct child div)
+        const tabs = containerRef.current.children[1] as HTMLElement;
+        const headerHeight = header?.clientHeight || 0;
+        const tabsHeight = tabs?.clientHeight || 0;
+        const availableHeight = containerHeight - headerHeight - tabsHeight;
+        if (availableHeight > 0) {
+          setScrollHeight(availableHeight);
+        }
+      }
+    };
+    
+    // Initial calculation
+    updateScrollHeight();
+    
+    // Recalculate after a short delay to ensure DOM is updated
+    const timeoutId = setTimeout(updateScrollHeight, 100);
+    
+    window.addEventListener('resize', updateScrollHeight);
+    return () => {
+      window.removeEventListener('resize', updateScrollHeight);
+      clearTimeout(timeoutId);
+    };
+  }, [activeTab, openAccordionId, component]);
+  
+  // Reset open accordion when tab changes
+  useEffect(() => {
+    setOpenAccordionId(null);
+  }, [activeTab]);
+  
+  // Handler for accordion toggle - only one open at a time
+  const handleAccordionToggle = (accordionId: string) => {
+    setOpenAccordionId(prev => prev === accordionId ? null : accordionId);
+  };
   
   // Use ref to always get the latest component
   const componentRef = useRef(component);
@@ -781,9 +763,9 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
 
   return (
     <>
-    <div className="bg-white border-l border-gray-200 h-full flex flex-col w-full overflow-hidden">
+    <div ref={containerRef} className="bg-white border-l border-gray-200 h-full flex flex-col w-full overflow-hidden" style={{ maxHeight: '100vh' }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600">
+      <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-white font-semibold text-sm">{componentTypeLabels[component.type] || component.type}</h3>
@@ -800,7 +782,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 bg-white">
+      <div className="border-b border-gray-200 bg-white flex-shrink-0">
         <nav className="flex">
           {[
             { id: 'content' as const, name: 'Content' },
@@ -823,7 +805,16 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 min-h-0">
+      <div 
+        ref={scrollContainerRef}
+        className="overflow-y-auto overscroll-contain" 
+        style={{ 
+          height: scrollHeight ? `${scrollHeight}px` : 'calc(100vh - 140px)', 
+          maxHeight: scrollHeight ? `${scrollHeight}px` : 'calc(100vh - 140px)',
+          minHeight: 0
+        }}
+      >
+        <div className="p-4 space-y-4">
         {/* Dynamic Components Info - Show in Content tab */}
         {activeTab === 'content' && (component.type === 'domain-search' || component.type === 'products-grid' || component.type === 'featured-products' || component.type === 'product-search' || component.type === 'contact-form' || component.type === 'newsletter') && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -862,7 +853,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             {/* Content Tab */}
             {activeTab === 'content' && (
               <div className="space-y-4">
-                <Accordion title="Logo" defaultOpen={true}>
+                <Accordion 
+                  title="Logo"
+                  accordionId="header-logo"
+                  isOpen={openAccordionId === 'header-logo'}
+                  onToggle={() => handleAccordionToggle('header-logo')}
+                >
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Logo Text</label>
@@ -886,7 +882,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </div>
             </div>
                 </Accordion>
-                <Accordion title="Navigation">
+                <Accordion 
+                  title="Navigation"
+                  accordionId="header-navigation"
+                  isOpen={openAccordionId === 'header-navigation'}
+                  onToggle={() => handleAccordionToggle('header-navigation')}
+                >
                   <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Navigation Items (JSON)</label>
@@ -956,7 +957,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             {activeTab === 'style' && (
               <div className="space-y-4">
                 {/* Colors removed - available in account settings */}
-                <Accordion title="Layout">
+                <Accordion 
+                  title="Layout"
+                  accordionId="header-layout"
+                  isOpen={openAccordionId === 'header-layout'}
+                  onToggle={() => handleAccordionToggle('header-layout')}
+                >
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1142,7 +1148,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             {activeTab === 'style' && (
               <div className="space-y-4">
                 {/* Colors Section */}
-                <Accordion title="Colors" defaultOpen={true}>
+                <Accordion 
+                  title="Colors"
+                  accordionId="cart-colors"
+                  isOpen={openAccordionId === 'cart-colors'}
+                  onToggle={() => handleAccordionToggle('cart-colors')}
+                >
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
@@ -1310,7 +1321,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 </Accordion>
 
                 {/* Typography Section */}
-                <Accordion title="Typography">
+                <Accordion 
+                  title="Typography"
+                  accordionId="cart-typography"
+                  isOpen={openAccordionId === 'cart-typography'}
+                  onToggle={() => handleAccordionToggle('cart-typography')}
+                >
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Header Font Size</label>
@@ -1453,7 +1469,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 </Accordion>
 
                 {/* Spacing Section */}
-                <Accordion title="Spacing">
+                <Accordion 
+                  title="Spacing"
+                  accordionId="cart-spacing"
+                  isOpen={openAccordionId === 'cart-spacing'}
+                  onToggle={() => handleAccordionToggle('cart-spacing')}
+                >
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -1529,7 +1550,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 </Accordion>
 
                 {/* Borders Section */}
-                <Accordion title="Borders">
+                <Accordion 
+                  title="Borders"
+                  accordionId="cart-borders"
+                  isOpen={openAccordionId === 'cart-borders'}
+                  onToggle={() => handleAccordionToggle('cart-borders')}
+                >
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Item Border Width</label>
@@ -1575,7 +1601,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 </Accordion>
 
                 {/* Button Styling Section */}
-                <Accordion title="Button Styling">
+                <Accordion 
+                  title="Button Styling"
+                  accordionId="cart-button"
+                  isOpen={openAccordionId === 'cart-button'}
+                  onToggle={() => handleAccordionToggle('cart-button')}
+                >
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Button Border Radius</label>
@@ -1668,7 +1699,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 </Accordion>
 
                 {/* Layout Section */}
-                <Accordion title="Layout">
+                <Accordion 
+                  title="Layout"
+                  accordionId="cart-layout"
+                  isOpen={openAccordionId === 'cart-layout'}
+                  onToggle={() => handleAccordionToggle('cart-layout')}
+                >
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Item Layout</label>
@@ -1737,7 +1773,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
                 </Accordion>
 
                 {/* Effects Section */}
-                <Accordion title="Effects">
+                <Accordion 
+                  title="Effects"
+                  accordionId="cart-effects"
+                  isOpen={openAccordionId === 'cart-effects'}
+                  onToggle={() => handleAccordionToggle('cart-effects')}
+                >
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Item Hover Shadow</label>
@@ -4520,7 +4561,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
         {activeTab === 'style' && component.type !== 'header' && (
           <div className="space-y-4">
             {/* Colors Section */}
-            <Accordion title="Colors" defaultOpen={true}>
+            <Accordion 
+              title="Colors" 
+              accordionId="style-colors"
+              isOpen={openAccordionId === 'style-colors'}
+              onToggle={() => handleAccordionToggle('style-colors')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
@@ -4618,7 +4664,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Typography Section */}
-            <Accordion title="Typography">
+            <Accordion 
+              title="Typography"
+              accordionId="style-typography"
+              isOpen={openAccordionId === 'style-typography'}
+              onToggle={() => handleAccordionToggle('style-typography')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
@@ -4783,177 +4834,273 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Spacing Section */}
-            <Accordion title="Spacing">
+            <Accordion 
+              title="Spacing"
+              accordionId="style-spacing"
+              isOpen={openAccordionId === 'style-spacing'}
+              onToggle={() => handleAccordionToggle('style-spacing')}
+            >
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Padding (All Sides)</label>
-                  <input
-                    type="text"
-                    value={component.style?.padding || component.props?.padding || ''}
-                    onChange={(e) => {
-                      if (component.style) {
-                        updateStyle('padding', e.target.value);
-                      } else {
-                        updateProp('padding', e.target.value);
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    placeholder="16px or 1rem"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Padding Top</label>
-                    <input
-                      type="text"
-                      value={component.style?.paddingTop || component.props?.paddingTop || ''}
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Padding</label>
+                    <select
+                      value={component.props?.paddingUnit || 'px'}
                       onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('paddingTop', e.target.value);
-                        } else {
-                          updateProp('paddingTop', e.target.value);
-                        }
+                        const unit = e.target.value;
+                        updateProp('paddingUnit', unit);
+                        // Convert all padding values to new unit
+                        ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].forEach((prop) => {
+                          const value = component.style?.[prop as keyof typeof component.style] || component.props?.[prop] || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          if (!isNaN(num) && num !== 0) {
+                            const newValue = `${num}${unit}`;
+                            if (component.style) {
+                              updateStyle(prop as any, newValue);
+                            } else {
+                              updateProp(prop, newValue);
+                            }
+                          }
+                        });
                       }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
+                      className="w-16 px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-xs"
+                    >
+                      <option value="px">px</option>
+                      <option value="em">em</option>
+                      <option value="rem">rem</option>
+                      <option value="%">%</option>
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Padding Right</label>
-                    <input
-                      type="text"
-                      value={component.style?.paddingRight || component.props?.paddingRight || ''}
-                      onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('paddingRight', e.target.value);
-                        } else {
-                          updateProp('paddingRight', e.target.value);
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Padding Bottom</label>
-                    <input
-                      type="text"
-                      value={component.style?.paddingBottom || component.props?.paddingBottom || ''}
-                      onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('paddingBottom', e.target.value);
-                        } else {
-                          updateProp('paddingBottom', e.target.value);
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Padding Left</label>
-                    <input
-                      type="text"
-                      value={component.style?.paddingLeft || component.props?.paddingLeft || ''}
-                      onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('paddingLeft', e.target.value);
-                        } else {
-                          updateProp('paddingLeft', e.target.value);
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
+                  <div className="grid grid-cols-4 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Top</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.paddingTop || component.props?.paddingTop || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.paddingUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('paddingTop', value);
+                          } else {
+                            updateProp('paddingTop', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Right</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.paddingRight || component.props?.paddingRight || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.paddingUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('paddingRight', value);
+                          } else {
+                            updateProp('paddingRight', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Bottom</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.paddingBottom || component.props?.paddingBottom || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.paddingUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('paddingBottom', value);
+                          } else {
+                            updateProp('paddingBottom', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Left</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.paddingLeft || component.props?.paddingLeft || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.paddingUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('paddingLeft', value);
+                          } else {
+                            updateProp('paddingLeft', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="border-t pt-4 mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Margin (All Sides)</label>
-                  <input
-                    type="text"
-                    value={component.style?.margin || component.props?.margin || ''}
-                    onChange={(e) => {
-                      if (component.style) {
-                        updateStyle('margin', e.target.value);
-                      } else {
-                        updateProp('margin', e.target.value);
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    placeholder="16px or 1rem"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Margin Top</label>
-                    <input
-                      type="text"
-                      value={component.style?.marginTop || component.props?.marginTop || ''}
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Margin</label>
+                    <select
+                      value={component.props?.marginUnit || 'px'}
                       onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('marginTop', e.target.value);
-                        } else {
-                          updateProp('marginTop', e.target.value);
-                        }
+                        const unit = e.target.value;
+                        updateProp('marginUnit', unit);
+                        // Convert all margin values to new unit
+                        ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'].forEach((prop) => {
+                          const value = component.style?.[prop as keyof typeof component.style] || component.props?.[prop] || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          if (!isNaN(num) && num !== 0) {
+                            const newValue = `${num}${unit}`;
+                            if (component.style) {
+                              updateStyle(prop as any, newValue);
+                            } else {
+                              updateProp(prop, newValue);
+                            }
+                          }
+                        });
                       }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
+                      className="w-16 px-2 py-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-xs"
+                    >
+                      <option value="px">px</option>
+                      <option value="em">em</option>
+                      <option value="rem">rem</option>
+                      <option value="%">%</option>
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Margin Right</label>
-                    <input
-                      type="text"
-                      value={component.style?.marginRight || component.props?.marginRight || ''}
-                      onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('marginRight', e.target.value);
-                        } else {
-                          updateProp('marginRight', e.target.value);
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Margin Bottom</label>
-                    <input
-                      type="text"
-                      value={component.style?.marginBottom || component.props?.marginBottom || ''}
-                      onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('marginBottom', e.target.value);
-                        } else {
-                          updateProp('marginBottom', e.target.value);
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Margin Left</label>
-                    <input
-                      type="text"
-                      value={component.style?.marginLeft || component.props?.marginLeft || ''}
-                      onChange={(e) => {
-                        if (component.style) {
-                          updateStyle('marginLeft', e.target.value);
-                        } else {
-                          updateProp('marginLeft', e.target.value);
-                        }
-                      }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="16px"
-                    />
+                  <div className="grid grid-cols-4 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Top</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.marginTop || component.props?.marginTop || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.marginUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('marginTop', value);
+                          } else {
+                            updateProp('marginTop', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Right</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.marginRight || component.props?.marginRight || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.marginUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('marginRight', value);
+                          } else {
+                            updateProp('marginRight', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Bottom</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.marginBottom || component.props?.marginBottom || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.marginUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('marginBottom', value);
+                          } else {
+                            updateProp('marginBottom', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Left</label>
+                      <input
+                        type="number"
+                        value={(() => {
+                          const value = component.style?.marginLeft || component.props?.marginLeft || '';
+                          const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                          return isNaN(num) ? '' : num;
+                        })()}
+                        onChange={(e) => {
+                          const num = e.target.value;
+                          const unit = component.props?.marginUnit || 'px';
+                          const value = num === '' ? '' : `${num}${unit}`;
+                          if (component.style) {
+                            updateStyle('marginLeft', value);
+                          } else {
+                            updateProp('marginLeft', value);
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </Accordion>
 
             {/* Borders Section */}
-            <Accordion title="Borders">
+            <Accordion 
+              title="Borders"
+              accordionId="style-borders"
+              isOpen={openAccordionId === 'style-borders'}
+              onToggle={() => handleAccordionToggle('style-borders')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Border Width</label>
@@ -5147,7 +5294,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Shadows Section */}
-            <Accordion title="Shadows">
+            <Accordion 
+              title="Shadows"
+              accordionId="style-shadows"
+              isOpen={openAccordionId === 'style-shadows'}
+              onToggle={() => handleAccordionToggle('style-shadows')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Box Shadow</label>
@@ -5243,7 +5395,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Layout Section */}
-            <Accordion title="Layout">
+            <Accordion 
+              title="Layout"
+              accordionId="style-layout"
+              isOpen={openAccordionId === 'style-layout'}
+              onToggle={() => handleAccordionToggle('style-layout')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -5457,7 +5614,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Advanced Section */}
-            <Accordion title="Advanced">
+            <Accordion 
+              title="Advanced"
+              accordionId="style-advanced"
+              isOpen={openAccordionId === 'style-advanced'}
+              onToggle={() => handleAccordionToggle('style-advanced')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Opacity</label>
@@ -5793,7 +5955,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </div>
 
             {/* Entrance Animations */}
-            <Accordion title="Entrance Animations" defaultOpen={true}>
+            <Accordion 
+              title="Entrance Animations"
+              accordionId="motion-entrance"
+              isOpen={openAccordionId === 'motion-entrance'}
+              onToggle={() => handleAccordionToggle('motion-entrance')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Animation Type</label>
@@ -5950,7 +6117,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Hover Animations */}
-            <Accordion title="Hover Animations">
+            <Accordion 
+              title="Hover Animations"
+              accordionId="motion-hover"
+              isOpen={openAccordionId === 'motion-hover'}
+              onToggle={() => handleAccordionToggle('motion-hover')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hover Animation</label>
@@ -6006,7 +6178,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Transitions */}
-            <Accordion title="Transitions">
+            <Accordion 
+              title="Transitions"
+              accordionId="motion-transitions"
+              isOpen={openAccordionId === 'motion-transitions'}
+              onToggle={() => handleAccordionToggle('motion-transitions')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Transition Property</label>
@@ -6065,7 +6242,12 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
             </Accordion>
 
             {/* Custom Animation */}
-            <Accordion title="Custom Animation">
+            <Accordion 
+              title="Custom Animation"
+              accordionId="motion-custom"
+              isOpen={openAccordionId === 'motion-custom'}
+              onToggle={() => handleAccordionToggle('motion-custom')}
+            >
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Custom Animation Name</label>
@@ -6093,6 +6275,7 @@ export default function PropertiesPanel({ component, onUpdate, onClose, maxCanva
           </div>
         )}
 
+        </div>
       </div>
     </div>
 
