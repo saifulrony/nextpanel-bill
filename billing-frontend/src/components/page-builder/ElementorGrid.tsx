@@ -5,11 +5,11 @@ import { Component, ComponentType } from './types';
 import ComponentRenderer from './ComponentRenderer';
 import { useDroppable } from '@dnd-kit/core';
 
-// Grid layout presets with different column widths and patterns
+// Grid layout presets with different column widths and patterns - 9 layouts total
 const GRID_LAYOUTS = [
   {
     id: 'layout-1',
-    name: 'Layout 1',
+    name: 'Asymmetric 2-1',
     rows: 2,
     columns: 3,
     gridTemplate: [
@@ -23,7 +23,7 @@ const GRID_LAYOUTS = [
   },
   {
     id: 'layout-2',
-    name: 'Layout 2',
+    name: 'Equal 4 Columns',
     rows: 2,
     columns: 4,
     gridTemplate: [
@@ -35,7 +35,7 @@ const GRID_LAYOUTS = [
   },
   {
     id: 'layout-3',
-    name: 'Layout 3',
+    name: 'Full Width Header',
     rows: 3,
     columns: 3,
     gridTemplate: [
@@ -51,7 +51,7 @@ const GRID_LAYOUTS = [
   },
   {
     id: 'layout-4',
-    name: 'Layout 4',
+    name: '5 Column Grid',
     rows: 2,
     columns: 5,
     gridTemplate: [
@@ -65,7 +65,7 @@ const GRID_LAYOUTS = [
   },
   {
     id: 'layout-5',
-    name: 'Layout 5',
+    name: 'Centered Focus',
     rows: 3,
     columns: 4,
     gridTemplate: [
@@ -81,7 +81,7 @@ const GRID_LAYOUTS = [
   },
   {
     id: 'layout-6',
-    name: 'Layout 6',
+    name: '6 Column Mosaic',
     rows: 2,
     columns: 6,
     gridTemplate: [
@@ -93,9 +93,56 @@ const GRID_LAYOUTS = [
       '1-0': { colSpan: 3 }, // Second row first cell spans 3 columns
     }
   },
+  {
+    id: 'layout-7',
+    name: 'Sidebar Layout',
+    rows: 2,
+    columns: 4,
+    gridTemplate: [
+      ['1', '1', '2', '3'],  // Left sidebar spans 2 columns
+      ['1', '1', '4', '5'],  // Left sidebar continues
+    ],
+    columnWidths: [25, 25, 25, 25],
+    cellSpans: {
+      '0-0': { colSpan: 2, rowSpan: 2 }, // Sidebar spans 2 columns and 2 rows
+    }
+  },
+  {
+    id: 'layout-8',
+    name: 'Masonry Style',
+    rows: 3,
+    columns: 3,
+    gridTemplate: [
+      ['1', '2', '2'],  // Second cell spans 2 columns
+      ['3', '3', '4'],  // First cell spans 2 columns
+      ['5', '6', '7'],  // Three equal cells
+    ],
+    columnWidths: [33.33, 33.33, 33.34],
+    cellSpans: {
+      '0-1': { colSpan: 2 }, // First row second cell spans 2 columns
+      '1-0': { colSpan: 2 }, // Second row first cell spans 2 columns
+    }
+  },
+  {
+    id: 'layout-9',
+    name: 'Complex Mosaic',
+    rows: 3,
+    columns: 4,
+    gridTemplate: [
+      ['1', '1', '2', '3'],  // First cell spans 2 columns
+      ['4', '5', '5', '6'],  // Third cell spans 2 columns
+      ['7', '7', '8', '9'],  // First cell spans 2 columns
+    ],
+    columnWidths: [25, 25, 25, 25],
+    cellSpans: {
+      '0-0': { colSpan: 2 }, // First row first cell spans 2 columns
+      '1-2': { colSpan: 2 }, // Second row third cell spans 2 columns
+      '2-0': { colSpan: 2 }, // Third row first cell spans 2 columns
+    }
+  },
 ];
 
-// Grid cell component that uses useDroppable hook
+// Grid cell component that uses useDroppable hook with resizable functionality
 function GridCell({
   component,
   cellData,
@@ -113,6 +160,8 @@ function GridCell({
   onMouseLeave,
   onAddAfter,
   gridId,
+  onResize,
+  columnWidths,
 }: {
   component: Component;
   cellData: Component | null;
@@ -130,17 +179,68 @@ function GridCell({
   onMouseLeave: () => void;
   onAddAfter?: (componentId: string, type: ComponentType) => void;
   gridId: string;
+  onResize?: (colIndex: number, newWidth: number) => void;
+  columnWidths: number[];
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `grid-${gridId}-cell-${rowIndex}-${colIndex}`,
   });
+  
+  const cellRef = useRef<HTMLDivElement>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isEditor || colSpan > 1) return; // Only allow resizing single-column cells
+    
+    setIsResizing(true);
+    setResizeStartX(e.clientX);
+    setResizeStartWidth(columnWidths[colIndex] || 0);
+    
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!isResizing || !cellRef.current || !onResize) return;
+    
+    const container = cellRef.current.closest('[style*="display: grid"]') as HTMLElement;
+    if (!container) return;
+    
+    const containerWidth = container.offsetWidth;
+    const deltaX = e.clientX - resizeStartX;
+    const deltaPercent = (deltaX / containerWidth) * 100;
+    const newWidth = Math.max(5, Math.min(95, resizeStartWidth + deltaPercent));
+    
+    onResize(colIndex, newWidth);
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+  };
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, []);
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        if (node) {
+          (cellRef as any).current = node;
+        }
+      }}
       className={`relative min-h-[100px] ${
         isEditor ? 'border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-400 transition-all' : ''
-      } ${isOver ? 'border-indigo-500 bg-indigo-100 ring-2 ring-indigo-300' : ''}`}
+      } ${isOver ? 'border-indigo-500 bg-indigo-100 ring-2 ring-indigo-300' : ''} ${isResizing ? 'cursor-col-resize' : ''}`}
       style={{
         gridColumn: colSpan > 1 ? `span ${colSpan}` : 'auto',
       }}
@@ -153,6 +253,19 @@ function GridCell({
         }
       }}
     >
+      {/* Resize Handle - Only show for single-column cells in editor mode */}
+      {isEditor && colSpan === 1 && (
+        <div
+          className="absolute top-0 right-0 w-2 h-full cursor-col-resize z-20 hover:bg-indigo-400 bg-indigo-300 opacity-0 hover:opacity-100 transition-opacity group"
+          onMouseDown={handleResizeStart}
+          style={{
+            transform: 'translateX(50%)',
+          }}
+          title="Drag to resize column"
+        >
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded"></div>
+        </div>
+      )}
       {/* Cell Header in Editor */}
       {isEditor && (
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-1 bg-indigo-100 border-b border-indigo-200 z-10">
@@ -268,7 +381,8 @@ export default function ElementorGrid({
   const layoutConfig = GRID_LAYOUTS.find(l => l.id === currentLayout) || GRID_LAYOUTS[0];
   const rows = layoutConfig.rows;
   const columns = layoutConfig.columns;
-  const columnWidths = layoutConfig.columnWidths;
+  // Use custom column widths if available, otherwise use layout default
+  const columnWidths = component.props?.columnWidths || layoutConfig.columnWidths;
   const gridTemplate = layoutConfig.gridTemplate;
   const cellSpans = layoutConfig.cellSpans;
   
@@ -359,6 +473,37 @@ export default function ElementorGrid({
     }
   };
 
+  const handleColumnResize = (colIndex: number, newWidth: number) => {
+    if (!onUpdate) return;
+    
+    // Calculate the adjustment needed
+    const currentWidth = columnWidths[colIndex];
+    const delta = newWidth - currentWidth;
+    
+    // Distribute the delta to adjacent columns
+    const newColumnWidths = [...columnWidths];
+    newColumnWidths[colIndex] = newWidth;
+    
+    // Adjust adjacent column (prefer right, then left)
+    if (colIndex < newColumnWidths.length - 1) {
+      newColumnWidths[colIndex + 1] = Math.max(5, newColumnWidths[colIndex + 1] - delta);
+    } else if (colIndex > 0) {
+      newColumnWidths[colIndex - 1] = Math.max(5, newColumnWidths[colIndex - 1] - delta);
+    }
+    
+    // Normalize to ensure total is 100%
+    const total = newColumnWidths.reduce((sum, w) => sum + w, 0);
+    const normalizedWidths = newColumnWidths.map(w => (w / total) * 100);
+    
+    onUpdate({
+      ...component,
+      props: {
+        ...component.props,
+        columnWidths: normalizedWidths,
+      },
+    });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -395,9 +540,9 @@ export default function ElementorGrid({
             
             {/* Layout Selector Dropdown */}
             {showLayoutSelector && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-xl z-50 p-3 min-w-[300px]">
-                <div className="text-xs font-semibold text-gray-700 mb-3 px-2">Choose Grid Layout</div>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-xl z-50 p-3 min-w-[400px] max-h-[600px] overflow-y-auto">
+                <div className="text-xs font-semibold text-gray-700 mb-3 px-2">Choose Grid Layout (9 Presets)</div>
+                <div className="grid grid-cols-3 gap-3">
                   {GRID_LAYOUTS.map((layout) => (
                     <button
                       key={layout.id}
@@ -482,6 +627,8 @@ export default function ElementorGrid({
           onMouseLeave={onMouseLeave}
           onAddAfter={onAddAfter}
           gridId={component.id}
+          onResize={handleColumnResize}
+          columnWidths={columnWidths}
         />
       ))}
     </div>

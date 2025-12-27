@@ -92,6 +92,7 @@ interface ComponentRendererProps {
   isEditor?: boolean; // New prop to distinguish editor vs frontend mode
   selectedComponent?: string | null; // Add selected component ID for nested components
   onSelectComponent?: (componentId: string) => void; // Direct selection handler for nested components
+  onUpdate?: (component: Component) => void; // Update handler for component changes
 }
 
 // Image component with error handling
@@ -183,6 +184,7 @@ export default function ComponentRenderer({
   isEditor = true, // Default to editor mode for backward compatibility
   selectedComponent = null,
   onSelectComponent,
+  onUpdate,
 }: ComponentRendererProps) {
   const baseClasses = `
     relative transition-all
@@ -471,18 +473,19 @@ export default function ComponentRenderer({
             component={component}
             isSelected={isSelected}
             isHovered={isHovered}
-                onAddToContainer={onAddToContainer}
-                onColumnClick={onColumnClick}
+            onAddToContainer={onAddToContainer}
+            onColumnClick={onColumnClick}
             onColumnAddClick={onColumnAddClick}
-                onAddColumn={onAddColumn}
-                onRemoveColumn={onRemoveColumn}
+            onAddColumn={onAddColumn}
+            onRemoveColumn={onRemoveColumn}
+            onUpdate={onUpdate}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
             onAddAfter={onAddAfter}
             isEditor={isEditor}
             selectedComponent={selectedComponent}
             onSelectComponent={onSelectComponent}
-              />
+          />
         );
 
       case 'video':

@@ -920,6 +920,7 @@ const SortableComponent = React.memo(function SortableComponent({
             onAddColumn={onAddColumn}
             onRemoveColumn={onRemoveColumn}
             onAddAfter={onAddAfter}
+            onUpdate={onUpdate}
             onSelectComponent={(componentId) => {
               // Directly set the selected component - the PropertiesPanel will find it
               setSelectedComponent(componentId);
